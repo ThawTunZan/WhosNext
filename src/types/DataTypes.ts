@@ -1,0 +1,133 @@
+// src/types/expenses.ts
+
+import { Timestamp } from "firebase/firestore";
+
+export type MemberInfo = { name: string }; // Basic info for components needing just name
+
+
+// Individual member data
+export type Member = {
+  id: string;
+  name: string;
+  budget: number;
+  amtLeft: number;
+  owesTotal?: number;
+  };
+
+export type MembersMap = { [id: string]: { name: string } }; // Or use Member type if more details needed
+  
+export type Expenses = {[id:string]: {expense: Expense}}
+  
+  // Type for how an expense is shared among payees
+export type SharedWith = {
+  payeeID: string;
+  payeeName: string;
+  amount: number;
+};
+  
+  // Type for a single expense item
+export type Expense = {
+  id: string; // Firestore document ID
+  activityName: string;
+  paidBy: string; // Name of the person who paid
+  paidAmt: number;
+  sharedWith: SharedWith[];
+  createdAt?: string; // Firestore Timestamp type for consistency
+};
+
+// Type for the data used to create a new expense (without the Firestore ID)
+export type NewExpenseData = Omit<Expense, 'id'>;
+
+// Props for the main ExpensesSection component
+export type ExpensesSectionProps = {
+  tripId: string;
+  members: MembersMap;
+  // Consider removing setIsRowSwiping if swipe logic is handled differently or locally
+  // setIsRowSwiping: (v: boolean) => void;
+  onAddExpensePress: () => void;
+  onEditExpense: (expense: Expense) => void;
+  nextPayerName: string | null
+};
+
+// Props for the ExpenseListItem component
+export type ExpenseListItemProps = {
+  item: Expense;
+  isExpanded: boolean;
+  onToggleExpand: (id: string) => void;
+  onDelete: (id: string) => void; // Delete handler
+  onEdit: (expense: Expense) => void;
+};
+
+// Props for the AddExpenseModal component
+export type AddExpenseModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: (data: NewExpenseData, editingExpenseId: string | null) => Promise<void>;
+  members: MembersMap;
+  tripId: string; // Needed for debt calculation within the modal or its handler
+  initialData?: Partial<NewExpenseData> | null;
+  suggestedPayerName: string | null;
+  editingExpenseId: string | null;
+};
+
+// Props for the ActivityVotingSection component
+export type ActivityVotingSectionProps = {
+  tripId: string; // Might be needed later for backend calls
+  members: MembersMap; // Might be needed for displaying member names/avatars
+  onAddExpenseFromActivity: (activity: ProposedActivity) => void;
+  onDeleteActivity: (activityId: string) => void;
+};
+
+// Props for the ActivityCard component
+export type ActivityCardProps = {
+  activity: ProposedActivity;
+  onVoteUp: (id: string) => void; // Placeholder functions for now
+  onVoteDown: (id: string) => void;
+  onAddExpense: (activity: ProposedActivity) => void; // Placeholder
+  onDelete: (activityId: string) => void;
+};
+
+export type VoteType = 'up' | 'down';
+
+export type ProposedActivity = {
+  id: string; // Firestore document ID
+  name: string;
+  description?: string | null;
+  suggestedByID: string | null;
+  suggestedByName: string | null;
+  estCost?: number | null;
+  currency?: string | null;
+  createdAt: Timestamp; // Firestore Timestamp
+  votes: {
+      [userId: string]: VoteType; // Map of UserID -> 'up' or 'down'
+  };
+  votesUp: number;
+  votesDown: number;
+};
+
+// Type for data needed to CREATE a new proposed activity
+// Excludes fields generated automatically (id, createdAt, votes, votesUp, votesDown)
+export type NewProposedActivityData = Omit<ProposedActivity,
+    'id' | 'createdAt' | 'votes' | 'votesUp' | 'votesDown'
+>;
+
+export type ProposeActivityModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  // onSubmit should handle the async call and return Promise<void>
+  // so the modal knows when the submission attempt is complete.
+  onSubmit: (data: NewProposedActivityData) => Promise<void>;
+  // Pass current user's ID and Name to assign as proposer
+  currentUserId: string | null;
+  currentUserName: string | null;
+};
+
+export interface TripData {
+  destination: string;
+  members?: Record<string, Member>; // Use detailed Member
+  totalBudget?: number;
+  totalAmtLeft?: number;
+  debts?: Record<string, number>; // Keep simple debts map for now
+  // expenses field seems unused in state, data comes from hook/listener
+}
+

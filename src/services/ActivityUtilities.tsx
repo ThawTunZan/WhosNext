@@ -1,0 +1,210 @@
+// src/services/ActivityUtilities.ts
+import {
+    collection,
+    doc,
+    addDoc,
+    onSnapshot,
+    writeBatch,
+    Timestamp,
+    runTransaction,
+    increment,
+    deleteDoc, // Might need later if activities can be deleted
+    query,
+    orderBy,
+    // serverTimestamp // Alternative to Timestamp.now()
+} from 'firebase/firestore';
+import { db } from '../../firebase';
+import {
+    ProposedActivity,
+    NewProposedActivityData,
+    MembersMap, // Assuming MembersMap is defined elsewhere (e.g., types/expenses.ts)
+    VoteType
+} from '../types/DataTypes'; // Adjust path
+
+const TRIPS_COLLECTION = 'trips';
+const ACTIVITIES_SUBCOLLECTION = 'proposed_activities';
+
+/**
+ * Subscribes to real-time updates for proposed activities within a trip.
+ * For the DB (firebase)
+ * @param tripId The ID of the trip.
+ * @param callback Function to call with the updated activities array.
+ * @returns Unsubscribe function.
+ */
+export const subscribeToProposedActivities = (
+    tripId: string,
+    callback: (activities: ProposedActivity[]) => void,
+    onError: (error: Error) => void
+): (() => void) => {
+    if (!tripId) {
+        onError(new Error("No Trip ID provided for subscription."));
+        return () => {}; // Return no-op unsubscribe
+    }
+    const activitiesColRef = collection(db, TRIPS_COLLECTION, tripId, ACTIVITIES_SUBCOLLECTION);
+    // TBD: Order activities by creation time or votes
+    const q = query(activitiesColRef, orderBy("createdAt", "desc"));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const data: ProposedActivity[] = snapshot.docs.map((doc) => {
+            const raw = doc.data();
+
+            return {
+                id: doc.id,
+                name: raw.name,
+                description: raw.description,
+                suggestedByID: raw.suggestedByID,
+                suggestedByName: raw.suggestedByName,
+                estCost: raw.estCost,
+                currency: raw.currency,
+                createdAt: raw.createdAt, 
+                votes: raw.votes || {}, // vote map
+                votesUp: raw.votesUp || 0,
+                votesDown: raw.votesDown || 0,
+            } as ProposedActivity; 
+        });
+        callback(data);
+    }, (error) => {
+        console.error("Error fetching proposed activities: ", error);
+        onError(error);
+        callback([]); // Clear data on error
+    });
+
+    return unsubscribe;
+};
+
+/**
+ * Adds a new proposed activity to a trip.
+ * @param tripId The ID of the trip.
+ * @param activityData Data for the new activity (excluding generated fields).
+ * @returns The ID of the newly created activity.
+ */
+export const addProposedActivity = async (
+    tripId: string,
+    activityData: NewProposedActivityData
+): Promise<string> => {
+     if (!tripId) {
+        throw new Error("No Trip ID provided to add activity.");
+    }
+    // if the ID o the name of the person who suggested the activity is not provided
+     if (!activityData.suggestedByID || !activityData.suggestedByName) {
+         throw new Error("Activity proposer ID and Name are required.");
+     }
+
+    const activitiesColRef = collection(db, TRIPS_COLLECTION, tripId, ACTIVITIES_SUBCOLLECTION);
+
+    const docData = {
+        ...activityData,
+        createdAt: Timestamp.now(),
+        votes: {}, // Initialize empty votes map
+        votesUp: 0,
+        votesDown: 0,
+    };
+
+    try {
+        const docRef = await addDoc(activitiesColRef, docData);
+        console.log("Proposed activity added with ID: ", docRef.id);
+        return docRef.id;
+    } catch (error) {
+        console.error("Error adding proposed activity: ", error);
+        throw error; // Re-throw for handling in UI
+    }
+};
+
+/**
+ * Records a user's vote on a proposed activity. Handles changing votes.
+ * @param tripId The ID of the trip.
+ * @param activityId The ID of the proposed activity.
+ * @param userId The ID of the user voting.
+ * @param voteType The vote being cast ('up' or 'down').
+ */
+export const castVote = async (
+    tripId: string,
+    activityId: string,
+    userId: string,
+    voteType: VoteType
+): Promise<void> => {
+    if (!tripId || !activityId || !userId) {
+         throw new Error("Trip ID, Activity ID, and User ID are required to cast a vote.");
+     }
+    const activityDocRef = doc(db, TRIPS_COLLECTION, tripId, ACTIVITIES_SUBCOLLECTION, activityId);
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const activitySnap = await transaction.get(activityDocRef);
+            if (!activitySnap.exists()) {
+                throw new Error(`Activity ${activityId} does not exist.`);
+            }
+
+            const data = activitySnap.data();
+            const currentVotes = (data.votes || {}) as { [uid: string]: VoteType };
+            const previousVote = currentVotes[userId]; // 'up', 'down', or undefined
+
+            let votesUpIncrement = 0;
+            let votesDownIncrement = 0;
+
+            const updatedVotes = { ...currentVotes };
+
+            if (previousVote === voteType) {
+                if (voteType === 'up') {
+                    votesUpIncrement -= 1;
+                } else if (voteType === 'down') {
+                    votesDownIncrement -= 1; // Add new downvote
+                }
+                delete updatedVotes[userId];
+                console.log(`User ${userId} already voted ${voteType} on ${activityId}. No change.`);
+                return;
+            }
+
+            // Calculate count increments based on vote change
+            if (previousVote === 'up') {
+                votesUpIncrement = -1; // 
+            } else if (previousVote === 'down') {
+                votesDownIncrement = -1;
+            }
+
+            if (voteType === 'up') {
+                votesUpIncrement = 1; // Add new upvote
+                updatedVotes[userId] = 'up';
+            } else if (voteType === 'down') {
+                votesDownIncrement = 1; // Add new downvote
+                updatedVotes[userId] = 'down';
+            }
+            // Potential 'unvote' logic: else { delete updatedVotes[userId]; }
+
+            // Prepare update payload
+            const updatePayload: { votes: any; votesUp?: any; votesDown?: any } = {
+                votes: updatedVotes,
+            };
+            if (votesUpIncrement !== 0) {
+                updatePayload.votesUp = increment(votesUpIncrement);
+            }
+            if (votesDownIncrement !== 0) {
+                updatePayload.votesDown = increment(votesDownIncrement);
+            }
+
+            transaction.update(activityDocRef, updatePayload);
+        });
+        console.log(`Vote (${voteType}) by user ${userId} on activity ${activityId} recorded successfully.`);
+    } catch (error) {
+        console.error("Error casting vote: ", error);
+        throw error;
+    }
+};
+
+// TBC (add checks for permissions later)
+export const deleteProposedActivity = async (
+    tripId: string,
+    activityId: string
+): Promise<void> => {
+     if (!tripId || !activityId) {
+         throw new Error("Trip ID and Activity ID are required to delete.");
+     }
+    const activityDocRef = doc(db, TRIPS_COLLECTION, tripId, ACTIVITIES_SUBCOLLECTION, activityId);
+     try {
+        await deleteDoc(activityDocRef);
+        console.log(`Proposed activity ${activityId} deleted successfully.`);
+     } catch (error) {
+         console.error(`Error deleting proposed activity ${activityId}: `, error);
+         throw error;
+     }
+};
