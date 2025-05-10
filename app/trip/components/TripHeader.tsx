@@ -25,7 +25,6 @@ export default function TripHeader({ destination }: TripHeaderProps) {
 }
 
 const styles = StyleSheet.create({
-  // Styles for basic View/Text example:
   container: {
     paddingTop: 110,
     paddingBottom: 30,
