@@ -6,63 +6,32 @@ import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { store } from 'expo-router/build/global-state/router-store';
 
 export default function TabLayout() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Manage authentication state locally
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   // Log whenever isAuthenticated state changes
   useEffect(() => {
-  const checkAuthState = async () => {
-    const storedAuthState = await AsyncStorage.getItem('isAuthenticated');
-    if (storedAuthState === 'true') {
-      setIsAuthenticated(true);
-    }
-  };
+    console.log(isAuthenticated + 'isAuthenticated VALUE')
+    const checkAuthState = async () => {
+      const storedAuthState = await AsyncStorage.getItem('isAuthenticated');
+      console.log('[Auth] storedAuthState:', storedAuthState);
+      if (storedAuthState === 'true') {
+        setIsAuthenticated(true);
+      } else {
+        router.replace('/auth/login'); // 🔁 redirect to login page
+      }
+      setLoading(false);
+    };
+    checkAuthState();
+  }, []);
 
-  checkAuthState();
-}, []);
-
-  // Handle login logic
-  const handleLogin = async () => {
-    if (email === 'testacc@gmail.com' && password === 'testpassword') {
-      setIsAuthenticated(true); // Set authenticated state to true
-      await AsyncStorage.setItem('isAuthenticated', 'true');
-    } else {
-      Alert.alert('Invalid credentials', 'Please enter a valid email and password.');
-    }
-  };
-
-  // If not authenticated, show login page; else show tabs
-  if (!isAuthenticated) {
-    return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <PaperProvider theme={MD3LightTheme}>
-          <View style={styles.container}>
-            <Text style={styles.title}>Login to WhosNext</Text>
-            <TextInput
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              style={styles.input}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-            <TextInput
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              style={styles.input}
-              secureTextEntry
-            />
-            <Button title="Login" onPress={handleLogin} />
-          </View>
-        </PaperProvider>
-      </GestureHandlerRootView>
-    );
-  }
+  if (loading) return null;
 
   // If authenticated, show tabs
   return (
