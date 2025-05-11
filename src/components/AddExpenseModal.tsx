@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Button, Card, Text, TextInput, RadioButton, HelperText, Caption } from 'react-native-paper';
 import { AddExpenseModalProps, SharedWith, MembersMap, NewExpenseData } from '../types/DataTypes'; // Adjust path
-import { useAuth } from '../context/AuthContext';
 
 const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerName }: AddExpenseModalProps) => {
   const [expenseName, setExpenseName] = useState('');
@@ -16,7 +15,8 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const memberEntries = React.useMemo(() => Object.entries(members), [members]);
-  const { userId, userName } = useAuth();
+  const userId = "test-user-id"
+  const userName = "Test User"
   const isEditing = !!editingExpenseId;
   
 
@@ -24,7 +24,6 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
   useEffect(() => {
     const isEditingMode = !!editingExpenseId;
     console.log("Modal opening. Editing:", isEditingMode, "ID:", editingExpenseId, "Initial Data:", initialData);
-    // Common resets
     setErrors({});
     setIsSubmitting(false);
     if (visible) {

@@ -7,14 +7,15 @@ import {
 import { db } from '../../firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../src/context/AuthContext';
+import {DUMMY_USER_ID, DUMMY_USER_NAME} from '../../src/constants/auth';
 
 export default function CreateTripScreen() {
   const [destination, setDestination] = useState('');
   const [totalBudget, setTotalBudget] = useState(0);
   const router = useRouter();
 
-  const { userId, userName } = useAuth();
+  const userId = DUMMY_USER_ID;
+  const userName = DUMMY_USER_NAME;
   const initialBudgetForCreator = totalBudget;
 
   const handleCreateTrip = async () => {
