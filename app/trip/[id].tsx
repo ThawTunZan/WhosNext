@@ -37,6 +37,7 @@ import {
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
 import { calculateNextPayer } from "@/src/services/expenseService"; // Assuming it was moved here
+import ReceiptSection from "./components/ReceiptsSection";
 
 // (RouteParams interface can be removed if useLocalSearchParams is typed or if id is always string)
 
@@ -48,7 +49,7 @@ export default function TripDetailPage() {
     const { trip, expenses, loading, error: dataError } = useTripData(tripId);
     // -----------------------------------------
 
-    const [selectedTab, setSelectedTab] = useState<'overview' | 'expenses' | 'settle' | 'activities' | 'add'>('overview');
+    const [selectedTab, setSelectedTab] = useState<'overview' | 'expenses' | 'settle' | 'activities' | 'add' | 'receipts'>('overview');
     const [addExpenseModalVisible, setAddExpenseModalVisible] = useState(false);
     const [initialExpenseData, setInitialExpenseData] = useState<Partial<NewExpenseData> | null>(null);
     const [activityToDeleteId, setActivityToDeleteId] = useState<string | null>(null);
@@ -216,6 +217,7 @@ export default function TripDetailPage() {
                     <Button style={[styles.tabButton, selectedTab === 'settle' && styles.tabButtonSelected]} onPress={() => setSelectedTab('settle')}>Settle Up</Button>
                     <Button style={[styles.tabButton, selectedTab === 'activities' && styles.tabButtonSelected]} onPress={() => setSelectedTab('activities')}>Activities</Button>
                     <Button style={[styles.tabButton, selectedTab === 'add' && styles.tabButtonSelected]} onPress={() => setSelectedTab('add')}>+</Button>
+                    <Button style={[styles.tabButton, selectedTab === 'receipts' && styles.tabButtonSelected]} onPress={() => setSelectedTab('receipts')}>Receipts</Button>
                 </ScrollView>
             </View>
 
@@ -288,6 +290,7 @@ export default function TripDetailPage() {
                     />
                 )}
                 {selectedTab === 'add' && (<View style={styles.placeholder}><Text>Placeholder for '+' Tab Content</Text></View>)}
+                {selectedTab === 'receipts' && (<ReceiptSection tripId={tripId}/>)}
             </View>
 
             {typeof tripId == 'string' && trip?.members && ( // Render modal only if members data is available
