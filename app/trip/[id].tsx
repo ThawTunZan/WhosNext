@@ -25,6 +25,7 @@ import SettleUpSection from "./components/Settleup";
 import TripHeader from "./components/TripHeader";
 import ActivityVotingSection from "./components/ActivityVotingSection";
 import AddExpenseModal from "@/src/components/AddExpenseModal";
+import {DUMMY_USER_ID, DUMMY_USER_NAME} from '../../src/constants/auth';
 
 // --- Import Types ---
 import { Member, MembersMap, NewExpenseData, ProposedActivity, Expense, TripData } from "@/src/types/DataTypes";
@@ -122,7 +123,7 @@ export default function TripDetailPage() {
 
     // --- Expense Modal Submit (Add/Edit) & Activity Deletion Handlers ---
     const handleAddOrUpdateExpenseSubmit = useCallback(async (
-        expenseData: NewExpenseData,
+        expenseData: Expense,
         currentEditingExpenseId: string | null
     ) => {
         const localActivityToDeleteId = activityToDeleteId;
@@ -246,7 +247,7 @@ export default function TripDetailPage() {
                         <Card style={styles.card}>
                             <Card.Title title="🎯 Personal Budget" />
                             <Card.Content>
-                                <Text>(Personal budget display: To be implemented)</Text>
+                                <Text>${trip.members[DUMMY_USER_ID].amtLeft}</Text>
                             </Card.Content>
                         </Card>
                         {nextPayer?.id && (

@@ -19,7 +19,7 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
 
     // --- Placeholder User ID (Replace with actual auth logic later) ---
     const currentUserId = DUMMY_USER_ID
-   const currentUserName = DUMMY_USER_NAME
+    const currentUserName = DUMMY_USER_NAME
     // ------------------------------------------------------------------
 
     // --- Handlers ---
