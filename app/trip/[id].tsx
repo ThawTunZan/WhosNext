@@ -232,7 +232,7 @@ export default function TripDetailPage() {
                            <Card.Content>
                              {Object.entries(trip.members || {}).map(([memberId, memberData]) => {
                                 const m = memberData as Member;
-                                const progressValue = (m.budget > 0) ? ((m.budget - m.amtLeft) / m.budget) : 0;
+                                const progressValue = (m.budget > 0) ? ((m.amtLeft) / m.budget) : 0;
                                 return (
                                   <View key={memberId} style={styles.memberBar}>
                                     <Text style={styles.memberName}>{m.name}</Text>
@@ -355,6 +355,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginVertical: 8,
+        paddingRight: 120
     },
     memberName: {
         marginRight: 12,
