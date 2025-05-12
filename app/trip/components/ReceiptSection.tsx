@@ -3,17 +3,9 @@ import { View, ScrollView, Image, StyleSheet, Alert } from "react-native";
 import { Button, Card, Text } from "react-native-paper";
 import { pickAndUploadReceipt } from "@/src/services/FirebaseStorageService";
 import { db } from "@/firebase";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  where,
-  deleteDoc,
-  doc,
-} from "firebase/firestore";
+import {collection,addDoc,getDocs,query,where,deleteDoc,doc,Timestamp} from "firebase/firestore";
 import { deleteReceipt } from "@/src/services/receiptService";
-
+import {DUMMY_USER_ID, DUMMY_USER_NAME} from '@/src/constants/auth';
 
 type Props = {
   tripId: string;
@@ -23,20 +15,30 @@ type Receipt = {
   id: string;
   url: string;
   path: string;
+  createdAt?: Timestamp;
+  createdBy?: string;
+  createdByName?: string;
 };
 
 const ReceiptSection: React.FC<Props> = ({ tripId }) => {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(false);
 
+
   const fetchReceipts = async () => {
     const q = query(collection(db, "receipts"), where("tripId", "==", tripId));
     const snapshot = await getDocs(q);
-    const list: Receipt[] = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      url: doc.data().url,
-      path: doc.data().path,
-    }));
+    const list: Receipt[] = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        url: data.url,
+        path: data.path,
+        createdAt: data.createdAt,
+        createdBy: data.createdBy,
+        createdByName: data.createdByName,
+      };
+    });
     setReceipts(list);
   };
 
@@ -53,6 +55,8 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
         url: result.url,
         path: result.path,
         createdAt: new Date(),
+        createdBy: DUMMY_USER_ID,
+        createdByName: DUMMY_USER_NAME
       });
       setReceipts((prev) => [
         { id: newDoc.id, url: result.url, path: result.path },
@@ -95,6 +99,12 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
               style={styles.image}
               resizeMode="contain"
             />
+            <Card.Content>
+              <Text style={{ fontSize: 12, color: '#666' }}>
+                Uploaded by {receipt.createdByName || "Unknown"} on{" "}
+                {receipt.createdAt?.toDate().toLocaleString() || "Unknown time"}
+              </Text>
+            </Card.Content>
             <Button
               onPress={() => handleDelete(receipt)}
               mode="outlined"
