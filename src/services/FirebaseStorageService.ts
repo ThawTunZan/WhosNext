@@ -1,8 +1,14 @@
 import * as ImagePicker from "expo-image-picker";
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
 import uuid from "react-native-uuid"; // Make sure to install: npm install react-native-uuid
 
-export const pickAndUploadReceipt = async (): Promise<{ url: string; path: string } | null> => {
+export async function pickAndUploadReceipt(tripId: string) {
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
     quality: 0.7,
@@ -15,7 +21,8 @@ export const pickAndUploadReceipt = async (): Promise<{ url: string; path: strin
   const blob = await response.blob();
 
   const storage = getStorage();
-  const path = `receipts/${uuid.v4()}.jpg`;
+  const fileId = `${uuid.v4()}.jpg`;
+  const path = `receipts/${tripId}/${fileId}`;
   const storageRef = ref(storage, path);
 
   try {

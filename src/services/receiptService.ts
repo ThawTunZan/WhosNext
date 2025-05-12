@@ -1,14 +1,19 @@
 import { getStorage, ref, deleteObject } from "firebase/storage";
 
-// Delete file from Firebase Storage
-export const deleteReceipt = async (path: string): Promise<boolean> => {
+/**
+ * Deletes a receipt image from Firebase Storage using its full path.
+ * @param path The full storage path: receipts/{tripId}/{fileId}.jpg
+ * @returns true if successful, false if failed
+ */
+export async function deleteReceipt(path: string): Promise<boolean> {
+  const storage = getStorage();
+  const storageRef = ref(storage, path);
+
   try {
-    const storage = getStorage();
-    const storageRef = ref(storage, path);
     await deleteObject(storageRef);
     return true;
   } catch (err) {
-    console.error("Firebase delete error:", err);
+    console.error("Failed to delete receipt from Firebase Storage:", err);
     return false;
   }
-};
+}

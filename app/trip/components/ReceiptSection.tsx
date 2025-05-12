@@ -46,7 +46,7 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
 
   const handleUpload = async () => {
     setLoading(true);
-    const result = await pickAndUploadReceipt();
+    const result = await pickAndUploadReceipt(tripId);
     if (result && result.url && result.path) {
       const newDoc = await addDoc(collection(db, "receipts"), {
         tripId,
