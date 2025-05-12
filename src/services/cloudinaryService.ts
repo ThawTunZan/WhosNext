@@ -4,7 +4,8 @@ import Constants from 'expo-constants';
 
 const {
   CLOUDINARY_URL,
-  UPLOAD_PRESET
+  UPLOAD_PRESET,
+  FIREBASE_PROJECT_ID
 } = Constants.expoConfig?.extra ?? {};
 
 // --- Upload Function ---
@@ -43,8 +44,15 @@ export const pickAndUploadReceipt = async (): Promise<{ url: string; public_id: 
 
 // --- Delete Function ---
 export const deleteReceipt = async (public_id: string): Promise<boolean> => {
+  if (!FIREBASE_PROJECT_ID) {
+    console.error("Missing FIREBASE_PROJECT_ID in app config");
+    return false;
+  }
+
+  const functionURL = `https://us-central1-${FIREBASE_PROJECT_ID}.cloudfunctions.net/deleteCloudinaryImage`;
+
   try {
-    const res = await fetch("https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/deleteCloudinaryImage", {
+    const res = await fetch(functionURL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ public_id }),
