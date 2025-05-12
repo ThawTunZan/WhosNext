@@ -8,7 +8,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     StyleSheet,
-    Alert, // Import Alert
+    Alert,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import * as Progress from 'react-native-progress'; // Keep if used in BudgetSummary
@@ -37,7 +37,9 @@ import {
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
 import { calculateNextPayer } from "@/src/services/expenseService"; // Assuming it was moved here
-import ReceiptSection from "./components/ReceiptsSection";
+//import ReceiptSection from "./components/ReceiptsSection";
+import ReceiptSection from "./components/ReceiptSection";
+
 
 // (RouteParams interface can be removed if useLocalSearchParams is typed or if id is always string)
 

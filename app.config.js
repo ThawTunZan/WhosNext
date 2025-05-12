@@ -12,6 +12,8 @@ export default {
       firebaseMessagingSenderID: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       firebaseAppID: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
       firebaseMeasurementID: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
+      CLOUDINARY_URL: process.env.EXPO_PUBLIC_CLOUDINARY_URL,
+      UPLOAD_PRESET: process.env.EXPO_PUBLIC_CLOUDINARY_PRESETS
     },
   },
 };
