@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, ScrollView, Image, StyleSheet, Alert } from "react-native";
 import { Button, Card, Text } from "react-native-paper";
-import { pickAndUploadReceipt } from "@/src/services/cloudinaryService";
+import { pickAndUploadReceipt } from "@/src/services/FirebaseStorageService";
 import { db } from "@/firebase";
 import {
   collection,
@@ -22,7 +22,7 @@ type Props = {
 type Receipt = {
   id: string;
   url: string;
-  public_id: string;
+  path: string;
 };
 
 const ReceiptSection: React.FC<Props> = ({ tripId }) => {
@@ -35,7 +35,7 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
     const list: Receipt[] = snapshot.docs.map((doc) => ({
       id: doc.id,
       url: doc.data().url,
-      public_id: doc.data().public_id,
+      path: doc.data().path,
     }));
     setReceipts(list);
   };
@@ -47,38 +47,29 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
   const handleUpload = async () => {
     setLoading(true);
     const result = await pickAndUploadReceipt();
-    if (result && result.url && result.public_id) {
-      try {
-        const newDoc = await addDoc(collection(db, "receipts"), {
-          tripId,
-          url: result.url,
-          public_id: result.public_id,
-          createdAt: new Date(),
-        });
-        setReceipts((prev) => [
-          { id: newDoc.id, url: result.url, public_id: result.public_id },
-          ...prev,
-        ]);
-        Alert.alert("Success", "Receipt uploaded.");
-      } catch (err) {
-        console.error("Firestore save error:", err);
-        Alert.alert("Upload failed", "Could not save to Firestore.");
-      }
-    } else {
-      Alert.alert("Upload failed", "No image was uploaded.");
+    if (result && result.url && result.path) {
+      const newDoc = await addDoc(collection(db, "receipts"), {
+        tripId,
+        url: result.url,
+        path: result.path,
+        createdAt: new Date(),
+      });
+      setReceipts((prev) => [
+        { id: newDoc.id, url: result.url, path: result.path },
+        ...prev,
+      ]);
     }
+
     setLoading(false);
   };
 
   const handleDelete = async (receipt: Receipt) => {
     setLoading(true);
-    const confirmed = await deleteReceipt(receipt.public_id);
+    const confirmed = await deleteReceipt(receipt.path);
     if (confirmed) {
       await deleteDoc(doc(db, "receipts", receipt.id));
       setReceipts((prev) => prev.filter((r) => r.id !== receipt.id));
       Alert.alert("Deleted", "Receipt and image removed.");
-    } else {
-      Alert.alert("Error", "Failed to delete from Cloudinary.");
     }
     setLoading(false);
   };
