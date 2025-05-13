@@ -6,7 +6,7 @@ import {
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
-import uuid from "react-native-uuid"; // Make sure to install: npm install react-native-uuid
+import uuid from "react-native-uuid";
 
 export async function pickAndUploadReceipt(tripId: string) {
   const result = await ImagePicker.launchImageLibraryAsync({

@@ -26,8 +26,6 @@ import SettleUpSection from "./components/Settleup";
 import TripHeader from "./components/TripHeader";
 import ActivityVotingSection from "./components/ActivityVotingSection";
 import AddExpenseModal from "@/src/components/AddExpenseModal";
-import {DUMMY_USER_ID, DUMMY_USER_NAME} from '../../src/constants/auth';
-
 // --- Import Types ---
 import { Member, MembersMap, NewExpenseData, ProposedActivity, Expense, TripData } from "@/src/types/DataTypes";
 
@@ -39,11 +37,14 @@ import {
 import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
 import { calculateNextPayer } from "@/src/services/expenseService"; // Assuming it was moved here
 import ReceiptSection from "./components/ReceiptSection";
+import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 
 
 // (RouteParams interface can be removed if useLocalSearchParams is typed or if id is always string)
 
 export default function TripDetailPage() {
+
+    const { id: currUserId } = useCurrentUser();
     const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();
     const tripId = Array.isArray(routeIdParam) ? routeIdParam[0] : routeIdParam;
 
@@ -206,9 +207,9 @@ export default function TripDetailPage() {
 
     const handleLeaveTrip = useCallback(async () => {
         try {
-          if (!trip || !tripId || !trip.members[DUMMY_USER_ID]) return;
+          if (!trip || !tripId || !trip.members[currUserId]) return;
         
-          await leaveTripIfEligible(tripId, DUMMY_USER_ID, trip.members[DUMMY_USER_ID]);
+          await leaveTripIfEligible(tripId, currUserId, trip.members[currUserId]);
         
           setSnackbarMessage("You left the trip.");
           setHasLeftTrip(true);
@@ -275,10 +276,10 @@ export default function TripDetailPage() {
                              <Text style={styles.budgetText}>Total Left: ${(trip.totalAmtLeft ?? 0).toFixed(2)}</Text>
                            </Card.Content>
                          </Card>
-                        {trip.members?.[DUMMY_USER_ID] && (<Card style={styles.card}>
+                        {trip.members?.[currUserId] && (<Card style={styles.card}>
                             <Card.Title title="🎯 Personal Budget" />
                             <Card.Content>
-                                <Text>${trip.members[DUMMY_USER_ID].amtLeft}</Text>
+                                <Text>${trip.members[currUserId].amtLeft}</Text>
                             </Card.Content>
                         </Card>)}
                         {nextPayer?.id && (
@@ -292,7 +293,7 @@ export default function TripDetailPage() {
                             </Card>
                         )}
                         <View style={{ height: 30 }} />
-                        {trip.userId === DUMMY_USER_ID && ( <Button
+                        {trip.userId === currUserId && ( <Button
                           mode="contained"
                           onPress={async () => {
                             setIsDeletingTrip(true);

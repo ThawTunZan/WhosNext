@@ -7,15 +7,13 @@ import {
 import { db } from '../../firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { useRouter } from 'expo-router';
-import {DUMMY_USER_ID, DUMMY_USER_NAME} from '../../src/constants/auth';
+import { useCurrentUser } from '@/src/hooks/useCurrentUser';
 
 export default function CreateTripScreen() {
   const [destination, setDestination] = useState('');
   const [totalBudget, setTotalBudget] = useState(0);
   const router = useRouter();
-
-  const userId = DUMMY_USER_ID;
-  const userName = DUMMY_USER_NAME;
+  const { id: currUserId, name: currUsername } = useCurrentUser();
   const initialBudgetForCreator = totalBudget;
 
   const handleCreateTrip = async () => {
@@ -26,8 +24,8 @@ export default function CreateTripScreen() {
     }
     // This first entry is for the test account
     const initialMembers = {
-      [userId]: {
-        name: userName,
+      [currUserId]: {
+        name: currUsername,
         budget: initialBudgetForCreator,
         amtLeft: initialBudgetForCreator,
         owesTotal: 0,
@@ -39,7 +37,7 @@ export default function CreateTripScreen() {
           destination: destination.trim(),
           totalBudget: Number(initialBudgetForCreator),
           totalAmtLeft: Number(initialBudgetForCreator),
-          userId, 
+          currUserId, 
           members: initialMembers,
           debts: {}, 
           createdAt: Timestamp.now()
@@ -49,7 +47,7 @@ export default function CreateTripScreen() {
           destination: destination.trim(),
           totalBudget: initialBudgetForCreator,
           totalAmtLeft: initialBudgetForCreator,
-          userId, // Trip owner
+          currUserId, // Trip owner
           members: initialMembers,
           debts: {}, // Initialize empty debts map
           createdAt: Timestamp.now()

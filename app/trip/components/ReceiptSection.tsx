@@ -5,8 +5,8 @@ import { pickAndUploadReceipt } from "@/src/services/FirebaseStorageService";
 import { db } from "@/firebase";
 import {collection,addDoc,getDocs,query,where,deleteDoc,doc,Timestamp} from "firebase/firestore";
 import { deleteReceipt } from "@/src/services/receiptService";
-import {DUMMY_USER_ID, DUMMY_USER_NAME} from '@/src/constants/auth';
 import * as ImagePicker from "expo-image-picker";
+import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 
 type Props = {
   tripId: string;
@@ -24,6 +24,9 @@ type Receipt = {
 const ReceiptSection: React.FC<Props> = ({ tripId }) => {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const { id: currUserId, name: currUsername } = useCurrentUser();
+
 
 
   const fetchReceipts = async () => {
@@ -56,8 +59,8 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
         url: result.url,
         path: result.path,
         createdAt: new Date(),
-        createdBy: DUMMY_USER_ID,
-        createdByName: DUMMY_USER_NAME
+        createdBy: currUserId,
+        createdByName: currUsername
       });
       setReceipts((prev) => [
         { id: newDoc.id, url: result.url, path: result.path },
@@ -115,8 +118,8 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
         url,
         path,
         createdAt: new Date(),
-        createdBy: DUMMY_USER_ID,
-        createdByName: DUMMY_USER_NAME,
+        createdBy: currUserId,
+        createdByName: currUsername,
       });
 
       setReceipts((prev) => [
@@ -125,8 +128,8 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
           url,
           path,
           createdAt: Timestamp.fromDate(new Date()),
-          createdBy: DUMMY_USER_ID,
-          createdByName: DUMMY_USER_NAME,
+          createdBy: currUserId,
+          createdByName: currUsername,
         },
         ...prev,
       ]);

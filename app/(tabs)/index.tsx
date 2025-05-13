@@ -9,7 +9,7 @@
   import { Text, Card, Title, Paragraph } from 'react-native-paper';
   import { useThemeContext } from '../theme/ThemeContext';
   import { IconButton } from 'react-native-paper';
-  import {DUMMY_USER_ID, DUMMY_USER_NAME} from '../../src/constants/auth';
+  import { useCurrentUser } from '@/src/hooks/useCurrentUser';
 
   export default function HomeScreen() {
     const { toggleTheme } = useThemeContext();
@@ -17,9 +17,9 @@
     const [trips, setTrips] = useState<any[]>([]);
 
     useEffect(() => {
-      //const userId = auth.currentUser?.uid || 'test-user-id';
-      const userId = DUMMY_USER_ID;
-      const q = query(collection(db, 'trips'), where('userId', '==', userId));
+
+      const { id: currUserId } = useCurrentUser();
+      const q = query(collection(db, 'trips'), where('currUserId', '==', currUserId));
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const tripData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         setTrips(tripData);
