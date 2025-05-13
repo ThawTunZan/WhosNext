@@ -9,7 +9,6 @@
   import { Text, Card, Title, Paragraph } from 'react-native-paper';
   import { useThemeContext } from '../theme/ThemeContext';
   import { IconButton } from 'react-native-paper';
-  import { deleteTripDocument } from '../../src/services/TripService';
   import {DUMMY_USER_ID, DUMMY_USER_NAME} from '../../src/constants/auth';
 
   export default function HomeScreen() {

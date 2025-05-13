@@ -129,5 +129,6 @@ export interface TripData {
   totalAmtLeft?: number;
   debts?: Record<string, number>; // Keep simple debts map for now
   // expenses field seems unused in state, data comes from hook/listener
+  userId: string;
 }
 

@@ -1,7 +1,7 @@
 // src/utils/tripUtils.ts
-import { doc, updateDoc, increment, deleteField, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { db } from '../../firebase'; // Adjust path
-import { TripData, Member } from '../types/DataTypes'; // Adjust path
+import { collection, getDocs, doc, updateDoc, increment, deleteField, deleteDoc, query, where } from 'firebase/firestore';
+import { db } from '../../firebase';
+import { Member } from '../types/DataTypes';
 
 /**
  * Adds a new member to a trip in Firestore.
@@ -41,12 +41,55 @@ export const addMemberToTrip = async (
 };
 
 /**
+ * Checks if the member can leave the trip and removes them if allowed.
+ * Blocks leaving if they have debts, expenses, or proposed activities.
+ * @throws Error with reason if the user is not allowed to leave.
+ */
+export const leaveTripIfEligible = async (
+    tripId: string,
+    userId: string,
+    member: Member,
+): Promise<void> => {
+
+    if (!tripId || !userId || !member) {
+      throw new Error("Missing trip or user data.");
+    }
+
+    const myDebt = member?.owesTotal || 0;
+    if (myDebt > 0) {
+      throw new Error("You still have outstanding debts.");
+    }
+
+    const expensesSnap = await getDocs(collection(db, `trips/${tripId}/expenses`));
+    const involvedInExpenses = expensesSnap.docs.some(doc => {
+      const data = doc.data();
+      return data.paidBy === member.name || (data.sharedWith || []).includes(userId);
+    });
+
+    if (involvedInExpenses) {
+      throw new Error("You are still involved in one or more expenses.");
+    }
+
+    const activitiesSnap = await getDocs(collection(db, `trips/${tripId}/proposed_activities`));
+    const hasProposed = activitiesSnap.docs.some(doc => {
+      const data = doc.data();
+      return data.suggestedByID === userId;
+    });
+
+    if (hasProposed) {
+      throw new Error("You have proposed activities. Remove them first.");
+    }
+
+    await removeMemberFromTrip(tripId, userId, member);
+};
+
+/**
  * Removes a member from a trip in Firestore.
  * WARNING: This does not currently recalculate debts or reassign expenses
  * if the removed member was involved. This would require more complex logic.
- * @param tripId The ID of the trip.
- * @param memberIdToRemove The ID of the member to remove.
- * @param memberToRemoveData The data of the member being removed (for budget/amtLeft reversal).
+ * @param tripId
+ * @param memberIdToRemove
+ * @param memberToRemoveData
  */
 export const removeMemberFromTrip = async (
     tripId: string,
@@ -60,9 +103,9 @@ export const removeMemberFromTrip = async (
 
     try {
         await updateDoc(docRef, {
-            [`members.${memberIdToRemove}`]: deleteField(), // Delete the member map entry
             totalBudget: increment(-(memberToRemoveData.budget || 0)),
-            totalAmtLeft: increment(-(memberToRemoveData.amtLeft || 0))
+            totalAmtLeft: increment(-(memberToRemoveData.amtLeft || 0)),
+            [`members.${memberIdToRemove}`]: deleteField(), // Delete the member map entry
             // TODO: Consider what happens to expenses/debts involving this member.
             // This might require a more complex cleanup, potentially a Cloud Function.
         });
@@ -71,4 +114,44 @@ export const removeMemberFromTrip = async (
         console.error("Error removing member from trip:", error);
         throw error;
     }
+};
+
+export const deleteTripAndRelatedData = async (tripId: string): Promise<void> => {
+    if (!tripId) throw new Error("Trip ID is required.");
+
+    // TBD deleted related receipt pictures
+    console.log("TRIP BUTTON IS PRESSED")
+
+    // 1. Delete receipts
+    const receiptsQ = query(collection(db, "receipts"), where("tripId", "==", tripId));
+    const receiptDocs = await getDocs(receiptsQ);
+    const receiptDeletions = receiptDocs.docs.map(docSnap => deleteDoc(doc(db, "receipts", docSnap.id)));
+
+    // 2. Delete expenses
+    const expensesSnap = await getDocs(collection(db, `trips/${tripId}/expenses`));
+    const expenseDeletions = expensesSnap.docs.map(docSnap =>
+        deleteDoc(doc(db, `trips/${tripId}/expenses`, docSnap.id))
+    );
+
+
+    // 3. Delete activities (from subcollection)
+    const activitiesQ = await getDocs(collection(db, `trips/${tripId}/proposed_activities`));
+    const activityDeletions = activitiesQ.docs.map(docSnap =>
+      deleteDoc(doc(db, `trips/${tripId}/proposed_activities`, docSnap.id))
+    );
+
+
+    // 4. Delete the trip document
+    const tripDeletion = deleteDoc(doc(db, "trips", tripId));
+
+
+    // Run all deletions in parallel
+    await Promise.all([
+      ...receiptDeletions,
+      ...expenseDeletions,
+      ...activityDeletions,
+      tripDeletion,
+    ]);
+
+    console.log(`Trip ${tripId} and all related data deleted.`);
 };

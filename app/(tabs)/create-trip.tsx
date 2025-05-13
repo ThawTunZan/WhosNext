@@ -30,7 +30,7 @@ export default function CreateTripScreen() {
         name: userName,
         budget: initialBudgetForCreator,
         amtLeft: initialBudgetForCreator,
-        owesTotal: 0
+        owesTotal: 0,
       }
     };
 

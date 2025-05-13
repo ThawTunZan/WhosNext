@@ -10,13 +10,14 @@ import {
     StyleSheet,
     Alert,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Progress from 'react-native-progress'; // Keep if used in BudgetSummary
 import { Button, ProgressBar, Card, Snackbar } from "react-native-paper"; // Removed Avatar if not used
 
 // --- Import Hooks and Utilities ---
 import { useTripData } from "@/src/hooks/useTripData"; // Assuming @ is configured for src
-import { addMemberToTrip, removeMemberFromTrip } from "@/src/services/TripUtilities";
+import { addMemberToTrip, leaveTripIfEligible, removeMemberFromTrip } from "@/src/services/TripUtilities";
+import {deleteTripAndRelatedData} from '@/src/services/TripUtilities'
 
 // --- Import Components ---
 import ExpensesSection from './components/ExpenseSection'; // Assuming correct relative path
@@ -37,7 +38,6 @@ import {
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
 import { calculateNextPayer } from "@/src/services/expenseService"; // Assuming it was moved here
-//import ReceiptSection from "./components/ReceiptsSection";
 import ReceiptSection from "./components/ReceiptSection";
 
 
@@ -58,6 +58,11 @@ export default function TripDetailPage() {
     const [snackbarVisible, setSnackbarVisible] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
     const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+    const [isDeletingTrip, setIsDeletingTrip] = useState(false);
+    const [hasLeftTrip, setHasLeftTrip] = useState(false);
+
+
+    const router = useRouter();
 
     const nextPayer = useMemo(() => {
         return calculateNextPayer(trip?.members || null);
@@ -199,15 +204,37 @@ export default function TripDetailPage() {
     }, [openAddExpenseModal]);
     // -----------------------------------------------------------------
 
+    const handleLeaveTrip = useCallback(async () => {
+        try {
+          if (!trip || !tripId || !trip.members[DUMMY_USER_ID]) return;
+        
+          await leaveTripIfEligible(tripId, DUMMY_USER_ID, trip.members[DUMMY_USER_ID]);
+        
+          setSnackbarMessage("You left the trip.");
+          setHasLeftTrip(true);
+          setSnackbarVisible(true);
+          setTimeout(() => {
+            router.replace("/");
+          }, 1000);
+        } catch (err: any) {
+          setSnackbarMessage(err.message || "Failed to leave trip.");
+          setSnackbarVisible(true);
+        }
+    }, [trip, tripId]);
+
+
     if (loading) {
         return <View style={styles.centeredContainer}><Text>Loading trip...</Text></View>;
     }
     if (dataError) {
         return <View style={styles.centeredContainer}><Text>Error loading trip: {dataError.message}</Text></View>;
     }
-    if (!trip) {
-        return <View style={styles.centeredContainer}><Text>Trip not found.</Text></View>;
+    if (!trip || hasLeftTrip) {
+      return <View style={styles.centeredContainer}>
+        <Text>{hasLeftTrip ? "You have left this trip." : "Trip not found."}</Text>
+      </View>;
     }
+
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.outerContainer}>
@@ -248,12 +275,12 @@ export default function TripDetailPage() {
                              <Text style={styles.budgetText}>Total Left: ${(trip.totalAmtLeft ?? 0).toFixed(2)}</Text>
                            </Card.Content>
                          </Card>
-                        <Card style={styles.card}>
+                        {trip.members?.[DUMMY_USER_ID] && (<Card style={styles.card}>
                             <Card.Title title="🎯 Personal Budget" />
                             <Card.Content>
                                 <Text>${trip.members[DUMMY_USER_ID].amtLeft}</Text>
                             </Card.Content>
-                        </Card>
+                        </Card>)}
                         {nextPayer?.id && (
                             <Card style={styles.card}>
                                 <Card.Title title="➡️ Who's Paying Next?" />
@@ -265,7 +292,41 @@ export default function TripDetailPage() {
                             </Card>
                         )}
                         <View style={{ height: 30 }} />
+                        {trip.userId === DUMMY_USER_ID && ( <Button
+                          mode="contained"
+                          onPress={async () => {
+                            setIsDeletingTrip(true);
+                            try {
+                              await deleteTripAndRelatedData(tripId!);
+                              setSnackbarMessage("Trip deleted.");
+                              setSnackbarVisible(true);
+                              setTimeout(() => {
+                                router.replace("/");
+                              }, 1000);
+                            } catch (err) {
+                              console.error("Error deleting trip:", err);
+                              setSnackbarMessage("Failed to delete trip.");
+                              setSnackbarVisible(true);
+                            } finally {
+                              setIsDeletingTrip(false);
+                            }
+                          }}
+                          loading={isDeletingTrip}
+                          disabled={isDeletingTrip}
+                          style={{ marginTop: 20, backgroundColor: "#dc3545" }}
+                        >
+                          Delete Trip
+                        </Button>)}
+                        <Button
+                          mode="outlined"
+                          onPress={handleLeaveTrip}
+                          style={{ marginTop: 10 }}
+                        >
+                          Leave Trip
+                        </Button>
+
                     </ScrollView>
+                    
                 )}
 
                 {selectedTab === 'expenses' && tripId && (
