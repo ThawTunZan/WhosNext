@@ -6,6 +6,7 @@ import { db } from "@/firebase";
 import {collection,addDoc,getDocs,query,where,deleteDoc,doc,Timestamp} from "firebase/firestore";
 import { deleteReceipt } from "@/src/services/receiptService";
 import {DUMMY_USER_ID, DUMMY_USER_NAME} from '@/src/constants/auth';
+import * as ImagePicker from "expo-image-picker";
 
 type Props = {
   tripId: string;
@@ -78,6 +79,66 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
     setLoading(false);
   };
 
+  const handleCameraUpload = async () => {
+  // Request permission first
+  const { status } = await ImagePicker.requestCameraPermissionsAsync();
+  if (status !== "granted") {
+    Alert.alert("Permission Denied", "Camera permission is required to take a photo.");
+    return;
+  }
+
+  // Launch camera
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images, // old enum still valid
+    quality: 0.7,
+  });
+
+  if (!result.canceled) {
+    const image = result.assets[0];
+    const response = await fetch(image.uri);
+    const blob = await response.blob();
+
+    const { getStorage, ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+    const uuid = (await import("react-native-uuid")).default;
+
+    const storage = getStorage();
+    const fileId = `${uuid.v4()}.jpg`;
+    const path = `receipts/${tripId}/${fileId}`;
+    const storageRef = ref(storage, path);
+
+    try {
+      await uploadBytes(storageRef, blob);
+      const url = await getDownloadURL(storageRef);
+
+      const newDoc = await addDoc(collection(db, "receipts"), {
+        tripId,
+        url,
+        path,
+        createdAt: new Date(),
+        createdBy: DUMMY_USER_ID,
+        createdByName: DUMMY_USER_NAME,
+      });
+
+      setReceipts((prev) => [
+        {
+          id: newDoc.id,
+          url,
+          path,
+          createdAt: Timestamp.fromDate(new Date()),
+          createdBy: DUMMY_USER_ID,
+          createdByName: DUMMY_USER_NAME,
+        },
+        ...prev,
+      ]);
+    } catch (err) {
+      console.error("Camera upload error:", err);
+    }
+  }
+
+  setLoading(false);
+};
+
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Button
@@ -88,6 +149,15 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
       >
         Upload Receipt
       </Button>
+      <Button
+        mode="outlined"
+        onPress={handleCameraUpload}
+        loading={loading}
+        style={[styles.uploadBtn, { marginBottom: 12 }]}
+      >
+        Take Photo
+      </Button>
+
 
       {receipts.length === 0 ? (
         <Text style={styles.emptyText}>No receipts uploaded yet.</Text>
