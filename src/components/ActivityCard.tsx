@@ -1,9 +1,8 @@
 // src/components/ActivityCard.tsx
-
 import React from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Button, IconButton, Divider, Caption } from 'react-native-paper';
-import { ActivityCardProps } from '../types/DataTypes'; // Adjust path if using activities.ts
+import { ActivityCardProps } from '../types/DataTypes';
 
 const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense, onDelete }: ActivityCardProps) => {
   // Placeholder state for voting appearance (replace with actual logic later)

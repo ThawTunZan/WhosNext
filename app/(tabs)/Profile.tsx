@@ -1,7 +1,7 @@
 // File: app/(tabs)/profile.tsx
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // For icons
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

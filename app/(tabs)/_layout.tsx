@@ -1,12 +1,10 @@
 // File: app/(tabs)/_layout.tsx
 import React, { useState, useEffect } from 'react';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { View, TextInput, Button, Text, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { store } from 'expo-router/build/global-state/router-store';
 
 export default function TabLayout() {
   const [email, setEmail] = useState('');
@@ -17,19 +15,22 @@ export default function TabLayout() {
 
   // Log whenever isAuthenticated state changes
   useEffect(() => {
-    console.log(isAuthenticated + 'isAuthenticated VALUE')
-    const checkAuthState = async () => {
-      const storedAuthState = await AsyncStorage.getItem('isAuthenticated');
-      console.log('[Auth] storedAuthState:', storedAuthState);
-      if (storedAuthState === 'true') {
-        setIsAuthenticated(true);
-      } else {
-        router.replace('/auth/login'); // 🔁 redirect to login page
-      }
-      setLoading(false);
-    };
-    checkAuthState();
-  }, []);
+  const checkSession = async () => {
+    const authed = await AsyncStorage.getItem('isAuthenticated');
+    const uid = await AsyncStorage.getItem('userId');
+
+    if (authed === 'true' && uid) {
+      // optionally use uid for Firestore queries
+      setIsAuthenticated(true);
+    } else {
+      router.replace('./auth/login');
+    }
+    setLoading(false); 
+  };
+
+  checkSession();
+}, []);
+
 
   if (loading) return null;
 

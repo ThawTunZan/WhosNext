@@ -4,37 +4,40 @@
   import { GestureHandlerRootView } from 'react-native-gesture-handler';
   import { useRouter } from 'expo-router';
   import { useEffect, useState } from 'react';
-  import { db } from '../../firebase';
-  import { collection, query, where, onSnapshot } from 'firebase/firestore';
   import { Text, Card, Title, Paragraph } from 'react-native-paper';
-  import { useThemeContext } from '../theme/ThemeContext';
-  import { IconButton } from 'react-native-paper';
   import { useCurrentUser } from '@/src/hooks/useCurrentUser';
+  import firestore from '@react-native-firebase/firestore';
 
   export default function HomeScreen() {
-    const { toggleTheme } = useThemeContext();
     const router = useRouter();
     const [trips, setTrips] = useState<any[]>([]);
+    const { id: currUserId } = useCurrentUser();
 
     useEffect(() => {
+    if (!currUserId) return;
 
-      const { id: currUserId } = useCurrentUser();
-      const q = query(collection(db, 'trips'), where('currUserId', '==', currUserId));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const tripData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const unsubscribe = firestore()
+      .collection('trips')
+      .where('currUserId', '==', currUserId)
+      .onSnapshot(snapshot => {
+        const tripData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
         setTrips(tripData);
       });
-      return () => unsubscribe();
-    }, []);
+
+    return () => unsubscribe();
+  }, [currUserId]);
 
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={{ flex: 1, padding: 20 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: 10 }}>
-          <IconButton
+          {/*<IconButton
             icon="theme-light-dark"
             onPress={toggleTheme}
-          />
+          />*/}
         </View>
         <Text variant="headlineMedium" style={{ marginBottom: 20 }}>
           🏠 Your Trips

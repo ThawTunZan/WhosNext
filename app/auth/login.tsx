@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DUMMY_USER_EMAIL, DUMMY_USER_PASSWORD } from '@/src/constants/auth';
+import auth from '@react-native-firebase/auth';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -11,11 +11,13 @@ export default function LoginScreen() {
   const router = useRouter();
 
   const handleLogin = async () => {
-    if (email === DUMMY_USER_EMAIL && password === DUMMY_USER_PASSWORD) {
+    try {
+      const userCred = await auth().signInWithEmailAndPassword(email, password);
       await AsyncStorage.setItem('isAuthenticated', 'true');
+      await AsyncStorage.setItem('userId', userCred.user.uid); // persist UID manually
       router.replace('/(tabs)/');
-    } else {
-      Alert.alert('Invalid credentials');
+    } catch (error: any) {
+      Alert.alert('Login Failed', error.message);
     }
   };
 
@@ -37,6 +39,7 @@ export default function LoginScreen() {
         style={styles.input}
       />
       <Button title="Login" onPress={handleLogin} />
+      <Text style={styles.link} onPress={() => router.push('/auth/register')}>Don't have an account? Register</Text>
     </View>
   );
 }
@@ -45,4 +48,5 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 20 },
   title: { fontSize: 24, marginBottom: 16, textAlign: 'center' },
   input: { borderWidth: 1, marginBottom: 12, padding: 8, borderRadius: 4 },
+  link: { marginTop: 16, color: '#007AFF', textAlign: 'center' },
 });

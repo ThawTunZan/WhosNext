@@ -1,19 +1,7 @@
-// src/services/expenseService.ts
-// Utility functions
-import {
-    collection,
-    onSnapshot,
-    doc,
-    deleteDoc,
-    increment,
-    writeBatch, // Use batch writes for atomicity when updating multiple docs/fields
-    Timestamp,
-    getDoc, // Use Firestore Timestamp
-} from 'firebase/firestore';
-import { db } from '../../firebase'; // Adjust path as needed
-import { Expense, NewExpenseData, SharedWith, Member, MembersMap } from '../types/DataTypes'; // Adjust path
+import firestore from '@react-native-firebase/firestore';
+import { Expense, MembersMap } from '../types/DataTypes';
 import { MemberInfo } from './SettleUpUtilities';
-  
+
 const TRIPS_COLLECTION = 'trips';
 const EXPENSES_SUBCOLLECTION = 'expenses';
 
@@ -24,11 +12,32 @@ interface DetailedMember extends MemberInfo {
 }
 
 type DetailedMembersMap = Record<string, DetailedMember>;
+interface NextPayerResult { id: string | null; name: string | null; }
 
-interface NextPayerResult {
-    id: string | null;
-    name: string | null;
-}
+export const subscribeToExpenses = (
+  tripId: string,
+  callback: (expenses: Expense[]) => void
+): (() => void) => {
+  return firestore()
+    .collection(TRIPS_COLLECTION)
+    .doc(tripId)
+    .collection(EXPENSES_SUBCOLLECTION)
+    .onSnapshot(snapshot => {
+      const expenses: Expense[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        activityName: doc.data().activityName,
+        paidBy: doc.data().paidBy,
+        paidAmt: doc.data().paidAmt,
+        sharedWith: doc.data().sharedWith,
+        createdAt: doc.data().createdAt?.toDate?.().toLocaleDateString?.() || 'N/A',
+      }));
+      callback(expenses);
+    }, err => {
+      console.error("Error fetching expenses:", err);
+      callback([]);
+    });
+};
+
 export const updateExpenseAndRecalculateDebts = async (
   tripId: string,
   expenseId: string | null,
@@ -36,44 +45,177 @@ export const updateExpenseAndRecalculateDebts = async (
   members: MembersMap,
 ): Promise<void> => {
   if (!tripId || !expenseId) {
-      throw new Error("Trip ID and Expense ID are required for update.");
+    throw new Error("Trip ID and Expense ID are required for update.");
   }
-  const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
-  const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
-  const batch = writeBatch(db);
+
+  const tripDocRef = firestore().collection('trips').doc(tripId);
+  const expenseDocRef = tripDocRef.collection('expenses').doc(expenseId);
+  const batch = firestore().batch();
+
   try {
-      console.log(`Workspaceing original expense data for ID: ${expenseId}`);
-      const originalExpenseSnap = await getDoc(expenseDocRef);
+    const originalExpenseSnap = await expenseDocRef.get();
+    if (!originalExpenseSnap.exists) {
+      throw new Error(`Original expense with ID ${expenseId} not found.`);
+    }
 
-      if (!originalExpenseSnap.exists()) {
-          throw new Error(`Original expense with ID ${expenseId} not found.`);
-      }
+    const originalExpense = originalExpenseSnap.data() as Expense;
 
-      const originalExpense = originalExpenseSnap.data() as Expense
+    const reversalRaw = generateExpenseImpactUpdate({}, originalExpense, members, true);
+    reversalRaw['totalAmtLeft'] = originalExpense.paidAmt;
+    const applyRaw = generateExpenseImpactUpdate({}, updatedExpenseData, members, false);
+    applyRaw['totalAmtLeft'] = -updatedExpenseData.paidAmt;
 
-      const reversalRaw = generateExpenseImpactUpdate({}, originalExpense, members, true);
-      reversalRaw['totalAmtLeft'] = originalExpense.paidAmt
-      const applyRaw = generateExpenseImpactUpdate({}, updatedExpenseData, members, false);
-      applyRaw['totalAmtLeft'] = -updatedExpenseData.paidAmt
+    const combinedUpdates = mergeIncrements(reversalRaw, applyRaw);
 
-      // Merge them manually by summing values
-      const combinedUpdates = mergeIncrements(reversalRaw, applyRaw)
-      const expenseUpdatePayload = {
-          ...updatedExpenseData,
-          // Optionally add an updatedAt timestamp: 
-          updatedAt: Timestamp.now(),
-      };
-      batch.update(tripDocRef, combinedUpdates); // Apply combined balance/debt changes
-      batch.update(expenseDocRef, expenseUpdatePayload); // Update the expense document itself
-      await batch.commit();
+    const expenseUpdatePayload = {
+      ...updatedExpenseData,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    };
+
+    batch.update(tripDocRef, combinedUpdates);
+    batch.update(expenseDocRef, expenseUpdatePayload);
+
+    await batch.commit();
   } catch (error) {
-      console.error(`Error updating expense ${expenseId}: `, error);
-      throw error;
+    console.error(`Error updating expense ${expenseId}: `, error);
+    throw error;
   }
 };
-// Helper functions
-//------------------------------------------------------------------------------------------------------------
 
+export const addExpenseAndCalculateDebts = async (
+  tripId: string,
+  expenseData: Expense,
+  members: MembersMap
+): Promise<void> => {
+  const paidByID = Object.keys(members).find(id => members[id].name === expenseData.paidBy);
+  if (!paidByID) throw new Error(`Payer ${expenseData.paidBy} not found.`);
+
+  const batch = firestore().batch();
+  const expenseRef = firestore()
+    .collection(TRIPS_COLLECTION)
+    .doc(tripId)
+    .collection(EXPENSES_SUBCOLLECTION)
+    .doc();
+
+  const tripRef = firestore().collection(TRIPS_COLLECTION).doc(tripId);
+  const updates = generateExpenseImpactUpdate({}, expenseData, members, false);
+  updates['totalAmtLeft'] = -expenseData.paidAmt;
+
+  batch.set(expenseRef, {
+    ...expenseData,
+    createdAt: firestore.FieldValue.serverTimestamp(),
+  });
+  for (const key in updates) {
+    batch.update(tripRef, { [key]: firestore.FieldValue.increment(updates[key]) });
+  }
+
+  await batch.commit();
+};
+
+export const reverseExpensesAndUpdate = async (
+  tripId: string,
+  expenseId: string,
+  members: MembersMap,
+  reverse: boolean
+): Promise<void> => {
+  const expenseRef = firestore()
+    .collection(TRIPS_COLLECTION)
+    .doc(tripId)
+    .collection(EXPENSES_SUBCOLLECTION)
+    .doc(expenseId);
+  const tripRef = firestore().collection(TRIPS_COLLECTION).doc(tripId);
+
+  const snap = await expenseRef.get();
+  if (!snap.exists) throw new Error("Expense does not exist.");
+
+  const updates = generateExpenseImpactUpdate({}, snap.data() as Expense, members, reverse);
+
+  const batch = firestore().batch();
+  for (const key in updates) {
+    batch.update(tripRef, { [key]: firestore.FieldValue.increment(updates[key]) });
+  }
+  batch.delete(expenseRef);
+  await batch.commit();
+};
+
+export function calculateNextPayer(members: DetailedMembersMap | null | undefined): NextPayerResult {
+  if (!members || Object.keys(members).length === 0) {
+    return { id: null, name: 'No members in trip' };
+  }
+  let nextPayerId: string | null = null;
+  let maxAmountOwe = -Infinity;
+  Object.entries(members).forEach(([id, member]) => {
+    const owes = member.owesTotal || 0;
+    if (owes > maxAmountOwe) {
+      maxAmountOwe = owes;
+      nextPayerId = id;
+    }
+  });
+  return nextPayerId && members[nextPayerId]
+    ? { id: nextPayerId, name: members[nextPayerId].name }
+    : { id: null, name: 'Calculation error' };
+}
+
+export const deleteExpense = async (tripId: string, expenseId: string, members: any): Promise<void> => {
+  const expenseDocRef = firestore().collection('trips').doc(tripId).collection('expenses').doc(expenseId);
+  const tripDocRef = firestore().collection('trips').doc(tripId);
+
+  try {
+    const expenseSnap = await expenseDocRef.get();
+    if (!expenseSnap.exists) {
+      console.warn(`Expense document with ID ${expenseId} not found. Cannot reverse debts.`);
+      return;
+    }
+
+    const expense = expenseSnap.data();
+
+    const rawUpdates = generateExpenseImpactUpdate({}, expense, members, true, expenseId);
+    const firebaseUpdates = formatToFirebase(rawUpdates);
+
+    const batch = firestore().batch();
+    batch.update(tripDocRef, firebaseUpdates);
+    batch.delete(expenseDocRef);
+
+    await batch.commit();
+    console.log(`Expense ${expenseId} deleted and reversed.`);
+  } catch (error) {
+    console.error(`Failed to delete expense:`, error);
+    throw error;
+  }
+};
+
+export const generateExpenseImpactUpdate = (
+  updates: { [key: string]: number },
+  expenseData: any,
+  members: any,
+  reverse: boolean,
+  expenseId?: string
+): { [key: string]: number } => {
+  const { sharedWith, paidBy } = expenseData;
+  const paidByID = Object.keys(members).find(id => members[id].name === paidBy);
+
+  if (!paidByID) throw new Error(`Payer "${paidBy}" not found in members for expense ${expenseId}`);
+
+  const multiplier = reverse ? 1 : -1;
+
+  for (const member of sharedWith) {
+    const share = Number(member.amount) * multiplier;
+    const payeeID = member.payeeID;
+
+    if (payeeID !== paidByID) {
+      updates[`members.${payeeID}.amtLeft`] = (updates[`members.${payeeID}.amtLeft`] || 0) + share;
+      updates[`members.${payeeID}.owesTotal`] = (updates[`members.${payeeID}.owesTotal`] || 0) - share;
+      updates[`debts.${payeeID}#${paidByID}`] = (updates[`debts.${payeeID}#${paidByID}`] || 0) - share;
+    } else {
+      updates[`members.${payeeID}.amtLeft`] = (updates[`members.${payeeID}.amtLeft`] || 0) + share;
+    }
+  }
+
+  return updates;
+};
+
+//
+//-------------------- Helper Functions --------------------------------
 function mergeIncrements(
   a: { [key: string]: number },
   b: { [key: string]: number }
@@ -84,229 +226,22 @@ function mergeIncrements(
   for (const key of allKeys) {
     const aVal = a[key] ?? 0;
     const bVal = b[key] ?? 0;
-    console.log ("a [key] is "+ key + " " + a[key])
-    console.log ("b [key] is "+ key + " " + b[key])
     const total = aVal + bVal;
 
     if (total !== 0) {
-      result[key] = increment(total);
+      result[key] = firestore.FieldValue.increment(total);
     }
   }
 
   return result;
 }
 
-function formatToFirebase (updates: { [key: string]: number }) {
-
-  const newUpdates:{ [key: string]: any } = {}
+function formatToFirebase(updates: { [key: string]: number }) {
+  const newUpdates: { [key: string]: any } = {};
   for (const key in updates) {
-    newUpdates[key] = increment(updates[key])
+    newUpdates[key] = firestore.FieldValue.increment(updates[key]);
   }
-  return newUpdates
+  return newUpdates;
 }
 
-//-----------------------------------------------------------------------------------------------------------
-
-/**
- * Calculates who should pay next based on who owe the most
- * relative to their budget (Minimum of budget - amtLeft).
- * Handles members with zero budget by excluding them unless everyone has zero budget.
- *
- * @param members - The members map containing budget and amtLeft info.
- * @returns Object with id and name of the next payer, or { id: null, name: null }.
- */
-export function calculateNextPayer(members: DetailedMembersMap | null | undefined): NextPayerResult {
-    if (!members || Object.keys(members).length === 0) {
-        return { id: null, name: 'No members in trip' };
-    }
-  
-    let nextPayerId: string | null = null;
-    let maxAmountOwe = -9999
-  
-    const memberEntries = Object.entries(members);
-  
-    // Filter out members with non-positive budget unless ALL members have non-positive budget
-    memberEntries.forEach(([id, member]) => {
-      // This line correctly handles undefined owesTotal before comparison
-      const currentOwesTotal = Number(member.owesTotal) || 0;
-  
-      if (currentOwesTotal > maxAmountOwe) {
-          maxAmountOwe = currentOwesTotal;
-          nextPayerId = id;
-      }
-    });
-  
-    if (nextPayerId && members[nextPayerId]) {
-        return { id: nextPayerId, name: members[nextPayerId].name };
-    } else if (memberEntries.length > 0) {
-      // Fallback if maxOwesTotal <= 0 but members exist: pick first member overall
-      const fallbackId = memberEntries[0][0];
-      console.log("calculateNextPayer: No one owes money currently, suggesting first member as fallback.");
-      return { id: fallbackId, name: members[fallbackId]?.name || 'Unknown' };
-    }
-    else {
-       return { id: null, name: 'No members found' };
-    }
-  
-    return { id: null, name: 'Calculation error' }; // Should ideally not be reached
-}
-
-// To get real-time updates on expenses
-export const subscribeToExpenses = (
-  tripId: string,
-  callback: (expenses: Expense[]) => void
-): (() => void) => { // Returns the unsubscribe function
-  const expensesColRef = collection(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION);
-
-  const unsubscribe = onSnapshot(expensesColRef, (snapshot) => {
-    const data: Expense[] = snapshot.docs.map((doc) => {
-      const raw = doc.data();
-      return {
-        id: doc.id,
-        activityName: raw.activityName,
-        paidBy: raw.paidBy, // To add paidById later
-        paidAmt: raw.paidAmt,
-        sharedWith: raw.sharedWith,
-        // Handle potential Timestamp conversion if you store dates as Timestamps
-        createdAt: raw.createdAt?.toDate ? raw.createdAt.toDate().toLocaleDateString() : 'N/A',
-      };
-    });
-    callback(data);
-  }, (error) => {
-    console.error("Error fetching expenses: ", error);
-    // Handle error appropriately, update UI state. TBD later
-    callback([]); // Clear expenses on error or show an error state
-  });
-
-  return unsubscribe;
-};
-
-// To add a new expense and update related balances/debts
-export const addExpenseAndCalculateDebts = async (
-  tripId: string,
-  expenseData: Expense,
-  members: MembersMap 
-): Promise<void> => {
-
-  const paidByID = Object.keys(members).find(id => members[id].name === expenseData.paidBy);
-
-  if (!paidByID) {
-    throw new Error(`Could not find member ID for payer: ${expenseData.paidBy}`);
-  }
-
-  const expenseDocData = {
-      ...expenseData,
-      createdAt: Timestamp.now(), // Firestore Timestamp
-  };
-
-  const batch = writeBatch(db);
-  const newExpenseRef = doc(collection(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION));
-  batch.set(newExpenseRef, expenseDocData);
-  const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
-  let updatesRaw: { [key: string]: number } = {}
-  updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false);
-  updatesRaw['totalAmtLeft'] = -expenseData.paidAmt
-  let updates = formatToFirebase(updatesRaw)
-
-  batch.update(tripDocRef, updates);
-  try {
-      await batch.commit();
-      console.log("Expense added and debts updated successfully.");
-  } catch (error) {
-      console.error("Error adding expense or updating debts: ", error);
-      // Rethrow or handle the error (e.g., show a message to the user)
-      throw error;
-  }
-};
-
-// Function to delete an expense
-// IMPORTANT: Deleting an expense requires recalculating/reversing the debt updates.
-// This can be complex. A simpler approach might be to "soft delete" (mark as deleted)
-// or to implement a recalculation logic triggered on deletion.
-// The example below just deletes the expense doc, but DOES NOT reverse debt changes.
-export const deleteExpense = async (tripId: string, expenseId: string, members: MembersMap): Promise<void> => {
-  const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
-  try {
-      await reverseExpensesAndUpdate(tripId,expenseId,members,true);
-      await deleteDoc(expenseDocRef);
-    
-      console.log("Expense deleted successfully (debts not automatically reversed).");
-      // TODO: Implement debt reversal logic if required. This might involve fetching the
-      // expense data before deleting it to know what changes to reverse.
-  } catch (error) {
-      console.error("Error deleting expense: ", error);
-      throw error;
-  }
-};
-
-  /**
- * Deletes an expense and reverses the corresponding debt/balance changes.
- *
- * @param tripId The ID of the trip.
- * @param expenseId The ID of the expense to delete.
- * @param members The current members map (needed to find payer ID if not stored on expense).
- */
-export const reverseExpensesAndUpdate = async (
-    tripId: string,
-    expenseId: string,
-    members: MembersMap, // Needed for payer ID lookup if not stored on expense
-    reverse: boolean
-): Promise<void> => {
-  const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
-  const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
-  const batch = writeBatch(db);
-
-  try {
-    const expenseSnap = await getDoc(expenseDocRef);
-
-    if (!expenseSnap.exists()) {
-      console.warn(`Expense document with ID ${expenseId} not found. Cannot reverse debts.`);
-      return; 
-    }
-    
-    let reversalUpdatesRaw: { [key: string]: number } = {}
-    reversalUpdatesRaw = generateExpenseImpactUpdate(reversalUpdatesRaw, expenseSnap.data() as Expense, members, reverse, expenseId);
-    let reversalUpdates = formatToFirebase(reversalUpdatesRaw)
-    
-    batch.update(tripDocRef, reversalUpdates);
-    batch.delete(expenseDocRef);
-    await batch.commit();
-    console.log(`Expense ${expenseId} deleted and debt changes reversed successfully.`);
-
-  } catch (error) {
-    console.error(`Error deleting expense ${expenseId} and reversing debts: `, error);
-    throw error;
-  }
-};
-
-export const generateExpenseImpactUpdate = (
-  updates: { [key: string]: number },
-  expenseData: Expense,
-  members: MembersMap,
-  reverse: boolean,
-  expenseId?: string,
-): { [key: string]: any } => {
-  const { sharedWith, paidBy: paidByName } = expenseData;
-
-  const paidByID = Object.keys(members).find(id => members[id].name === paidByName);
-  if (!paidByID) {
-    throw new Error(`Payer "${paidByName}" not found in members. Failed to reverse expense ${expenseId}.`);
-  }
-
-  const multiplier = (reverse)? 1 : -1;
-
-  for (const member of sharedWith) {
-    const share = Number(member.amount) * multiplier;
-    const payeeID = member.payeeID;
-    console.log("share is " + share)
-    if (payeeID !== paidByID) {
-      updates[`members.${payeeID}.amtLeft`] = share;
-      updates[`members.${payeeID}.owesTotal`] = -share;
-      updates[`debts.${payeeID}#${paidByID}`] = -share;
-    } else {
-      updates[`members.${payeeID}.amtLeft`] = share;
-    }
-  }
-
-  return updates;
-};
+//----------------------------------------------------------------------

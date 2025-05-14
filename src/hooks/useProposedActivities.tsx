@@ -1,5 +1,4 @@
 // src/hooks/useProposedActivities.ts
-
 import { useState, useEffect } from 'react';
 import { subscribeToProposedActivities } from '../services/ActivityUtilities';
 import { ProposedActivity } from '../types/DataTypes';

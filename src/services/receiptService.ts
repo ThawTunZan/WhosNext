@@ -1,4 +1,5 @@
-import { getStorage, ref, deleteObject } from "firebase/storage";
+// src/services/receiptService.ts (Native Firebase version)
+import storage from '@react-native-firebase/storage';
 
 /**
  * Deletes a receipt image from Firebase Storage using its full path.
@@ -6,11 +7,10 @@ import { getStorage, ref, deleteObject } from "firebase/storage";
  * @returns true if successful, false if failed
  */
 export async function deleteReceipt(path: string): Promise<boolean> {
-  const storage = getStorage();
-  const storageRef = ref(storage, path);
+  const storageRef = storage().ref(path);
 
   try {
-    await deleteObject(storageRef);
+    await storageRef.delete();
     return true;
   } catch (err) {
     console.error("Failed to delete receipt from Firebase Storage:", err);

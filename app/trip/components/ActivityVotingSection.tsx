@@ -5,7 +5,7 @@ import { Button, ActivityIndicator, Snackbar } from 'react-native-paper';
 import ActivityCard from '../../../src/components/ActivityCard';
 import { NewProposedActivityData, ProposedActivity, ActivityVotingSectionProps, VoteType  } from '../../../src/types/DataTypes';
 import { useProposedActivities } from '../../../src/hooks/useProposedActivities'; //
-import { castVote, addProposedActivity, deleteProposedActivity } from '../../../src/services/ActivityUtilities'; //
+import { castVote, addProposedActivity, deleteProposedActivity } from '../../../src/services/ActivityUtilities';
 import ProposeActivityModal from '../../../src/components/ProposeActivityModal';
 import { useCurrentUser } from '@/src/hooks/useCurrentUser';
 

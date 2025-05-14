@@ -1,5 +1,4 @@
 // src/components/SettleUpSection.tsx (or wherever it resides)
-
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, SectionList } from 'react-native';
 import { Card, Text, Divider, Button } from 'react-native-paper';

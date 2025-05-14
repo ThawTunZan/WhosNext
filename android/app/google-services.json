@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "136582410581",
+    "project_id": "fairtrip-af173",
+    "storage_bucket": "fairtrip-af173.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:136582410581:android:ea6fdfd712cea5ef68ffdc",
+        "android_client_info": {
+          "package_name": "com.thawtunzan.whosnext"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDYx9iUE5YCsgG0a5EK2Z-8uozmqiqQ_g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

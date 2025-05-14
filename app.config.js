@@ -2,6 +2,9 @@ import 'dotenv/config';
 
 export default {
   expo: {
+    android: {
+      package: 'com.thawtunzan.whosnext',
+    },
     name: "whosnext",
     slug: "whosnext",
     extra: {

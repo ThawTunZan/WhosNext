@@ -4,7 +4,7 @@ import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'r
 import { Button, Text, Snackbar, Chip } from 'react-native-paper';
 
 import { useExpenses } from '../../../src/hooks/useExpenses';
-import { addExpenseAndCalculateDebts, deleteExpense } from '../../../src/services/expenseService';
+import { addExpenseAndCalculateDebts } from '../../../src/services/expenseService';
 import ExpenseItemList from '../../../src/components/ExpenseItemList';
 import AddExpenseModal from '../../../src/components/AddExpenseModal'; 
 import { ExpensesSectionProps, Expense, NewExpenseData } from '../../../src/types/DataTypes'; 
@@ -35,7 +35,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
     }
   }, [onEditExpense]);
 
-  const handleAddExpenseSubmit = async (expenseData: NewExpenseData) => {
+  const handleAddExpenseSubmit = async (expenseData: Expense) => {
     
     // Debt calculation
     try {

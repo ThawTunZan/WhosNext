@@ -1,6 +1,7 @@
 // src/types/expenses.ts
 
-import { Timestamp } from "firebase/firestore";
+import { Timestamp } from "@react-native-firebase/firestore";
+
 
 export type MemberInfo = { name: string }; // Basic info for components needing just name
 

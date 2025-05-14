@@ -1,11 +1,10 @@
-// app/(tabs)/create.tsx - Create Trip Screen
+// app/(tabs)/create.tsx
 import { useState } from 'react';
 import {
   View, Text, TextInput, Button,
-  Keyboard, TouchableWithoutFeedback, ScrollView, KeyboardAvoidingView, Platform,StyleSheet
+  KeyboardAvoidingView, Platform, ScrollView, StyleSheet
 } from 'react-native';
-import { db } from '../../firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import firestore from '@react-native-firebase/firestore';
 import { useRouter } from 'expo-router';
 import { useCurrentUser } from '@/src/hooks/useCurrentUser';
 
@@ -14,111 +13,105 @@ export default function CreateTripScreen() {
   const [totalBudget, setTotalBudget] = useState(0);
   const router = useRouter();
   const { id: currUserId, name: currUsername } = useCurrentUser();
-  const initialBudgetForCreator = totalBudget;
 
   const handleCreateTrip = async () => {
-    
     if (!destination) {
       alert("Please enter a destination.");
       return;
     }
-    // This first entry is for the test account
+
+    const initialBudget = totalBudget;
     const initialMembers = {
       [currUserId]: {
         name: currUsername,
-        budget: initialBudgetForCreator,
-        amtLeft: initialBudgetForCreator,
+        budget: initialBudget,
+        amtLeft: initialBudget,
         owesTotal: 0,
       }
     };
 
     try {
-      console.log("Creating trip with data:", {
-          destination: destination.trim(),
-          totalBudget: Number(initialBudgetForCreator),
-          totalAmtLeft: Number(initialBudgetForCreator),
-          currUserId, 
-          members: initialMembers,
-          debts: {}, 
-          createdAt: Timestamp.now()
+      console.log("Creating trip with:", {
+        destination: destination.trim(),
+        totalBudget: initialBudget,
+        totalAmtLeft: initialBudget,
+        currUserId,
+        members: initialMembers,
       });
 
-      await addDoc(collection(db, 'trips'), {
-          destination: destination.trim(),
-          totalBudget: initialBudgetForCreator,
-          totalAmtLeft: initialBudgetForCreator,
-          currUserId, // Trip owner
-          members: initialMembers,
-          debts: {}, // Initialize empty debts map
-          createdAt: Timestamp.now()
+      await firestore().collection('trips').add({
+        destination: destination.trim(),
+        totalBudget: initialBudget,
+        totalAmtLeft: initialBudget,
+        currUserId,
+        members: initialMembers,
+        debts: {},
+        createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
       setDestination('');
-      router.push('/'); // Navigate home after creation
+      router.push('/'); // Go back to home
 
     } catch (error) {
-      console.error("Error creating trip:", error);
-      alert("Failed to create trip. Please try again."); 
+      console.error("Trip creation error:", error);
+      alert("Failed to create trip.");
     }
   };
 
-
   return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, justifyContent: 'center' }}>
-          <Text style={styles.title}>➕ Create New Trip</Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1 }}
+    >
+      <ScrollView contentContainerStyle={styles.scrollViewContent}>
+        <Text style={styles.title}>➕ Create New Trip</Text>
 
-          <TextInput
-            placeholder="Destination"
-            placeholderTextColor="#555"
-            value={destination}
-            onChangeText={setDestination}
-            style={styles.input}
-          />
-          <TextInput
-            placeholder="YOUR Budget"
-            placeholderTextColor="#555"
-            value={String(totalBudget)}
-            onChangeText=
-            {(text: string) => {
-              const numericValue = parseFloat(text); // Or Number(text)
-              setTotalBudget(isNaN(numericValue) ? 0 : numericValue); // Set to number, or 0 if input is not a valid number
-            }}
-            style={styles.input}
-          />
+        <TextInput
+          placeholder="Destination"
+          placeholderTextColor="#555"
+          value={destination}
+          onChangeText={setDestination}
+          style={styles.input}
+        />
 
-          <Button title="Create Trip" onPress={() => {
-            handleCreateTrip();
-          }} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <TextInput
+          placeholder="YOUR Budget"
+          placeholderTextColor="#555"
+          keyboardType="numeric"
+          value={String(totalBudget)}
+          onChangeText={(text) => {
+            const num = parseFloat(text);
+            setTotalBudget(isNaN(num) ? 0 : num);
+          }}
+          style={styles.input}
+        />
+
+        <Button title="Create Trip" onPress={handleCreateTrip} />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-// Add styles
 const styles = StyleSheet.create({
   scrollViewContent: {
-      flexGrow: 1,
-      padding: 20,
-      justifyContent: 'center'
+    flexGrow: 1,
+    padding: 20,
+    justifyContent: 'center'
   },
   title: {
-      fontSize: 24,
-      fontWeight: 'bold', // Make title bold
-      marginBottom: 30, // Increase spacing
-      textAlign: 'center',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 30,
+    textAlign: 'center',
   },
   input: {
-      borderWidth: 1,
-      borderColor: '#ccc',
-      backgroundColor: '#fff', // Add background
-      paddingHorizontal: 15, // Increase padding
-      paddingVertical: 12,
-      borderRadius: 8,
-      marginBottom: 25, // Increase spacing
-      fontSize: 16, // Set font size
+    borderWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#fff',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 25,
+    fontSize: 16,
   }
 });

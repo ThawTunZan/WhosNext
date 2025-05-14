@@ -11,16 +11,16 @@ import {
     Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as Progress from 'react-native-progress'; // Keep if used in BudgetSummary
+import * as Progress from 'react-native-progress';
 import { Button, ProgressBar, Card, Snackbar } from "react-native-paper"; // Removed Avatar if not used
 
 // --- Import Hooks and Utilities ---
-import { useTripData } from "@/src/hooks/useTripData"; // Assuming @ is configured for src
+import { useTripData } from "@/src/hooks/useTripData";
 import { addMemberToTrip, leaveTripIfEligible, removeMemberFromTrip } from "@/src/services/TripUtilities";
 import {deleteTripAndRelatedData} from '@/src/services/TripUtilities'
 
 // --- Import Components ---
-import ExpensesSection from './components/ExpenseSection'; // Assuming correct relative path
+import ExpensesSection from './components/ExpenseSection';
 import MemberList from "./components/MemberList";
 import SettleUpSection from "./components/Settleup";
 import TripHeader from "./components/TripHeader";
@@ -35,7 +35,7 @@ import {
     updateExpenseAndRecalculateDebts,
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
-import { calculateNextPayer } from "@/src/services/expenseService"; // Assuming it was moved here
+import { calculateNextPayer } from "@/src/services/expenseService";
 import ReceiptSection from "./components/ReceiptSection";
 import { useCurrentUser } from "@/src/hooks/useCurrentUser";
 
