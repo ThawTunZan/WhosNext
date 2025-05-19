@@ -35,7 +35,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
     }
   }, [onEditExpense]);
 
-  const handleAddExpenseSubmit = async (expenseData: NewExpenseData) => {
+  const handleAddExpenseSubmit = async (expenseData: Expense) => {
     
     // Debt calculation
     try {
