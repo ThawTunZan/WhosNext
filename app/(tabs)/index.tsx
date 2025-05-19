@@ -7,12 +7,12 @@
   import { db } from '../../firebase';
   import { collection, query, where, onSnapshot } from 'firebase/firestore';
   import { Text, Card, Title, Paragraph } from 'react-native-paper';
-  import { useThemeContext } from '../theme/ThemeContext';
+  //import { useThemeContext } from '../../src/theme/ThemeContext';
   import { IconButton } from 'react-native-paper';
   import {DUMMY_USER_ID, DUMMY_USER_NAME} from '../../src/constants/auth';
 
   export default function HomeScreen() {
-    const { toggleTheme } = useThemeContext();
+    //const { toggleTheme } = useThemeContext();
     const router = useRouter();
     const [trips, setTrips] = useState<any[]>([]);
 
@@ -26,14 +26,16 @@
       });
       return () => unsubscribe();
     }, []);
-
+    function doNothing () {
+      return;
+    }
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={{ flex: 1, padding: 20 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: 10 }}>
           <IconButton
             icon="theme-light-dark"
-            onPress={toggleTheme}
+            onPress={doNothing}
           />
         </View>
         <Text variant="headlineMedium" style={{ marginBottom: 20 }}>
