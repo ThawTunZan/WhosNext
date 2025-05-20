@@ -34,7 +34,10 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
     setLoading(true)
     createInvite(tripId, { id: userId, name: userName })
       .then((id) => {
-        if (mounted) setInviteId(id)
+        if (mounted) {
+            setInviteId(id);
+            console.log('DEV INVITE URL:', Linking.createURL(`invite/${id}`))
+        }
       })
       .catch((err) => {
         console.error('Failed to create invite:', err)

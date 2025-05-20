@@ -9,8 +9,9 @@ import {
   TouchableOpacity,
   Text,
   Platform,
+  StyleSheet,
 } from 'react-native'
-import { Link, useRouter } from 'expo-router'
+import { useRouter } from 'expo-router'
 import { useSignIn } from '@clerk/clerk-expo'
 import { Feather } from '@expo/vector-icons'
 
@@ -25,7 +26,6 @@ export default function SignInScreen() {
   const onSignInPress = async () => {
     if (!isLoaded) return
     try {
-      // use username as the identifier
       const attempt = await signIn.create({ identifier: username, password })
       if (attempt.status === 'complete') {
         await setActive({ session: attempt.createdSessionId })
@@ -37,35 +37,31 @@ export default function SignInScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-blue-50">
+    <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
+        style={styles.avoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
-          className="px-6 pt-8"
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <View className="flex-1 justify-center">
-            <Text className="text-3xl font-bold text-gray-800 mb-2 text-center">
-              Welcome Back
-            </Text>
-            <Text className="text-center text-gray-600 mb-6">
-              Sign in to continue to Who’s Next
-            </Text>
+          <View style={styles.inner}>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in to continue to Who’s Next</Text>
 
-            <View className="space-y-4">
+            <View style={styles.form}>
               <TextInput
-                className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900"
+                style={styles.input}
                 placeholder="Username"
                 autoCapitalize="none"
                 value={username}
                 onChangeText={setUsername}
               />
 
-              <View className="relative">
+              <View style={styles.passwordWrapper}>
                 <TextInput
-                  className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 pr-12"
+                  style={[styles.input, { flex: 1 }]}
                   placeholder="Password"
                   secureTextEntry={hidePassword}
                   value={password}
@@ -73,7 +69,7 @@ export default function SignInScreen() {
                 />
                 <TouchableOpacity
                   onPress={() => setHidePassword(!hidePassword)}
-                  className="absolute right-3 top-3"
+                  style={styles.eyeButton}
                 >
                   <Feather
                     name={hidePassword ? 'eye-off' : 'eye'}
@@ -83,33 +79,25 @@ export default function SignInScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Link
-                href="/auth/forgot-password"
-                className="self-end text-sm text-blue-600 font-medium"
+              <TouchableOpacity
+                onPress={() => router.replace('/auth/forgot-password')}
               >
-                Forgot password?
-              </Link>
+                <Text style={styles.forgot}>Forgot password?</Text>
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
               onPress={onSignInPress}
-              className="bg-blue-600 rounded-xl py-3 items-center mt-8 shadow-lg"
+              style={styles.signInButton}
             >
-              <Text className="text-white text-lg font-semibold">
-                Sign In
-              </Text>
+              <Text style={styles.signInText}>Sign In</Text>
             </TouchableOpacity>
 
-            <View className="flex-row items-center justify-center space-x-1 mt-6">
-              <Text className="text-sm text-gray-500">
-                Don’t have an account?
-              </Text>
-              <Link
-                href="/auth/sign-up"
-                className="text-sm text-blue-600 font-medium"
-              >
-                Sign Up
-              </Link>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Don’t have an account?</Text>
+              <TouchableOpacity onPress={() => router.replace('/auth/sign-up')}>
+                <Text style={styles.footerLink}> Sign Up</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
@@ -117,3 +105,90 @@ export default function SignInScreen() {
     </SafeAreaView>
   )
 }
+
+const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: '#E0F2FE', // similar to bg-blue-50
+  },
+  avoid: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    justifyContent: 'center',
+  },
+  inner: {
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1F2937', // gray-800
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#4B5563', // gray-600
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  form: {
+    width: '100%',
+    marginBottom: 32,
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E5E7EB', // gray-200
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    marginBottom: 16,
+    color: '#111827', // gray-900
+  },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 16,
+  },
+  forgot: {
+    alignSelf: 'flex-end',
+    color: '#2563EB', // blue-600
+    fontSize: 14,
+    marginTop: 4,
+  },
+  signInButton: {
+    width: '100%',
+    backgroundColor: '#2563EB', // blue-600
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  signInText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#6B7280', // gray-500
+  },
+  footerLink: {
+    fontSize: 14,
+    color: '#2563EB', // blue-600
+    fontWeight: '600',
+  },
+})

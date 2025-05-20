@@ -1,5 +1,5 @@
 // app/auth/sign-up.tsx
-import * as React from 'react'
+import React, { useState } from 'react'
 import {
   SafeAreaView,
   KeyboardAvoidingView,
@@ -9,31 +9,31 @@ import {
   TouchableOpacity,
   Text,
   Platform,
+  StyleSheet,
 } from 'react-native'
 import { useSignUp } from '@clerk/clerk-expo'
-import { Link, useRouter } from 'expo-router'
+import { useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
 
 export default function SignUpScreen() {
   const { isLoaded, signUp, setActive } = useSignUp()
   const router = useRouter()
 
-  const [username, setUsername] = React.useState('')
-  const [emailAddress, setEmailAddress] = React.useState('')
-  const [password, setPassword] = React.useState('')
-  const [pendingVerification, setPendingVerification] = React.useState(false)
-  const [code, setCode] = React.useState('')
-  const [hidePassword, setHidePassword] = React.useState(true)
+  const [username, setUsername] = useState('')
+  const [emailAddress, setEmailAddress] = useState('')
+  const [password, setPassword] = useState('')
+  const [pendingVerification, setPendingVerification] = useState(false)
+  const [code, setCode] = useState('')
+  const [hidePassword, setHidePassword] = useState(true)
 
   const onSignUpPress = async () => {
     if (!isLoaded) return
     try {
-      // include username + email + password
       await signUp.create({ username, emailAddress, password })
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
       setPendingVerification(true)
     } catch (err) {
-      console.error(JSON.stringify(err, null, 2))
+      console.error(err)
     }
   }
 
@@ -44,31 +44,27 @@ export default function SignUpScreen() {
       if (attempt.status === 'complete') {
         await setActive({ session: attempt.createdSessionId })
         router.replace('/')
-      } else {
-        console.error(JSON.stringify(attempt, null, 2))
       }
     } catch (err) {
-      console.error(JSON.stringify(err, null, 2))
+      console.error(err)
     }
   }
 
   if (pendingVerification) {
     return (
-      <SafeAreaView className="flex-1 bg-white">
+      <SafeAreaView style={styles.safeWhite}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          className="flex-1"
+          style={styles.avoid}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="px-6 pt-8">
-            <View className="flex-1 justify-center">
-              <Text className="text-2xl font-bold text-gray-800 mb-4 text-center">
-                Verify your email
-              </Text>
-              <Text className="text-center text-gray-600 mb-6">
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <View style={styles.inner}>
+              <Text style={styles.headerVerify}>Verify your email</Text>
+              <Text style={styles.verifySubtitle}>
                 We sent a code to {emailAddress}
               </Text>
               <TextInput
-                className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 mb-4"
+                style={styles.input}
                 placeholder="Enter verification code"
                 value={code}
                 onChangeText={setCode}
@@ -76,9 +72,9 @@ export default function SignUpScreen() {
               />
               <TouchableOpacity
                 onPress={onVerifyPress}
-                className="bg-blue-600 rounded-xl py-3 items-center shadow-lg"
+                style={styles.actionButton}
               >
-                <Text className="text-white text-lg font-semibold">Verify</Text>
+                <Text style={styles.actionButtonText}>Verify</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -88,74 +84,67 @@ export default function SignUpScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-blue-50">
+    <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
+        style={styles.avoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="px-6 pt-8">
-          <View className="flex-1 justify-center">
-            <Text className="text-3xl font-bold text-gray-800 mb-2 text-center">
-              Create Account
-            </Text>
-            <Text className="text-center text-gray-600 mb-6">
-              Sign up to join Who’s Next
-            </Text>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.inner}>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>Sign up to join Who’s Next</Text>
 
-            <View className="space-y-4">
-              {/* Username */}
+            <TextInput
+              style={styles.input}
+              placeholder="Username"
+              autoCapitalize="none"
+              value={username}
+              onChangeText={setUsername}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Email address"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={emailAddress}
+              onChangeText={setEmailAddress}
+            />
+
+            <View style={styles.passwordWrapper}>
               <TextInput
-                className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900"
-                placeholder="Username"
-                autoCapitalize="none"
-                value={username}
-                onChangeText={setUsername}
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Password"
+                secureTextEntry={hidePassword}
+                value={password}
+                onChangeText={setPassword}
               />
-
-              {/* Email */}
-              <TextInput
-                className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900"
-                placeholder="Email address"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                value={emailAddress}
-                onChangeText={setEmailAddress}
-              />
-
-              {/* Password */}
-              <View className="relative">
-                <TextInput
-                  className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 pr-12"
-                  placeholder="Password"
-                  secureTextEntry={hidePassword}
-                  value={password}
-                  onChangeText={setPassword}
+              <TouchableOpacity
+                onPress={() => setHidePassword(!hidePassword)}
+                style={styles.eyeButton}
+              >
+                <Feather
+                  name={hidePassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color="#6B7280"
                 />
-                <TouchableOpacity
-                  onPress={() => setHidePassword(!hidePassword)}
-                  className="absolute right-3 top-3"
-                >
-                  <Feather
-                    name={hidePassword ? 'eye-off' : 'eye'}
-                    size={20}
-                    color="#6B7280"
-                  />
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
               onPress={onSignUpPress}
-              className="bg-blue-600 rounded-xl py-3 items-center mt-8 shadow-lg"
+              style={styles.actionButton}
             >
-              <Text className="text-white text-lg font-semibold">Continue</Text>
+              <Text style={styles.actionButtonText}>Continue</Text>
             </TouchableOpacity>
 
-            <View className="flex-row items-center justify-center space-x-1 mt-6">
-              <Text className="text-sm text-gray-500">Already have an account?</Text>
-              <Link href="/auth/sign-in" className="text-sm text-blue-600 font-medium">
-                Sign in
-              </Link>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Already have an account?</Text>
+              <TouchableOpacity
+                onPress={() => router.replace('/auth/sign-in')}
+              >
+                <Text style={styles.footerLink}> Sign in</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
@@ -163,3 +152,98 @@ export default function SignUpScreen() {
     </SafeAreaView>
   )
 }
+
+const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: '#E0F2FE', // blue-50
+  },
+  safeWhite: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  avoid: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    justifyContent: 'center',
+  },
+  inner: {
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1F2937', // gray-800
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#4B5563', // gray-600
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  headerVerify: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  verifySubtitle: {
+    fontSize: 16,
+    color: '#4B5563',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  input: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E5E7EB', // gray-200
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    marginBottom: 16,
+    color: '#111827', // gray-900
+  },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 24,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 16,
+  },
+  actionButton: {
+    width: '100%',
+    backgroundColor: '#2563EB', // blue-600
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#6B7280', // gray-500
+  },
+  footerLink: {
+    fontSize: 14,
+    color: '#2563EB', // blue-600
+    fontWeight: '600',
+  },
+})

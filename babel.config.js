@@ -9,6 +9,6 @@ module.exports = function(api) {
       'nativewind/babel',
     ],
     // if you’re using react-native-reanimated you can still add it here:
-    // plugins: ['react-native-reanimated/plugin', 'expo-router/babel'],
+    //plugins: ['react-native-reanimated/plugin', 'expo-router/babel'],
   };
 };

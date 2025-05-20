@@ -23,4 +23,5 @@ export default {
     "expo-router"
   ],
   userInterfaceStyle: "automatic",
+  scheme: "whosnext", 
 };

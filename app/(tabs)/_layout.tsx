@@ -10,6 +10,7 @@ import {
   SignedOut,
   useAuth,
 } from '@clerk/clerk-expo';
+import '../../global.css'
 
 
 export default function TabLayout() {
