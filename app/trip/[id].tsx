@@ -12,12 +12,12 @@ import {
 } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import * as Progress from 'react-native-progress'; // Keep if used in BudgetSummary
-import { Button, ProgressBar, Card, Snackbar } from "react-native-paper"; // Removed Avatar if not used
+import { Button, ProgressBar, Card, Snackbar, Portal, Dialog, TextInput, IconButton } from "react-native-paper"; // Removed Avatar if not used
 
 // --- Import Hooks and Utilities ---
 import { useTripData } from "@/src/hooks/useTripData"; // Assuming @ is configured for src
 import { addMemberToTrip, leaveTripIfEligible, removeMemberFromTrip } from "@/src/services/TripUtilities";
-import {deleteTripAndRelatedData} from '@/src/services/TripUtilities'
+import {deleteTripAndRelatedData, updatePersonalBudget } from '@/src/services/TripUtilities'
 
 // --- Import Components ---
 import ExpensesSection from '../(sections)/ExpenseSection'; // Assuming correct relative path
@@ -72,6 +72,9 @@ export default function TripDetailPage() {
     const [isDeletingTrip, setIsDeletingTrip] = useState(false);
     const [hasLeftTrip, setHasLeftTrip] = useState(false);
 
+    const [budgetDialogVisible, setBudgetDialogVisible] = useState(false)
+    const [newBudgetInput, setNewBudgetInput] = useState<string>("")
+
 
     const router = useRouter();
 
@@ -80,6 +83,34 @@ export default function TripDetailPage() {
     }, [trip?.members]);
 
     // --- Modal Control Callbacks ---
+
+    // Handler to open the dialog, seeded with current budget
+    const openBudgetDialog = useCallback(() => {
+        const currentBudget = trip?.members[currentUserId]?.budget ?? 0
+        setNewBudgetInput(currentBudget.toString())
+        setBudgetDialogVisible(true)
+    }, [trip, currentUserId])
+
+    const submitBudgetChange = useCallback(async () => {
+        const parsed = parseFloat(newBudgetInput)
+        if (isNaN(parsed) || parsed < 0) {
+          setSnackbarMessage("Please enter a valid number.")
+          setSnackbarVisible(true)
+          return
+        }
+        try {
+          await updatePersonalBudget(tripId!, currentUserId, parsed)
+          setSnackbarMessage("Personal budget updated!")
+          setSnackbarVisible(true)
+        } catch (err: any) {
+          console.error(err)
+          setSnackbarMessage(err.message || "Failed to update budget.")
+          setSnackbarVisible(true)
+        } finally {
+          setBudgetDialogVisible(false)
+        }
+    }, [newBudgetInput, tripId, currentUserId])
+    
     const openAddExpenseModal = useCallback((initialData: Partial<NewExpenseData> | null = null, isEditing: boolean = false) => {
         console.log("Opening add/edit expense modal. Editing:", isEditing, "Initial data:", initialData);
         setInitialExpenseData(initialData);
@@ -289,11 +320,46 @@ export default function TripDetailPage() {
                            </Card.Content>
                          </Card>
                         {trip.members?.[currentUserId] && (<Card style={styles.card}>
-                            <Card.Title title="🎯 Personal Budget" />
+                            <Card.Title
+                                title="🎯 Personal Budget"
+                                right={() => (
+                                  <IconButton
+                                    icon="pencil"
+                                    onPress={openBudgetDialog}
+                                  />
+                                )}
+                              />
+
                             <Card.Content>
-                                <Text>${trip.members[currentUserId].amtLeft}</Text>
+                                <Text style={styles.budgetText}>Amount left: ${trip.members[currentUserId].amtLeft}</Text>
+                                <Text style={styles.budgetText}>Total Initial Budget: ${trip.members[currentUserId].budget}</Text>
                             </Card.Content>
                         </Card>)}
+                        {/* ----- Budget Edit Dialog ----- */}
+                         <Portal>
+                           <Dialog
+                             visible={budgetDialogVisible}
+                             onDismiss={() => setBudgetDialogVisible(false)}
+                           >
+                             <Dialog.Title>Edit Your Budget</Dialog.Title>
+                             <Dialog.Content>
+                               <TextInput
+                                 label="New Budget"
+                                 value={newBudgetInput}
+                                 onChangeText={setNewBudgetInput}
+                                 keyboardType="numeric"
+                               />
+                             </Dialog.Content>
+                             <Dialog.Actions>
+                               <Button onPress={() => setBudgetDialogVisible(false)}>
+                                 Cancel
+                               </Button>
+                               <Button onPress={submitBudgetChange}>
+                                 Save
+                               </Button>
+                             </Dialog.Actions>
+                           </Dialog>
+                         </Portal>
                         {nextPayer?.id && (
                             <Card style={styles.card}>
                                 <Card.Title title="➡️ Who's Paying Next?" />

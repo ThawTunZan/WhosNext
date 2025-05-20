@@ -1,7 +1,56 @@
 // src/utils/tripUtils.ts
-import { collection, getDocs, doc, updateDoc, increment, deleteField, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, increment, deleteField, deleteDoc, query, where, runTransaction,
+  Timestamp, } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Member } from '../types/DataTypes';
+
+/**
+ * Update a member's personal budget and adjust their amtLeft by the same delta.
+ * Throws if trip or member not found.
+ */
+export async function updatePersonalBudget(
+  tripId: string,
+  userId: string,
+  newBudget: number
+): Promise<void> {
+  if (!tripId || !userId) {
+    throw new Error("Trip ID and User ID are required.")
+  }
+
+  const tripRef = doc(db, "trips", tripId)
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(tripRef)
+    if (!snap.exists()) {
+      throw new Error("Trip not found.")
+    }
+    const data = snap.data()
+    const members = data.members || {}
+    const userData = members[userId]
+    if (!userData) {
+      throw new Error("User not a member of this trip.")
+    }
+
+    const oldBudget = userData.budget as number
+    const oldAmtLeft = userData.amtLeft as number
+    const spent = oldBudget - oldAmtLeft
+    const diff = oldBudget - newBudget
+
+    const updatedAmtLeft = newBudget - spent
+
+    const updatedMember = {
+        ...userData,
+        budget: newBudget,
+        amtLeft: updatedAmtLeft,
+    }
+
+    tx.update(tripRef, {
+        [`members.${userId}`]: updatedMember,
+        totalBudget: increment(-diff),
+        totalAmtLeft: increment(-diff)
+    })
+  })
+}
 
 /**
  * Adds a new member to a trip in Firestore.
