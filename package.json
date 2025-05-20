@@ -40,7 +40,8 @@
     "react-native-url-polyfill": "^2.0.0",
     "react-native-uuid": "^2.0.3",
     "react-native-web": "^0.20.0",
-    "stream-browserify": "^3.0.0"
+    "stream-browserify": "^3.0.0",
+    "@react-native-picker/picker": "2.11.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

@@ -1,193 +1,223 @@
-import React, { useState, useEffect } from "react";
-import { View, ScrollView, Image, StyleSheet, Alert } from "react-native";
-import { Button, Card, Text } from "react-native-paper";
-import { pickAndUploadReceipt } from "@/src/services/FirebaseStorageService";
-import { db } from "@/firebase";
-import {collection,addDoc,getDocs,query,where,deleteDoc,doc,Timestamp} from "firebase/firestore";
-import { deleteReceipt } from "@/src/services/receiptService";
-import * as ImagePicker from "expo-image-picker";
-import { useUser } from "@clerk/clerk-expo";
-import { Redirect } from "expo-router";
+// src/screens/TripDetails/components/ReceiptSection.tsx
+import React, { useState, useEffect } from "react"
+import {
+  View,
+  ScrollView,
+  Image,
+  StyleSheet,
+  Alert,
+  Platform,
+} from "react-native"
+import {
+  Button,
+  Card,
+  Text,
+  Modal,
+  Portal,
+  TextInput,
+} from "react-native-paper"
+import { Picker } from "@react-native-picker/picker"
+import * as ImagePicker from "expo-image-picker"
+import { useUser } from "@clerk/clerk-expo"
+import { Redirect } from "expo-router"
+import { db } from "@/firebase"
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  deleteDoc,
+  doc,
+  Timestamp,
+} from "firebase/firestore"
+import { pickAndUploadReceipt } from "@/src/services/FirebaseStorageService"
+import { deleteReceipt } from "@/src/services/receiptService"
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"
 
-type Props = {
-  tripId: string;
-};
-
+// Types
+type Props = { tripId: string }
 type Receipt = {
-  id: string;
-  url: string;
-  path: string;
-  createdAt?: Timestamp;
-  createdBy?: string;
-  createdByName?: string;
-};
+  id: string
+  url: string
+  path: string
+  expenseId?: string
+  expenseName?: string
+  createdAt?: Timestamp
+  createdByName?: string
+  paidByName: string
+}
+type Expense = { id: string; activityName: string, paidByName?: string }
 
-const ReceiptSection: React.FC<Props> = ({ tripId }) => {
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [loading, setLoading] = useState(false);
+export default function ReceiptSection({ tripId }: Props) {
 
   const { isLoaded, isSignedIn, user } = useUser()
   if (!isLoaded) return null
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />
-  const currentUserId = user.id
   const currentUserName =
     user.fullName ??
     user.username ??
     user.primaryEmailAddress?.emailAddress ??
-    `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+    `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
 
+  // State
+  const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [expenses, setExpenses] = useState<Expense[]>([])
+  const [loading, setLoading] = useState(false)
+
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false)
+  const [selectedExpense, setSelectedExpense] = useState<string | null>(null)
+  const [pickedImageUri, setPickedImageUri] = useState<string | null>(null)
+
+  // Fetch receipts & expenses
   const fetchReceipts = async () => {
-    const q = query(collection(db, "receipts"), where("tripId", "==", tripId));
-    const snapshot = await getDocs(q);
-    const list: Receipt[] = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        url: data.url,
-        path: data.path,
-        createdAt: data.createdAt,
-        createdBy: data.createdBy,
-        createdByName: data.createdByName,
-      };
-    });
-    setReceipts(list);
-  };
+    const q = query(collection(db, "receipts"), where("tripId", "==", tripId))
+    const snap = await getDocs(q)
+    setReceipts(
+      snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) } as Receipt))
+    )
+  }
+
+  const fetchExpenses = async () => {
+    const q = query(
+      collection(db, "trips", tripId, "expenses")
+    )
+    const snap = await getDocs(q)
+    setExpenses(
+      snap.docs.map((d) => ({
+        id: d.id,
+        activityName: (d.data() as any).activityName as string,
+        paidByName: (d.data() as any).paidBy as string,
+      }))
+    )
+  }
 
   useEffect(() => {
-    fetchReceipts();
-  }, []);
+    fetchReceipts()
+    fetchExpenses()
+  }, [])
 
-  const handleUpload = async () => {
-    setLoading(true);
-    const result = await pickAndUploadReceipt(tripId);
-    if (result && result.url && result.path) {
-      const newDoc = await addDoc(collection(db, "receipts"), {
-        tripId,
-        url: result.url,
-        path: result.path,
-        createdAt: new Date(),
-        createdBy: currentUserId,
-        createdByName: currentUserName
-      });
-      setReceipts((prev) => [
-        { id: newDoc.id, url: result.url, path: result.path },
-        ...prev,
-      ]);
-    }
+  // Filter out expenses that already have a receipt
+  const availableExpenses = expenses.filter(
+    (e) => !receipts.some((r) => r.expenseId === e.id)
+  )
 
-    setLoading(false);
-  };
-
-  const handleDelete = async (receipt: Receipt) => {
-    setLoading(true);
-    const confirmed = await deleteReceipt(receipt.path);
-    if (confirmed) {
-      await deleteDoc(doc(db, "receipts", receipt.id));
-      setReceipts((prev) => prev.filter((r) => r.id !== receipt.id));
-      Alert.alert("Deleted", "Receipt and image removed.");
-    }
-    setLoading(false);
-  };
-
-  const handleCameraUpload = async () => {
-  // Request permission first
-  const { status } = await ImagePicker.requestCameraPermissionsAsync();
-  if (status !== "granted") {
-    Alert.alert("Permission Denied", "Camera permission is required to take a photo.");
-    return;
+  // Image pickers
+  const pickFromLibrary = async () => {
+    const { assets, canceled } = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+    })
+    if (!canceled) setPickedImageUri(assets[0].uri)
   }
 
-  // Launch camera
-  const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images, // old enum still valid
-    quality: 0.7,
-  });
+  const pickFromCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync()
+    if (status !== "granted") {
+      Alert.alert("Permission required", "Camera access is needed.")
+      return
+    }
+    const { assets, canceled } = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+    })
+    if (!canceled) setPickedImageUri(assets[0].uri)
+  }
 
-  if (!result.canceled) {
-    const image = result.assets[0];
-    const response = await fetch(image.uri);
-    const blob = await response.blob();
-
-    const { getStorage, ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
-    const uuid = (await import("react-native-uuid")).default;
-
-    const storage = getStorage();
-    const fileId = `${uuid.v4()}.jpg`;
-    const path = `receipts/${tripId}/${fileId}`;
-    const storageRef = ref(storage, path);
-
+  // Save new receipt
+  const saveReceipt = async () => {
+    if (!pickedImageUri || !selectedExpense) {
+      Alert.alert("Missing data", "Please pick an image and expense.")
+      return
+    }
+    setLoading(true)
     try {
-      await uploadBytes(storageRef, blob);
-      const url = await getDownloadURL(storageRef);
+      const expense = expenses.find((e) => e.id === selectedExpense)
+      const expenseName = expense?.activityName ?? "Unknown"
+      const paidByName = expense?.paidByName ?? "Unknown"
+      // Fetch blob
+      const resp = await fetch(pickedImageUri)
+      const blob = await resp.blob()
 
-      const newDoc = await addDoc(collection(db, "receipts"), {
+      // Upload to Storage
+      const storage = getStorage()
+      const fileRef = ref(
+        storage,
+        `receipts/${tripId}/${Date.now()}_${Math.random()}.jpg`
+      )
+      await uploadBytes(fileRef, blob)
+      const url = await getDownloadURL(fileRef)
+
+      // Write Firestore doc with expenseId
+      await addDoc(collection(db, "receipts"), {
         tripId,
+        expenseName: expenseName,
+        expenseId: selectedExpense,
         url,
-        path,
-        createdAt: new Date(),
-        createdBy: currentUserId,
+        path: fileRef.fullPath,
+        createdAt: Timestamp.now(),
         createdByName: currentUserName,
-      });
+        paidByName: paidByName
+      })
 
-      setReceipts((prev) => [
-        {
-          id: newDoc.id,
-          url,
-          path,
-          createdAt: Timestamp.fromDate(new Date()),
-          createdBy: currentUserId,
-          createdByName: currentUserName,
-        },
-        ...prev,
-      ]);
+      // Refresh lists
+      await fetchReceipts()
+      setModalVisible(false)
+      setPickedImageUri(null)
+      setSelectedExpense(null)
     } catch (err) {
-      console.error("Camera upload error:", err);
+      console.error(err)
+      Alert.alert("Upload failed", (err as Error).message)
+    } finally {
+      setLoading(false)
     }
   }
 
-  setLoading(false);
-};
-
+  // Delete
+  const handleDelete = async (receipt: Receipt) => {
+    setLoading(true)
+    const ok = await deleteReceipt(receipt.path)
+    if (ok) {
+      await deleteDoc(doc(db, "receipts", receipt.id))
+      fetchReceipts()
+    }
+    setLoading(false)
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Button
         mode="contained"
-        onPress={handleUpload}
-        loading={loading}
+        onPress={() => setModalVisible(true)}
         style={styles.uploadBtn}
       >
-        Upload Receipt
+        Add Receipt
       </Button>
-      <Button
-        mode="outlined"
-        onPress={handleCameraUpload}
-        loading={loading}
-        style={[styles.uploadBtn, { marginBottom: 12 }]}
-      >
-        Take Photo
-      </Button>
-
 
       {receipts.length === 0 ? (
-        <Text style={styles.emptyText}>No receipts uploaded yet.</Text>
+        <Text style={styles.emptyText}>No receipts yet.</Text>
       ) : (
-        receipts.map((receipt) => (
-          <Card key={receipt.id} style={styles.card}>
+        receipts.map((r) => (
+          
+          <Card key={r.id} style={styles.card}>
             <Image
-              source={{ uri: receipt.url }}
+              source={{ uri: r.url }}
               style={styles.image}
               resizeMode="contain"
             />
             <Card.Content>
-              <Text style={{ fontSize: 12, color: '#666' }}>
-                Uploaded by {receipt.createdByName || "Unknown"} on{" "}
-                {receipt.createdAt?.toDate().toLocaleString() || "Unknown time"}
+              <Text>Expense: {r.expenseName}</Text>
+              <Text>Uploaded by {r.createdByName}</Text>
+              <Text>Paid by: {r.paidByName}</Text>
+              <Text>
+                {r.createdAt?.toDate().toLocaleDateString()}
               </Text>
             </Card.Content>
             <Button
-              onPress={() => handleDelete(receipt)}
+              onPress={() => handleDelete(r)}
               mode="outlined"
+              disabled={loading}
               style={styles.deleteBtn}
             >
               Delete
@@ -195,39 +225,108 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
           </Card>
         ))
       )}
+
+      {/* Modal */}
+      <Portal>
+        <Modal
+          visible={modalVisible}
+          onDismiss={() => setModalVisible(false)}
+          contentContainerStyle={styles.modal}
+        >
+          <Text variant="headlineSmall" style={{ marginBottom: 16 }}>
+            Attach Receipt
+          </Text>
+
+          {/* Picker */}
+          <TextInput
+            label="Select Expense"
+            value={selectedExpense ?? ""}
+            mode="outlined"
+            style={{ marginBottom: 12 }}
+            render={(props) => (
+              <Picker
+                selectedValue={selectedExpense}
+                onValueChange={(v) => setSelectedExpense(v)}
+                style={{ width: "100%", height: 50 }}
+              >
+                <Picker.Item label="— Choose —" value={null} />
+                {availableExpenses.map((e) => (
+                  <Picker.Item
+                    key={e.id}
+                    label={e.activityName}
+                    value={e.id}
+                  />
+                ))}
+              </Picker>
+            )}
+          />
+
+          {/* Image Preview */}
+          {pickedImageUri && (
+            <Image
+              source={{ uri: pickedImageUri }}
+              style={{ width: "100%", height: 200, marginBottom: 12 }}
+            />
+          )}
+
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Button
+              icon="image"
+              mode="outlined"
+              onPress={pickFromLibrary}
+            >
+              Library
+            </Button>
+            <Button icon="camera" mode="outlined" onPress={pickFromCamera}>
+              Camera
+            </Button>
+          </View>
+
+          <Button
+            mode="contained"
+            onPress={saveReceipt}
+            loading={loading}
+            style={{ marginTop: 16 }}
+          >
+            Save
+          </Button>
+        </Modal>
+      </Portal>
     </ScrollView>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
-  deleteBtn: {
-    marginTop: 8,
-    alignSelf: "flex-end",
-  },
   container: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 16,
     alignItems: "center",
   },
   uploadBtn: {
     marginBottom: 16,
-    alignSelf: "stretch",
-  },
-  card: {
     width: "100%",
-    marginBottom: 12,
-    padding: 10,
-  },
-  image: {
-    width: "100%",
-    height: 300,
-    borderRadius: 8,
   },
   emptyText: {
     marginTop: 20,
     fontSize: 16,
     color: "#6c757d",
   },
-});
+  card: {
+    marginBottom: 12,
+    width: "100%",
+  },
+  image: {
+    width: "100%",
+    height: 200,
+  },
+  deleteBtn: {
+    alignSelf: "flex-end",
+    margin: 8,
+  },
+  modal: {
+    backgroundColor: "white",
+    margin: 20,
+    padding: 16,
+    borderRadius: 8,
+  },
+})
 
-export default ReceiptSection;

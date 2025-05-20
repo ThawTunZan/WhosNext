@@ -37,25 +37,25 @@ export default function ProfileScreen() {
             <Text style={styles.settingText}>Edit Profile</Text>
             <Ionicons name="pencil-outline" size={20} color="black" />
           </TouchableOpacity>
+
+          <TouchableOpacity style={styles.settingItem}>
+            <Text style={styles.settingText}>App Settings</Text>
+            <Ionicons name="pencil-outline" size={20} color="black" />
+          </TouchableOpacity>
           
           <TouchableOpacity style={styles.settingItem}>
             <Text style={styles.settingText}>Privacy Settings</Text>
             <Ionicons name="lock-closed-outline" size={20} color="black" />
           </TouchableOpacity>
 
-         <TouchableOpacity style={styles.settingItem}>
-            <Text style={styles.settingText}>Notifications</Text>
-            <Ionicons name="notifications-outline" size={20} color="black" />
+          <TouchableOpacity style={styles.settingItem}>
+            <Text style={styles.settingText}>Referral/Invite Code</Text>
+            <Ionicons name="pencil-outline" size={20} color="black" />
           </TouchableOpacity>
 
          <TouchableOpacity style={styles.settingItem}>
             <Text style={styles.settingText}>Change Password</Text>
             <Ionicons name="key-outline" size={20} color="black" />
-          </TouchableOpacity>
-
-         <TouchableOpacity style={styles.settingItem}>
-            <Text style={styles.settingText}>Language</Text>
-            <Ionicons name="language-outline" size={20} color="black" />
           </TouchableOpacity>
 
          <TouchableOpacity style={styles.settingItem}  onPress={handleLogout}>
