@@ -14,6 +14,7 @@ import {
   castVote,
   addProposedActivity,
   deleteProposedActivity,
+  updateProposedActivity,
 } from '../../src/services/ActivityUtilities'
 import ProposeActivityModal from '../../src/components/ProposeActivityModal'
 import { useUser } from '@clerk/clerk-expo'
@@ -23,7 +24,8 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
     const { activities, isLoading, error } = useProposedActivities(tripId);
     const [snackbarVisible, setSnackbarVisible] = React.useState(false);
     const [snackbarMessage, setSnackbarMessage] = React.useState('');
-    const [proposeModalVisible, setProposeModalVisible] = useState(false); // <<< State for Modal Visibility
+    const [proposeModalVisible, setProposeModalVisible] = useState(false);
+    const [editingActivity, setEditingActivity] = useState<ProposedActivity | null>(null)
 
     const { isLoaded, isSignedIn, user } = useUser()
     if (!isLoaded) return null
@@ -38,6 +40,12 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
       // ------------------------------------------------------------------
 
     // --- Handlers ---
+
+    const handleEditActivity = useCallback((activity: ProposedActivity) => {
+      setEditingActivity(activity)
+      setProposeModalVisible(true)
+    }, [])
+
     const handleVote = useCallback(async (activityId: string, voteType: VoteType) => {
         if (!currentUserId) {
             console.error("Cannot vote: User ID not found.");
@@ -85,17 +93,25 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
     const handleProposeSubmit = useCallback(async (activityData: NewProposedActivityData) => {
         console.log("Submitting proposed activity:", activityData);
         try {
-             await addProposedActivity(tripId, activityData);
-             setSnackbarMessage(`Activity "${activityData.name}" proposed!`);
-             setSnackbarVisible(true);
-             // The hook listener will update the list automatically
+          if (editingActivity) {
++           //  ––––––– update existing activity –––––––
+            await updateProposedActivity(tripId, editingActivity.id, activityData)
+            setSnackbarMessage(`Activity "${activityData.name}" updated!`)
+          } else {
++           //  ––––––– add new activity –––––––
+            await addProposedActivity(tripId, activityData)
+            setSnackbarMessage(`Activity "${activityData.name}" proposed!`)
+          }
+          setSnackbarVisible(true)
+          setEditingActivity(null)
+          setProposeModalVisible(false)
         } catch (err) {
-             console.error("Failed to propose activity:", err);
-             setSnackbarMessage(`Error proposing: ${err instanceof Error ? err.message : 'Unknown error'}`);
-             setSnackbarVisible(true);
-             throw err;
-         }
-    }, [tripId]);
+          console.error("Failed to propose activity:", err);
+          setSnackbarMessage(`Error proposing: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          setSnackbarVisible(true);
+          throw err;
+        }
+    }, [tripId, editingActivity, currentUserId, currentUserName]);
 
 
   // Render function for FlatList
@@ -106,8 +122,9 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
       onVoteDown={handleVoteDown}
       onAddExpense={handleAddExpenseFromActivity}
       onDelete={handleDeleteActivityLocal}
+      onEdit={handleEditActivity}
     />
-  ), [handleVoteUp, handleVoteDown, handleAddExpenseFromActivity]); // Include handlers in dependencies
+  ), [handleVoteUp, handleVoteDown, handleAddExpenseFromActivity, handleEditActivity]); // Include handlers in dependencies
 
   const keyExtractor = useCallback((item: ProposedActivity) => item.id, []);
 
@@ -155,11 +172,20 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
        </Snackbar>
        {/* Modals for proposing or confirming would go here, outside FlatList */}
        <ProposeActivityModal
-            visible={proposeModalVisible}
-            onClose={() => setProposeModalVisible(false)}
-            onSubmit={handleProposeSubmit}
-            currentUserId={currentUserId}
-            currentUserName={currentUserName}
+          visible={proposeModalVisible}
+          onClose={() => setProposeModalVisible(false)}
+          onSubmit={handleProposeSubmit}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          initialData={
+          editingActivity? {
+            name: editingActivity.name,
+            description: editingActivity.description,
+            estCost: editingActivity.estCost,
+            currency: editingActivity.currency,
+          }
+          : undefined
+       }
         />
 
         <Snackbar

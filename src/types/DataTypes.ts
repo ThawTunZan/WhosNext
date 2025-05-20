@@ -85,6 +85,7 @@ export type ActivityCardProps = {
   onVoteDown: (id: string) => void;
   onAddExpense: (activity: ProposedActivity) => void; // Placeholder
   onDelete: (activityId: string) => void;
+  onEdit: (activity: ProposedActivity) => void;
 };
 
 export type VoteType = 'up' | 'down';
@@ -120,6 +121,7 @@ export type ProposeActivityModalProps = {
   // Pass current user's ID and Name to assign as proposer
   currentUserId: string | null;
   currentUserName: string | null;
+  initialData?: Partial<NewProposedActivityData>
 };
 
 export interface TripData {

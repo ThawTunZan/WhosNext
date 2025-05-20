@@ -20,6 +20,7 @@ const ProposeActivityModal = ({
     onSubmit,
     currentUserId,
     currentUserName,
+    initialData,
 }: ProposeActivityModalProps) => {
     const [activityName, setActivityName] = useState('');
     const [description, setDescription] = useState('');
@@ -184,7 +185,7 @@ const ProposeActivityModal = ({
                             disabled={isSubmitting}
                             icon="check"
                         >
-                            Propose
+                             {initialData ? 'Save Changes' : 'Propose Activity'}
                         </Button>
                     </Card.Actions>
                 </Card>

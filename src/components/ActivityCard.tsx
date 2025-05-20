@@ -4,7 +4,7 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Button, IconButton, Divider, Caption } from 'react-native-paper';
 import { ActivityCardProps } from '../types/DataTypes'; // Adjust path if using activities.ts
 
-const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense, onDelete }: ActivityCardProps) => {
+const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense, onDelete, onEdit }: ActivityCardProps) => {
   // Placeholder state for voting appearance (replace with actual logic later)
   // const currentUserVote = activity.currentUserVote; // Example
 
@@ -15,6 +15,7 @@ const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense,
         titleStyle={styles.cardTitle}
         subtitle={`Suggested by ${activity.suggestedByName}`}
         right={(props) => (
+          <>
           <IconButton
               {...props}
               icon="trash-can-outline"
@@ -22,6 +23,8 @@ const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense,
               size={20}
               iconColor={styles.deleteIcon.color} // Use style color
           />
+          <IconButton icon="pencil" onPress={() => onEdit(activity)} />
+            </>
       )}
       />
       <Card.Content>

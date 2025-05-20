@@ -10,6 +10,7 @@ import {
     deleteDoc, // Might need later if activities can be deleted
     query,
     orderBy,
+    updateDoc,
     // serverTimestamp // Alternative to Timestamp.now()
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -69,6 +70,29 @@ export const subscribeToProposedActivities = (
 
     return unsubscribe;
 };
+
+export const updateProposedActivity = async (
+  tripId: string,
+  activityId: string,
+  updatedData: Partial<NewProposedActivityData>
+): Promise<void> => {
+  if (!tripId || !activityId) {
+    throw new Error("Trip ID and Activity ID are required to update an activity.")
+  }
+  const docRef = doc(db, TRIPS_COLLECTION, tripId, ACTIVITIES_SUBCOLLECTION, activityId)
+  try {
+    // only overwrite the fields the user changed
+    await updateDoc(docRef, {
+      ...updatedData,
+      // you may or may not want to bump a `lastEditedAt` timestamp here
+      updatedAt: Timestamp.now(),
+    })
+    console.log(`Activity ${activityId} updated.`)
+  } catch (err) {
+    console.error(`Failed to update activity ${activityId}:`, err)
+    throw err
+  }
+}
 
 /**
  * Adds a new proposed activity to a trip.
