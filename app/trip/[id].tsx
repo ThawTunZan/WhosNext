@@ -10,7 +10,7 @@ import {
     StyleSheet,
     Alert,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import * as Progress from 'react-native-progress'; // Keep if used in BudgetSummary
 import { Button, ProgressBar, Card, Snackbar } from "react-native-paper"; // Removed Avatar if not used
 
@@ -20,13 +20,12 @@ import { addMemberToTrip, leaveTripIfEligible, removeMemberFromTrip } from "@/sr
 import {deleteTripAndRelatedData} from '@/src/services/TripUtilities'
 
 // --- Import Components ---
-import ExpensesSection from './components/ExpenseSection'; // Assuming correct relative path
-import MemberList from "./components/MemberList";
-import SettleUpSection from "./components/Settleup";
-import TripHeader from "./components/TripHeader";
-import ActivityVotingSection from "./components/ActivityVotingSection";
+import ExpensesSection from '../(sections)/ExpenseSection'; // Assuming correct relative path
+import MemberList from "@/app/trip/MemberList";
+import SettleUpSection from "@/app/(sections)/Settleup";
+import TripHeader from "../../src/components/TripHeader";
+import ActivityVotingSection from "../(sections)/ActivityVotingSection";
 import AddExpenseModal from "@/src/components/AddExpenseModal";
-import {DUMMY_USER_ID, DUMMY_USER_NAME} from '../../src/constants/auth';
 
 // --- Import Types ---
 import { Member, MembersMap, NewExpenseData, ProposedActivity, Expense, TripData } from "@/src/types/DataTypes";
@@ -38,7 +37,9 @@ import {
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
 import { calculateNextPayer } from "@/src/services/expenseService"; // Assuming it was moved here
-import ReceiptSection from "./components/ReceiptSection";
+import ReceiptSection from "../(sections)/ReceiptSection";
+import { useUser } from "@clerk/clerk-expo";
+import InviteSection from "../(sections)/InviteSection";
 
 
 // (RouteParams interface can be removed if useLocalSearchParams is typed or if id is always string)
@@ -47,11 +48,21 @@ export default function TripDetailPage() {
     const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();
     const tripId = Array.isArray(routeIdParam) ? routeIdParam[0] : routeIdParam;
 
+    const { isLoaded, isSignedIn, user } = useUser()
+    if (!isLoaded) return null
+    if (!isSignedIn) return <Redirect href="/auth/sign-in" />
+    const currentUserId = user.id
+    const currentUserName =
+      user.fullName ??
+      user.username ??
+      user.primaryEmailAddress?.emailAddress ??
+      `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+
     // --- Use Custom Hook for Data Fetching ---
-    const { trip, expenses, loading, error: dataError } = useTripData(tripId);
+    const { trip, loading, error: dataError } = useTripData(tripId);
     // -----------------------------------------
 
-    const [selectedTab, setSelectedTab] = useState<'overview' | 'expenses' | 'settle' | 'activities' | 'add' | 'receipts'>('overview');
+    const [selectedTab, setSelectedTab] = useState<'overview' | 'expenses' | 'settle' | 'activities' | 'add' | 'receipts' | 'invite'>('overview');
     const [addExpenseModalVisible, setAddExpenseModalVisible] = useState(false);
     const [initialExpenseData, setInitialExpenseData] = useState<Partial<NewExpenseData> | null>(null);
     const [activityToDeleteId, setActivityToDeleteId] = useState<string | null>(null);
@@ -206,9 +217,9 @@ export default function TripDetailPage() {
 
     const handleLeaveTrip = useCallback(async () => {
         try {
-          if (!trip || !tripId || !trip.members[DUMMY_USER_ID]) return;
+          if (!trip || !tripId || !trip.members[currentUserId]) return;
         
-          await leaveTripIfEligible(tripId, DUMMY_USER_ID, trip.members[DUMMY_USER_ID]);
+          await leaveTripIfEligible(tripId, currentUserId, trip.members[currentUserId]);
         
           setSnackbarMessage("You left the trip.");
           setHasLeftTrip(true);
@@ -221,6 +232,7 @@ export default function TripDetailPage() {
           setSnackbarVisible(true);
         }
     }, [trip, tripId]);
+
 
 
     if (loading) {
@@ -247,6 +259,7 @@ export default function TripDetailPage() {
                     <Button style={[styles.tabButton, selectedTab === 'activities' && styles.tabButtonSelected]} onPress={() => setSelectedTab('activities')}>Activities</Button>
                     <Button style={[styles.tabButton, selectedTab === 'add' && styles.tabButtonSelected]} onPress={() => setSelectedTab('add')}>+</Button>
                     <Button style={[styles.tabButton, selectedTab === 'receipts' && styles.tabButtonSelected]} onPress={() => setSelectedTab('receipts')}>Receipts</Button>
+                    <Button style={[styles.tabButton, selectedTab === 'invite' && styles.tabButtonSelected]} onPress={() => setSelectedTab('invite')}>Invite</Button>
                 </ScrollView>
             </View>
 
@@ -275,10 +288,10 @@ export default function TripDetailPage() {
                              <Text style={styles.budgetText}>Total Left: ${(trip.totalAmtLeft ?? 0).toFixed(2)}</Text>
                            </Card.Content>
                          </Card>
-                        {trip.members?.[DUMMY_USER_ID] && (<Card style={styles.card}>
+                        {trip.members?.[currentUserId] && (<Card style={styles.card}>
                             <Card.Title title="🎯 Personal Budget" />
                             <Card.Content>
-                                <Text>${trip.members[DUMMY_USER_ID].amtLeft}</Text>
+                                <Text>${trip.members[currentUserId].amtLeft}</Text>
                             </Card.Content>
                         </Card>)}
                         {nextPayer?.id && (
@@ -292,7 +305,7 @@ export default function TripDetailPage() {
                             </Card>
                         )}
                         <View style={{ height: 30 }} />
-                        {trip.userId === DUMMY_USER_ID && ( <Button
+                        {trip.userId === currentUserId && ( <Button
                           mode="contained"
                           onPress={async () => {
                             setIsDeletingTrip(true);
@@ -354,6 +367,7 @@ export default function TripDetailPage() {
                 )}
                 {selectedTab === 'add' && (<View style={styles.placeholder}><Text>Placeholder for '+' Tab Content</Text></View>)}
                 {selectedTab === 'receipts' && (<ReceiptSection tripId={tripId}/>)}
+                {selectedTab === 'invite' && (<InviteSection tripId={tripId}/>)}
             </View>
 
             {typeof tripId == 'string' && trip?.members && ( // Render modal only if members data is available

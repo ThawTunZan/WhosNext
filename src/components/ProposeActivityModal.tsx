@@ -1,11 +1,10 @@
 // src/components/ProposeActivityModal.tsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, View, StyleSheet, ScrollView } from 'react-native';
 import {
     Button,
     Card,
-    Text,
     TextInput,
     HelperText,
     Caption,

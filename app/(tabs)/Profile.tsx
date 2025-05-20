@@ -3,16 +3,23 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; // For icons
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useClerk } from '@clerk/clerk-expo';
+
 
 
 export default function ProfileScreen() {
-    const router = useRouter();
+    
+  const router = useRouter();
+  const { signOut } = useClerk();
 
-    const handleLogout = async () => {
-        await AsyncStorage.setItem('isAuthenticated', 'false'); // or use removeItem()
-        router.replace('/auth/login');
-    };
+  const handleLogout = async () => {
+    try {
+      await signOut();               // Clerk sign out
+      router.replace('/auth/sign-in'); // Redirect to login
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
     return (
       <ScrollView style={styles.container}>

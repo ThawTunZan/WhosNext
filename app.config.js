@@ -19,4 +19,9 @@ export default {
       UPLOAD_PRESET: process.env.EXPO_PUBLIC_CLOUDINARY_PRESETS
     },
   },
+  plugins: [
+    "expo-router"
+  ],
+  userInterfaceStyle: "automatic",
+  scheme: "whosnext", 
 };

@@ -4,7 +4,6 @@ import {
     doc,
     addDoc,
     onSnapshot,
-    writeBatch,
     Timestamp,
     runTransaction,
     increment,
@@ -17,7 +16,6 @@ import { db } from '../../firebase';
 import {
     ProposedActivity,
     NewProposedActivityData,
-    MembersMap, // Assuming MembersMap is defined elsewhere (e.g., types/expenses.ts)
     VoteType
 } from '../types/DataTypes'; // Adjust path
 
@@ -57,7 +55,7 @@ export const subscribeToProposedActivities = (
                 estCost: raw.estCost,
                 currency: raw.currency,
                 createdAt: raw.createdAt, 
-                votes: raw.votes || {}, // vote map
+                votes: raw.votes || {},
                 votesUp: raw.votesUp || 0,
                 votesDown: raw.votesDown || 0,
             } as ProposedActivity; 

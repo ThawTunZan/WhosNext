@@ -3,11 +3,11 @@ import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { Button, Text, Snackbar, Chip } from 'react-native-paper';
 
-import { useExpenses } from '../../../src/hooks/useExpenses';
-import { addExpenseAndCalculateDebts, deleteExpense } from '../../../src/services/expenseService';
-import ExpenseItemList from '../../../src/components/ExpenseItemList';
-import AddExpenseModal from '../../../src/components/AddExpenseModal'; 
-import { ExpensesSectionProps, Expense, NewExpenseData } from '../../../src/types/DataTypes'; 
+import { useExpenses } from '../../src/hooks/useExpenses';
+import { addExpenseAndCalculateDebts, deleteExpense } from '../../src/services/expenseService';
+import ExpenseItemList from '../../src/components/ExpenseItemList';
+import AddExpenseModal from '../../src/components/AddExpenseModal'; 
+import { ExpensesSectionProps, Expense } from '../../src/types/DataTypes'; 
 
 const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, nextPayerName }: ExpensesSectionProps) => {
   const { expenses, isLoading, error: fetchError } = useExpenses(tripId);
