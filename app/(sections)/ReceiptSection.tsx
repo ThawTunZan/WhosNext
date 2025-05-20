@@ -5,8 +5,9 @@ import { pickAndUploadReceipt } from "@/src/services/FirebaseStorageService";
 import { db } from "@/firebase";
 import {collection,addDoc,getDocs,query,where,deleteDoc,doc,Timestamp} from "firebase/firestore";
 import { deleteReceipt } from "@/src/services/receiptService";
-import {DUMMY_USER_ID, DUMMY_USER_NAME} from '@/src/constants/auth';
 import * as ImagePicker from "expo-image-picker";
+import { useUser } from "@clerk/clerk-expo";
+import { Redirect } from "expo-router";
 
 type Props = {
   tripId: string;
@@ -25,6 +26,15 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const { isLoaded, isSignedIn, user } = useUser()
+  if (!isLoaded) return null
+  if (!isSignedIn) return <Redirect href="/auth/sign-in" />
+  const currentUserId = user.id
+  const currentUserName =
+    user.fullName ??
+    user.username ??
+    user.primaryEmailAddress?.emailAddress ??
+    `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
 
   const fetchReceipts = async () => {
     const q = query(collection(db, "receipts"), where("tripId", "==", tripId));
@@ -56,8 +66,8 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
         url: result.url,
         path: result.path,
         createdAt: new Date(),
-        createdBy: DUMMY_USER_ID,
-        createdByName: DUMMY_USER_NAME
+        createdBy: currentUserId,
+        createdByName: currentUserName
       });
       setReceipts((prev) => [
         { id: newDoc.id, url: result.url, path: result.path },
@@ -115,8 +125,8 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
         url,
         path,
         createdAt: new Date(),
-        createdBy: DUMMY_USER_ID,
-        createdByName: DUMMY_USER_NAME,
+        createdBy: currentUserId,
+        createdByName: currentUserName,
       });
 
       setReceipts((prev) => [
@@ -125,8 +135,8 @@ const ReceiptSection: React.FC<Props> = ({ tripId }) => {
           url,
           path,
           createdAt: Timestamp.fromDate(new Date()),
-          createdBy: DUMMY_USER_ID,
-          createdByName: DUMMY_USER_NAME,
+          createdBy: currentUserId,
+          createdByName: currentUserName,
         },
         ...prev,
       ]);

@@ -1,21 +1,35 @@
 // app/(tabs)/create.tsx - Create Trip Screen
 import { useState } from 'react';
 import {
-  View, Text, TextInput, Button,
+  View, Text, TextInput, Button, SafeAreaView,
   Keyboard, TouchableWithoutFeedback, ScrollView, KeyboardAvoidingView, Platform,StyleSheet
 } from 'react-native';
 import { db } from '../../firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
-import { useRouter } from 'expo-router';
-import {DUMMY_USER_ID, DUMMY_USER_NAME} from '../../src/constants/auth';
+import { Redirect, useRouter } from 'expo-router';
+import { useUser } from '@clerk/clerk-expo';
 
 export default function CreateTripScreen() {
   const [destination, setDestination] = useState('');
   const [totalBudget, setTotalBudget] = useState(0);
   const router = useRouter();
+  const { isLoaded, isSignedIn, user } = useUser()
 
-  const userId = DUMMY_USER_ID;
-  const userName = DUMMY_USER_NAME;
+  if (!isLoaded) {
+    return null
+  }
+
+  if (!isSignedIn) {
+    return <Redirect href="/auth/sign-in" />
+  }
+
+  const userId = user.id
+  const userName =
+    user.username ??
+    user.fullName ??
+    user.primaryEmailAddress?.emailAddress ?? 
+    `${user.firstName} ${user.lastName}`.trim()
+
   const initialBudgetForCreator = totalBudget;
 
   const handleCreateTrip = async () => {
@@ -66,6 +80,7 @@ export default function CreateTripScreen() {
 
 
   return (
+    <SafeAreaView style={{ flex: 1 }}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
@@ -97,6 +112,7 @@ export default function CreateTripScreen() {
           }} />
         </ScrollView>
       </KeyboardAvoidingView>
+      </SafeAreaView>
   );
 }
 

@@ -10,7 +10,6 @@ export const useProposedActivities = (tripId: string | null) => {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // Reset state when tripId changes or becomes invalid
     setIsLoading(true);
     setError(null);
     setActivities([]);

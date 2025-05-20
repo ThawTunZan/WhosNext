@@ -1,4 +1,5 @@
 // File: app/index.tsx
+import "../global.css"
 import React from 'react';
 import { useAuth } from '@clerk/clerk-expo';
 import { Redirect } from 'expo-router';

@@ -1,25 +1,33 @@
 // src/components/AddExpenseModal.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Button, Card, Text, TextInput, RadioButton, HelperText, Caption } from 'react-native-paper';
-import { AddExpenseModalProps, SharedWith, MembersMap, NewExpenseData } from '../types/DataTypes'; // Adjust path
+import { AddExpenseModalProps, SharedWith, NewExpenseData } from '../types/DataTypes';
+import { useUser } from '@clerk/clerk-expo';
+import { Redirect } from 'expo-router';
 
 const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerName }: AddExpenseModalProps) => {
   const [expenseName, setExpenseName] = useState('');
-  const [paidAmtStr, setPaidAmtStr] = useState(''); // Store as string for input
+  const [paidAmtStr, setPaidAmtStr] = useState('');
   const [paidById, setPaidByID] = useState<string>('');
   const [sharedWithIds, setSharedWithIds] = useState<string[]>([]);
   const [splitType, setSplitType] = useState<'even' | 'custom'>('even');
-  const [customAmounts, setCustomAmounts] = useState<{ [id: string]: string }>({}); // Store custom amounts as strings keyed by member ID
+  const [customAmounts, setCustomAmounts] = useState<{ [id: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const memberEntries = React.useMemo(() => Object.entries(members), [members]);
-  const userId = "test-user-id"
-  const userName = "Test User"
-  const isEditing = !!editingExpenseId;
-  
 
+  const { isLoaded, isSignedIn, user } = useUser()
+  if (!isLoaded) return null
+  if (!isSignedIn) return <Redirect href="/auth/sign-in" />
+  const currentUserId = user.id
+  const currentUserName =
+    user.fullName ??
+    user.username ??
+    user.primaryEmailAddress?.emailAddress ??
+    `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+  
   // Reset form when modal is opened/closed or members change
   useEffect(() => {
     const isEditingMode = !!editingExpenseId;
@@ -78,7 +86,7 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
               const suggestedId = Object.keys(members).find(id => members[id].name === suggestedPayerName);
               if (suggestedId) defaultPayerId = suggestedId;
           }
-          if (!defaultPayerId && allMemberIds.length > 0) defaultPayerId = userId || allMemberIds[0]; // Fallback to current user or first member
+          if (!defaultPayerId && allMemberIds.length > 0) defaultPayerId = currentUserId || allMemberIds[0]; // Fallback to current user or first member
           setPaidByID(defaultPayerId);
 
           setSplitType('even');
@@ -95,7 +103,7 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
       setErrors({});
       setIsSubmitting(false);
   }
-  }, [visible, members, initialData, editingExpenseId, suggestedPayerName, userId]); // Reset on visibility change or if members list changes
+  }, [visible, members, initialData, editingExpenseId, suggestedPayerName, currentUserId]); // Reset on visibility change or if members list changes
 
 
   const validateForm = (): boolean => {

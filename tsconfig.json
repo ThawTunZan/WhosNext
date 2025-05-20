@@ -2,8 +2,22 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
-    }
+      "@/*": [
+        "./*"
+      ]
+    },
+    "jsx": "react-native",
+    // point the JSX import source to nativewind
+    "jsxImportSource": "nativewind",
+    // include NativeWind’s own type declarations
+    "types": [
+      "nativewind/types"
+    ]
   },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "nativewind-env.d.ts"
+  ],
   "extends": "expo/tsconfig.base"
 }

@@ -11,7 +11,7 @@ import {
     ParsedDebt,         
     DebtsMap,           
     MembersMap          
-} from '../../../src/services/SettleUpUtilities'; 
+} from '@/src/services/SettleUpUtilities'; 
 
 // Props type specific to this component
 type SettleUpProps = {

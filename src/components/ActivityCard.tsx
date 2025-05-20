@@ -1,5 +1,4 @@
 // src/components/ActivityCard.tsx
-
 import React from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Button, IconButton, Divider, Caption } from 'react-native-paper';

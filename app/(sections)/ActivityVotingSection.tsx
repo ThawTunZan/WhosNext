@@ -1,15 +1,23 @@
 // src/screens/TripDetails/components/ActivityVotingSection.tsx
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, Text, Alert } from 'react-native';
-import { Button, ActivityIndicator, Snackbar } from 'react-native-paper'; // Assuming Paper use
-import ActivityCard from '../../../src/components/ActivityCard'; // Adjust path
-import { NewProposedActivityData, ProposedActivity, ActivityVotingSectionProps, VoteType  } from '../../../src/types/DataTypes'; // Adjust path
-import { Timestamp } from 'firebase/firestore';
-import { useProposedActivities } from '../../../src/hooks/useProposedActivities'; //
-import { castVote, addProposedActivity, deleteProposedActivity } from '../../../src/services/ActivityUtilities'; //
-import ProposeActivityModal from '../../../src/components/ProposeActivityModal';
-import { addExpenseAndCalculateDebts } from '../../../src/services/expenseService';
-import {DUMMY_USER_ID, DUMMY_USER_NAME} from '../../../src/constants/auth';
+import React, { useState, useCallback } from 'react'
+import { View, StyleSheet, FlatList, Text } from 'react-native'
+import { Button, ActivityIndicator, Snackbar } from 'react-native-paper'
+import ActivityCard from '../../src/components/ActivityCard'
+import {
+  NewProposedActivityData,
+  ProposedActivity,
+  ActivityVotingSectionProps,
+  VoteType,
+} from '../../src/types/DataTypes'
+import { useProposedActivities } from '../../src/hooks/useProposedActivities'
+import {
+  castVote,
+  addProposedActivity,
+  deleteProposedActivity,
+} from '../../src/services/ActivityUtilities'
+import ProposeActivityModal from '../../src/components/ProposeActivityModal'
+import { useUser } from '@clerk/clerk-expo'
+import { Redirect } from 'expo-router'
 
 const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDeleteActivity, }: ActivityVotingSectionProps) => {
     const { activities, isLoading, error } = useProposedActivities(tripId);
@@ -17,10 +25,17 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
     const [snackbarMessage, setSnackbarMessage] = React.useState('');
     const [proposeModalVisible, setProposeModalVisible] = useState(false); // <<< State for Modal Visibility
 
-    // --- Placeholder User ID (Replace with actual auth logic later) ---
-    const currentUserId = DUMMY_USER_ID
-    const currentUserName = DUMMY_USER_NAME
-    // ------------------------------------------------------------------
+    const { isLoaded, isSignedIn, user } = useUser()
+    if (!isLoaded) return null
+    if (!isSignedIn) return <Redirect href="/auth/sign-in" />
+
+    const currentUserId = user.id
+    const currentUserName =
+      user.fullName ??
+      user.username ??
+      user.primaryEmailAddress?.emailAddress ??
+      `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+      // ------------------------------------------------------------------
 
     // --- Handlers ---
     const handleVote = useCallback(async (activityId: string, voteType: VoteType) => {

@@ -1,66 +1,119 @@
-import { useSignIn } from '@clerk/clerk-expo'
+// app/auth/sign-in.tsx
+import React, { useState } from 'react'
+import {
+  SafeAreaView,
+  KeyboardAvoidingView,
+  ScrollView,
+  View,
+  TextInput,
+  TouchableOpacity,
+  Text,
+  Platform,
+} from 'react-native'
 import { Link, useRouter } from 'expo-router'
-import { Text, TextInput, TouchableOpacity, View } from 'react-native'
-import React from 'react'
+import { useSignIn } from '@clerk/clerk-expo'
+import { Feather } from '@expo/vector-icons'
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn()
   const router = useRouter()
 
-  const [emailAddress, setEmailAddress] = React.useState('')
-  const [password, setPassword] = React.useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [hidePassword, setHidePassword] = useState(true)
 
-  // Handle the submission of the sign-in form
   const onSignInPress = async () => {
     if (!isLoaded) return
-
-    // Start the sign-in process using the email and password provided
     try {
-      const signInAttempt = await signIn.create({
-        identifier: emailAddress,
-        password,
-      })
-
-      // If sign-in process is complete, set the created session as active
-      // and redirect the user
-      if (signInAttempt.status === 'complete') {
-        await setActive({ session: signInAttempt.createdSessionId })
+      // use username as the identifier
+      const attempt = await signIn.create({ identifier: username, password })
+      if (attempt.status === 'complete') {
+        await setActive({ session: attempt.createdSessionId })
         router.replace('/')
-      } else {
-        // If the status isn't complete, check why. User might need to
-        // complete further steps.
-        console.error(JSON.stringify(signInAttempt, null, 2))
       }
     } catch (err) {
-      // See https://clerk.com/docs/custom-flows/error-handling
-      // for more info on error handling
-      console.error(JSON.stringify(err, null, 2))
+      console.error(err)
     }
   }
 
   return (
-    <View>
-      <Text>Sign in</Text>
-      <TextInput
-        autoCapitalize="none"
-        value={emailAddress}
-        placeholder="Enter email"
-        onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
-      />
-      <TextInput
-        value={password}
-        placeholder="Enter password"
-        secureTextEntry={true}
-        onChangeText={(password) => setPassword(password)}
-      />
-      <TouchableOpacity onPress={onSignInPress}>
-        <Text>Continue</Text>
-      </TouchableOpacity>
-      <View style={{ display: 'flex', flexDirection: 'row', gap: 3 }}>
-        <Link href="/auth/sign-up">
-          <Text>Sign up</Text>
-        </Link>
-      </View>
-    </View>
+    <SafeAreaView className="flex-1 bg-blue-50">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        className="flex-1"
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          className="px-6 pt-8"
+        >
+          <View className="flex-1 justify-center">
+            <Text className="text-3xl font-bold text-gray-800 mb-2 text-center">
+              Welcome Back
+            </Text>
+            <Text className="text-center text-gray-600 mb-6">
+              Sign in to continue to Who’s Next
+            </Text>
+
+            <View className="space-y-4">
+              <TextInput
+                className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900"
+                placeholder="Username"
+                autoCapitalize="none"
+                value={username}
+                onChangeText={setUsername}
+              />
+
+              <View className="relative">
+                <TextInput
+                  className="bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 pr-12"
+                  placeholder="Password"
+                  secureTextEntry={hidePassword}
+                  value={password}
+                  onChangeText={setPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setHidePassword(!hidePassword)}
+                  className="absolute right-3 top-3"
+                >
+                  <Feather
+                    name={hidePassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color="#6B7280"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <Link
+                href="/auth/forgot-password"
+                className="self-end text-sm text-blue-600 font-medium"
+              >
+                Forgot password?
+              </Link>
+            </View>
+
+            <TouchableOpacity
+              onPress={onSignInPress}
+              className="bg-blue-600 rounded-xl py-3 items-center mt-8 shadow-lg"
+            >
+              <Text className="text-white text-lg font-semibold">
+                Sign In
+              </Text>
+            </TouchableOpacity>
+
+            <View className="flex-row items-center justify-center space-x-1 mt-6">
+              <Text className="text-sm text-gray-500">
+                Don’t have an account?
+              </Text>
+              <Link
+                href="/auth/sign-up"
+                className="text-sm text-blue-600 font-medium"
+              >
+                Sign Up
+              </Link>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   )
-}   
+}

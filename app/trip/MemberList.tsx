@@ -2,7 +2,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Card, Button, TextInput } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Member, MembersMap } from '@/src/types/DataTypes'; // Adjust path if needed
+import { Member } from '@/src/types/DataTypes'; // Adjust path if needed
 
 type MemberListProps = {
   members: { [id: string]: Member };
