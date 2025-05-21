@@ -9,7 +9,6 @@ export interface UserProfile {
   updatedAt: Date
 }
 
-
 /**
  * Mirror a Clerk user object into Firestore `users/{userId}`.
  * Creates or merges the document with the latest Clerk fields.

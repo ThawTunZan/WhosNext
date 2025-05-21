@@ -1,71 +1,43 @@
-// app/edit-profile.tsx
-import React, { useState, useEffect } from "react"
-import { Redirect, useRouter } from "expo-router"
-import { useUser } from "@clerk/clerk-expo"
-import * as ImagePicker from "expo-image-picker"
-import { Alert } from "react-native"
-import EditProfileView from "@/src/profile page/EditProfileView"
-import {
-  fetchOrCreateUserProfile,
-  updateUserProfile,
-  UserProfile,
-} from "@/src/services/UserProfileService"
+// src/screens/ProfileSettingsScreen.tsx
+
+import React from "react";
+import { View, StyleSheet } from "react-native";
+import { Text, Title, Button } from "react-native-paper";
+import { useUser } from "@clerk/clerk-expo";
+import { Redirect, useRouter } from "expo-router";
 
 export default function ProfileSettingsScreen() {
-  const router = useRouter()
-  const { isLoaded, isSignedIn, user } = useUser()
+  const { isLoaded, isSignedIn, user } = useUser();
+  const router = useRouter();
 
-  if (!isLoaded) return null
-  if (!isSignedIn) return <Redirect href="/auth/sign-in" />
+  if (!isLoaded) return null;
+  if (!isSignedIn) return <Redirect href="/auth/sign-in" />;
 
-  const userId = user.id
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(false)
+  return (
+    <View style={styles.container}>
+      <Title>Profile</Title>
+      <Text style={styles.label}>Username</Text>
+      <Text style={styles.value}>{user.username || "—"}</Text>
 
-  // load from Firestore
-  useEffect(() => {
-    fetchOrCreateUserProfile(userId).then(setProfile).catch(console.error)
-  }, [userId])
+      <Text style={styles.label}>Email</Text>
+      <Text style={styles.value}>{user.primaryEmailAddress?.emailAddress || "—"}</Text>
 
-  // pick avatar
-  const onPickAvatar = async () => {
-    const { assets, canceled } = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-    })
-    if (!canceled && profile) {
-      setProfile({ ...profile, avatarUrl: assets[0].uri })
-    }
-  }
+      {/* If you have other settings, show them here… */}
 
-  // save
-  const onSave = async () => {
-    if (!profile) return
-    setLoading(true)
-    try {
-      await updateUserProfile(userId, {
-        username: profile.username.trim(),
-        avatarUrl: profile.avatarUrl,
-      })
-      Alert.alert("Saved!", "Your profile was updated.")
-      router.back()
-    } catch (err: any) {
-      console.error(err)
-      Alert.alert("Error", err.message || "Failed to save")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return profile ? (
-    <EditProfileView
-      username={profile.username}
-      avatarUrl={profile.avatarUrl}
-      loading={loading}
-      onChangeUsername={(u) => setProfile({ ...profile, username: u })}
-      onPickAvatar={onPickAvatar}
-      onSave={onSave}
-      onCancel={() => router.back()}
-    />
-  ) : null
+      <Button
+        mode="outlined"
+        onPress={() => router.back()}
+        style={styles.backButton}
+      >
+        Go Back
+      </Button>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: { padding: 16, flex: 1, justifyContent: "flex-start" },
+  label: { marginTop: 16, fontWeight: "bold", fontSize: 14 },
+  value: { fontSize: 16, marginTop: 4 },
+  backButton: { marginTop: 32, alignSelf: "flex-start" },
+});

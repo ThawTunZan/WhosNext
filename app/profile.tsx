@@ -25,15 +25,15 @@ export default function ProfileScreen() {
     return null
   }
 
-  // Sync profile into Firestore any time this screen comes into focus
-  useFocusEffect(
-    React.useCallback(() => {
-      upsertClerkUserToFirestore(user).catch(console.error)
-    }, [user])
-  )
-
   // Fallback avatar
   const avatarUri = "https://placekitten.com/200/200"
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user) {
+        upsertClerkUserToFirestore(user).catch(console.error);
+      }
+    }, [user])
+  );
 
   return (
     <ScrollView style={styles.container}>

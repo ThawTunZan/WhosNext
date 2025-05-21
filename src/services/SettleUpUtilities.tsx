@@ -1,9 +1,9 @@
 // src/services/SettleUpUtilities.tsx
+import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 // Define types needed for debt processing
 // These could also live in a central types file (e.g., src/types/debts.ts)
-export type MemberInfo = { name: string };
-export type MembersMap = Record<string, MemberInfo>;
+
 export type DebtsMap = Record<string, number>;
 
 export type ParsedDebt = {
@@ -22,10 +22,10 @@ export type GroupedSectionData = {
 // Helper function (internal use, might not need export)
 function groupToSections(
     grouped: Record<string, ParsedDebt[]>,
-    members: MembersMap
 ): GroupedSectionData[] {
+    const profiles = useMemberProfiles();
     return Object.entries(grouped).map(([fromId, debts]) => ({
-        title: members[fromId]?.name || `Unknown (${fromId})`, // Provide fallback name
+        title: profiles[fromId] || `Unknown (${fromId})`, // Provide fallback name
         data: debts.sort((a, b) => a.toName.localeCompare(b.toName)), // Optional: sort debts within section by name
     }));
 }
@@ -39,10 +39,10 @@ function groupToSections(
  */
 export function parseAndGroupDebts(
     debts: DebtsMap,
-    members: MembersMap
 ): GroupedSectionData[] {
     const grouped: Record<string, ParsedDebt[]> = {};
     const epsilon = 0.001; // Small value for float comparison
+    const profiles = useMemberProfiles();
 
     Object.entries(debts).forEach(([key, amount]) => {
         const numericAmount = Number(amount);
@@ -55,8 +55,8 @@ export function parseAndGroupDebts(
                  return;
             }
 
-            const fromName = members[fromId]?.name || `Unknown (${fromId})`;
-            const toName = members[toId]?.name || `Unknown (${toId})`;
+            const fromName = profiles[fromId]|| `Unknown (${fromId})`;
+            const toName = profiles[toId] || `Unknown (${toId})`;
 
             if (!grouped[fromId]) {
                  grouped[fromId] = [];
@@ -66,7 +66,7 @@ export function parseAndGroupDebts(
     });
 
     // Convert grouped data into sections
-    const sections = groupToSections(grouped, members);
+    const sections = groupToSections(grouped);
 
     // Filter 2: Remove sections that have no data after filtering zero amounts
     return sections.filter(section => section.data.length > 0);
@@ -76,16 +76,15 @@ export function parseAndGroupDebts(
 /**
  * Calculates the minimum set of transactions required to settle all debts.
  * @param debts Raw debts map.
- * @param members Members map for name lookup.
  * @returns Array of simplified transaction sections ready for SectionList.
  */
 export function calculateSimplifiedDebts(
     debts: DebtsMap,
-    members: MembersMap
 ): GroupedSectionData[] {
     const balances: Record<string, number> = {};
     const grouped: Record<string, ParsedDebt[]> = {};
     const epsilon = 0.001; // Small value for float comparison
+    const profiles = useMemberProfiles();
 
     // Calculate net balances for each member
     for (const [key, amount] of Object.entries(debts)) {
@@ -122,8 +121,8 @@ export function calculateSimplifiedDebts(
         if (transferAmount > epsilon) {
             const fromId = debtorId;
             const toId = creditorId;
-            const fromName = members[fromId]?.name || `Unknown (${fromId})`;
-            const toName = members[toId]?.name || `Unknown (${toId})`;
+            const fromName = profiles[fromId] || `Unknown (${fromId})`;
+            const toName = profiles[toId] || `Unknown (${toId})`;
 
             if (!grouped[fromId]) {
                  grouped[fromId] = [];
@@ -150,7 +149,7 @@ export function calculateSimplifiedDebts(
     }
 
     // Convert grouped transactions into sections
-    const sections = groupToSections(grouped, members);
+    const sections = groupToSections(grouped);
 
     // Filter: Remove sections that might be empty after simplification
     return sections.filter(section => section.data.length > 0);

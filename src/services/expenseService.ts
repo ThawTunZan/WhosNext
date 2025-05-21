@@ -11,29 +11,18 @@ import {
     getDoc, // Use Firestore Timestamp
 } from 'firebase/firestore';
 import { db } from '../../firebase'; // Adjust path as needed
-import { Expense, NewExpenseData, SharedWith, Member, MembersMap } from '../types/DataTypes'; // Adjust path
-import { MemberInfo } from './SettleUpUtilities';
+import { Expense, Member } from '../types/DataTypes';
+import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
   
 const TRIPS_COLLECTION = 'trips';
 const EXPENSES_SUBCOLLECTION = 'expenses';
 
-interface DetailedMember extends MemberInfo {
-  budget: number;
-  amtLeft: number;
-  owesTotal?: number;
-}
 
-type DetailedMembersMap = Record<string, DetailedMember>;
-
-interface NextPayerResult {
-    id: string | null;
-    name: string | null;
-}
 export const updateExpenseAndRecalculateDebts = async (
   tripId: string,
   expenseId: string | null,
   updatedExpenseData: Expense,
-  members: MembersMap,
+  members: Record<string, Member>,
 ): Promise<void> => {
   if (!tripId || !expenseId) {
       throw new Error("Trip ID and Expense ID are required for update.");
@@ -115,10 +104,14 @@ function formatToFirebase (updates: { [key: string]: number }) {
  * @param members - The members map containing budget and amtLeft info.
  * @returns Object with id and name of the next payer, or { id: null, name: null }.
  */
-export function calculateNextPayer(members: DetailedMembersMap | null | undefined): NextPayerResult {
+export function calculateNextPayer(members: Record<string, Member> | null | undefined): string {
+
     if (!members || Object.keys(members).length === 0) {
-        return { id: null, name: 'No members in trip' };
+        return 
+          ''
+        ;
     }
+    const profiles = useMemberProfiles();
   
     let nextPayerId: string | null = null;
     let maxAmountOwe = -9999
@@ -137,18 +130,18 @@ export function calculateNextPayer(members: DetailedMembersMap | null | undefine
     });
   
     if (nextPayerId && members[nextPayerId]) {
-        return { id: nextPayerId, name: members[nextPayerId].name };
+        return nextPayerId;
     } else if (memberEntries.length > 0) {
       // Fallback if maxOwesTotal <= 0 but members exist: pick first member overall
       const fallbackId = memberEntries[0][0];
       console.log("calculateNextPayer: No one owes money currently, suggesting first member as fallback.");
-      return { id: fallbackId, name: members[fallbackId]?.name || 'Unknown' };
+      return  fallbackId;
     }
     else {
-       return { id: null, name: 'No members found' };
+       return null;
     }
   
-    return { id: null, name: 'Calculation error' }; // Should ideally not be reached
+    return null; // Should ideally not be reached
 }
 
 // To get real-time updates on expenses
@@ -164,7 +157,7 @@ export const subscribeToExpenses = (
       return {
         id: doc.id,
         activityName: raw.activityName,
-        paidBy: raw.paidBy, // To add paidById later
+        paidById: raw.paidById, // To add paidById later
         paidAmt: raw.paidAmt,
         sharedWith: raw.sharedWith,
         // Handle potential Timestamp conversion if you store dates as Timestamps
@@ -185,13 +178,13 @@ export const subscribeToExpenses = (
 export const addExpenseAndCalculateDebts = async (
   tripId: string,
   expenseData: Expense,
-  members: MembersMap 
+  members: Record<string, Member> 
 ): Promise<void> => {
 
-  const paidByID = Object.keys(members).find(id => members[id].name === expenseData.paidBy);
+  const paidByID = expenseData.paidById
 
   if (!paidByID) {
-    throw new Error(`Could not find member ID for payer: ${expenseData.paidBy}`);
+    throw new Error(`Could not find member ID for payer: ${expenseData.paidById}`);
   }
 
   const expenseDocData = {
@@ -224,7 +217,7 @@ export const addExpenseAndCalculateDebts = async (
 // This can be complex. A simpler approach might be to "soft delete" (mark as deleted)
 // or to implement a recalculation logic triggered on deletion.
 // The example below just deletes the expense doc, but DOES NOT reverse debt changes.
-export const deleteExpense = async (tripId: string, expenseId: string, members: MembersMap): Promise<void> => {
+export const deleteExpense = async (tripId: string, expenseId: string, members: Record<string, Member>): Promise<void> => {
   const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
   try {
       await reverseExpensesAndUpdate(tripId,expenseId,members,true);
@@ -249,7 +242,7 @@ export const deleteExpense = async (tripId: string, expenseId: string, members: 
 export const reverseExpensesAndUpdate = async (
     tripId: string,
     expenseId: string,
-    members: MembersMap, // Needed for payer ID lookup if not stored on expense
+    members: Record<string, Member>, // Needed for payer ID lookup if not stored on expense
     reverse: boolean
 ): Promise<void> => {
   const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
@@ -282,15 +275,16 @@ export const reverseExpensesAndUpdate = async (
 export const generateExpenseImpactUpdate = (
   updates: { [key: string]: number },
   expenseData: Expense,
-  members: MembersMap,
+  members: Record<string, Member>,
   reverse: boolean,
   expenseId?: string,
 ): { [key: string]: any } => {
-  const { sharedWith, paidBy: paidByName } = expenseData;
+  const profiles = useMemberProfiles();
+  const { sharedWith, paidById: paidById } = expenseData;
 
-  const paidByID = Object.keys(members).find(id => members[id].name === paidByName);
+  const paidByID = Object.keys(members).find(id => id === paidByID);
   if (!paidByID) {
-    throw new Error(`Payer "${paidByName}" not found in members. Failed to reverse expense ${expenseId}.`);
+    throw new Error(`Payer "${profiles[paidByID]}" not found in members. Failed to reverse expense ${expenseId}.`);
   }
 
   const multiplier = (reverse)? 1 : -1;
