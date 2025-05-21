@@ -24,12 +24,6 @@ export default function CreateTripScreen() {
   }
 
   const userId = user.id
-  const userName =
-    user.username ??
-    user.fullName ??
-    user.primaryEmailAddress?.emailAddress ?? 
-    `${user.firstName} ${user.lastName}`.trim()
-
   const initialBudgetForCreator = totalBudget;
 
   const handleCreateTrip = async () => {
@@ -41,7 +35,6 @@ export default function CreateTripScreen() {
     // This first entry is for the test account
     const initialMembers = {
       [userId]: {
-        name: userName,
         budget: initialBudgetForCreator,
         amtLeft: initialBudgetForCreator,
         owesTotal: 0,

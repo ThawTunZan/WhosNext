@@ -1,8 +1,8 @@
 // src/hooks/useProposedActivities.ts
 
 import { useState, useEffect } from 'react';
-import { subscribeToProposedActivities } from '../services/ActivityUtilities';
-import { ProposedActivity } from '../types/DataTypes';
+import { subscribeToProposedActivities } from '@/src/services/ActivityUtilities';
+import { ProposedActivity } from '@/src/types/DataTypes';
 
 export const useProposedActivities = (tripId: string | null) => {
   const [activities, setActivities] = useState<ProposedActivity[]>([]);

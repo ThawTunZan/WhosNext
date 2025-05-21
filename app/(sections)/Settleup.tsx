@@ -9,21 +9,21 @@ import {
     calculateSimplifiedDebts,
     GroupedSectionData, 
     ParsedDebt,         
-    DebtsMap,           
-    MembersMap          
+    DebtsMap,               
 } from '@/src/services/SettleUpUtilities'; 
+import { Member } from '@/src/types/DataTypes';
 
 // Props type specific to this component
 type SettleUpProps = {
   debts: DebtsMap;
-  members: MembersMap;  
+  members: Record<string, Member>;  
 };
 
-export default function SettleUpSection({ debts, members }: SettleUpProps) {
+export default function SettleUpSection({ debts }: SettleUpProps) {
   const [isSimplified, setIsSimplified] = useState(false);
 
-  const parsedDebts = useMemo(() => parseAndGroupDebts(debts, members), [debts, members]);
-  const simplifiedDebts = useMemo(() => calculateSimplifiedDebts(debts, members), [debts, members]);
+  const parsedDebts = useMemo(() => parseAndGroupDebts(debts), [debts]);
+  const simplifiedDebts = useMemo(() => calculateSimplifiedDebts(debts), [debts]);
 
   const shownDebts: GroupedSectionData[] = isSimplified ? simplifiedDebts : parsedDebts;
 

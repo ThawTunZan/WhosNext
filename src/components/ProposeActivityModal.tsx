@@ -84,7 +84,6 @@ const ProposeActivityModal = ({
             estCost: !isNaN(cost) && cost > 0 ? cost : null,
             currency: currencyStr.trim() || null,
             suggestedByID: currentUserId,
-            suggestedByName: currentUserName,
         };
 
         try {

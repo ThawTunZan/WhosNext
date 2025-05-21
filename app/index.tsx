@@ -27,6 +27,8 @@ export default function Index() {
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />;
 
+  
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={{ flex: 1, padding: 20 }}>

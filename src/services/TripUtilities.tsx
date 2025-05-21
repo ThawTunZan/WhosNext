@@ -1,6 +1,7 @@
 // src/utils/tripUtils.ts
 import { collection, getDocs, doc, updateDoc, increment, deleteField, deleteDoc, query, where, runTransaction,
-  Timestamp, } from 'firebase/firestore';
+  Timestamp,
+  setDoc, } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Member } from '../types/DataTypes';
 
@@ -66,27 +67,41 @@ export const addMemberToTrip = async (
     budget: number
 ): Promise<void> => {
     if (!tripId || !memberId || !name.trim()) {
-        throw new Error("Trip ID, Member ID, and Name are required to add a member.");
-    }
-    const docRef = doc(db, "trips", tripId);
-    const newMemberData = {
-        name: name.trim(),
-        budget: Number(budget) || 0,
-        amtLeft: Number(budget) || 0,
-        owesTotal: 0,
-    };
+    throw new Error("Trip ID, Member ID, and Name are required to add a member.");
+  }
 
-    try {
-        await updateDoc(docRef, {
-            [`members.${memberId}`]: newMemberData,
-            totalBudget: increment(newMemberData.budget),
-            totalAmtLeft: increment(newMemberData.amtLeft)
-        });
-        console.log(`Member ${name} added to trip ${tripId}`);
-    } catch (error) {
-        console.error("Error adding member to trip:", error);
-        throw error;
-    }
+  const trimmedName = name.trim();
+  const budgetNum = Number(budget) || 0;
+
+  const tripRef = doc(db, "trips", tripId);
+  const userRef = doc(db, "users", memberId);
+
+  const newMemberData = {
+    budget: budgetNum,
+    amtLeft: budgetNum,
+    owesTotal: 0,
+  };
+
+  try {
+    // 1) Update the trip's members map and totals
+    await updateDoc(tripRef, {
+      [`members.${memberId}`]: newMemberData,
+      totalBudget: increment(newMemberData.budget),
+      totalAmtLeft: increment(newMemberData.amtLeft),
+    });
+    console.log(`Member ${trimmedName} added to trip ${tripId}`);
+
+    // 2) Ensure the users collection has this user's profile
+    await setDoc(
+      userRef,
+      { username: trimmedName },
+      { merge: true }
+    );
+    console.log(`User profile for ${memberId} upserted in users collection`);
+  } catch (error) {
+    console.error("Error adding member to trip and/or users:", error);
+    throw error;
+  }
 };
 
 /**
@@ -112,7 +127,7 @@ export const leaveTripIfEligible = async (
     const expensesSnap = await getDocs(collection(db, `trips/${tripId}/expenses`));
     const involvedInExpenses = expensesSnap.docs.some(doc => {
       const data = doc.data();
-      return data.paidBy === member.name || (data.sharedWith || []).includes(userId);
+      return data.paidById === member.id || (data.sharedWith || []).includes(userId);
     });
 
     if (involvedInExpenses) {

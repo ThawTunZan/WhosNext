@@ -8,14 +8,17 @@ import { addExpenseAndCalculateDebts, deleteExpense } from '../../src/services/e
 import ExpenseItemList from '../../src/components/ExpenseItemList';
 import AddExpenseModal from '../../src/components/AddExpenseModal'; 
 import { ExpensesSectionProps, Expense } from '../../src/types/DataTypes'; 
+import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
-const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, nextPayerName }: ExpensesSectionProps) => {
+const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, nextPayerId }: ExpensesSectionProps) => {
   const { expenses, isLoading, error: fetchError } = useExpenses(tripId);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false); // For pull-to-refresh
+
+  const profiles = useMemberProfiles();
 
   
 
@@ -39,7 +42,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
     
     // Debt calculation
     try {
-      await addExpenseAndCalculateDebts(tripId, expenseData, members);
+      await addExpenseAndCalculateDebts(tripId, expenseData, members, profiles);
       setSnackbarMessage('Expense added successfully!');
       setSnackbarVisible(true);
       // No need to manually update state, Firestore listener will do it
@@ -55,7 +58,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   const handleDeleteExpense = async (id: string) => {
     // To add confirmation dialog here
     try {
-      await deleteExpense(tripId, id, members); 
+      await deleteExpense(tripId, id, members, profiles); 
       setSnackbarMessage('Expense deleted.');
       setSnackbarVisible(true);
 
@@ -119,13 +122,13 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
     <>
       <Text style={styles.header}>🧾 Expenses</Text>
       {/* Conditionally render the Chip/Text if name exists */}
-      {nextPayerName && (
+      {nextPayerId && (
           <Chip
               icon="account-arrow-right"
               style={styles.nextPayerChip}
               textStyle={styles.nextPayerChipText}
           >
-              Next Payer: {nextPayerName}
+              Next Payer: {profiles[nextPayerId]}
           </Chip>
        )}
     </>
@@ -170,7 +173,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
         onSubmit={handleAddExpenseSubmit}
         members={members}
         tripId={tripId}
-        suggestedPayerName={nextPayerName} 
+        suggestedPayerId={nextPayerId} 
         editingExpenseId={null}      />
 
         {/* Snackbar for user feedback */}

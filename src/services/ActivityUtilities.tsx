@@ -18,7 +18,8 @@ import {
     ProposedActivity,
     NewProposedActivityData,
     VoteType
-} from '../types/DataTypes'; // Adjust path
+} from '../types/DataTypes';
+import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 const TRIPS_COLLECTION = 'trips';
 const ACTIVITIES_SUBCOLLECTION = 'proposed_activities';
@@ -107,8 +108,9 @@ export const addProposedActivity = async (
      if (!tripId) {
         throw new Error("No Trip ID provided to add activity.");
     }
+    const profiles = useMemberProfiles();
     // if the ID o the name of the person who suggested the activity is not provided
-     if (!activityData.suggestedByID || !activityData.suggestedByName) {
+     if (!activityData.suggestedByID || !profiles[activityData.suggestedByID]) {
          throw new Error("Activity proposer ID and Name are required.");
      }
 
