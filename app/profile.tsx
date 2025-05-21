@@ -17,7 +17,7 @@ import { useProfileActions } from "@/src/utilities/profileAction"
 
 export default function ProfileScreen() {
   const router = useRouter()
-  const { onEditProfile, onLogout } = useProfileActions()
+  const { onEditProfile, onLogout, onChangePassword } = useProfileActions()
   const { isLoaded, isSignedIn, user } = useUser()
   const { signOut } = useClerk()
 
@@ -67,7 +67,7 @@ export default function ProfileScreen() {
           <Ionicons name="share-outline" size={20} color="black" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.settingItem}>
+        <TouchableOpacity style={styles.settingItem} onPress={onChangePassword}>
           <Text style={styles.settingText}>Change Password</Text>
           <Ionicons name="key-outline" size={20} color="black" />
         </TouchableOpacity>

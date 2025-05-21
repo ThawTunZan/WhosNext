@@ -26,6 +26,9 @@ export function useProfileActions() {
     await signOut()
     router.replace("/auth/sign-in")
   }
+  const onChangePassword = async () => {
+    router.replace("/profile_screens/ChangePasswordScreen/")
+  }
 
   /**
    * Mirror the current Clerk user into your Firestore `users/{id}` doc.
@@ -41,5 +44,6 @@ export function useProfileActions() {
     onEditProfile,
     onLogout,
     syncProfile,
+    onChangePassword,
   }
 }
