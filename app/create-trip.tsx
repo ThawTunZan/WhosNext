@@ -1,10 +1,10 @@
-// app/(tabs)/create.tsx - Create Trip Screen
+// app/create.tsx - Create Trip Screen
 import { useState } from 'react';
 import {
   View, Text, TextInput, Button, SafeAreaView,
   Keyboard, TouchableWithoutFeedback, ScrollView, KeyboardAvoidingView, Platform,StyleSheet
 } from 'react-native';
-import { db } from '../../firebase';
+import { db } from '../firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { Redirect, useRouter } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
