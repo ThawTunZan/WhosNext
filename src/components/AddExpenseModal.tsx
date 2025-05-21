@@ -12,7 +12,6 @@ import { collection, doc } from "firebase/firestore";
 const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerId }: AddExpenseModalProps) => {
   const [expenseName, setExpenseName] = useState('');
   const [paidAmtStr, setPaidAmtStr] = useState('');
-  const [paidById, setPaidByID] = useState<string>('');
   const [sharedWithIds, setSharedWithIds] = useState<string[]>([]);
   const [splitType, setSplitType] = useState<'even' | 'custom'>('even');
   const [customAmounts, setCustomAmounts] = useState<{ [id: string]: string }>({});
@@ -26,6 +25,19 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />
   const currentUserId = user.id
   const profiles = useMemberProfiles();
+
+  const allMemberIds = Object.keys(members);
+  const initialPayerId = initialData?.paidById
+    // if parent passed an explicit payer-id suggestion, use it
+    ?? suggestedPayerId
+    // otherwise use the current user
+    ?? currentUserId
+    // if even that is missing (unlikely), pick the first member in the list
+    ?? allMemberIds[0]
+    ?? "";
+
+  // **After**: initialize state with that computed default
+  const [paidById, setPaidByID] = useState<string>(initialPayerId);
   
   // Reset form when modal is opened/closed or members change
   useEffect(() => {

@@ -42,7 +42,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
     
     // Debt calculation
     try {
-      await addExpenseAndCalculateDebts(tripId, expenseData, members);
+      await addExpenseAndCalculateDebts(tripId, expenseData, members, profiles);
       setSnackbarMessage('Expense added successfully!');
       setSnackbarVisible(true);
       // No need to manually update state, Firestore listener will do it
@@ -58,7 +58,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   const handleDeleteExpense = async (id: string) => {
     // To add confirmation dialog here
     try {
-      await deleteExpense(tripId, id, members); 
+      await deleteExpense(tripId, id, members, profiles); 
       setSnackbarMessage('Expense deleted.');
       setSnackbarVisible(true);
 

@@ -23,6 +23,7 @@ export const updateExpenseAndRecalculateDebts = async (
   expenseId: string | null,
   updatedExpenseData: Expense,
   members: Record<string, Member>,
+  profiles: Record<string, string>
 ): Promise<void> => {
   if (!tripId || !expenseId) {
       throw new Error("Trip ID and Expense ID are required for update.");
@@ -40,9 +41,9 @@ export const updateExpenseAndRecalculateDebts = async (
 
       const originalExpense = originalExpenseSnap.data() as Expense
 
-      const reversalRaw = generateExpenseImpactUpdate({}, originalExpense, members, true);
+      const reversalRaw = generateExpenseImpactUpdate({}, originalExpense, members, true, profiles);
       reversalRaw['totalAmtLeft'] = originalExpense.paidAmt
-      const applyRaw = generateExpenseImpactUpdate({}, updatedExpenseData, members, false);
+      const applyRaw = generateExpenseImpactUpdate({}, updatedExpenseData, members, false, profiles);
       applyRaw['totalAmtLeft'] = -updatedExpenseData.paidAmt
 
       // Merge them manually by summing values
@@ -104,14 +105,13 @@ function formatToFirebase (updates: { [key: string]: number }) {
  * @param members - The members map containing budget and amtLeft info.
  * @returns Object with id and name of the next payer, or { id: null, name: null }.
  */
-export function calculateNextPayer(members: Record<string, Member> | null | undefined): string {
+export function calculateNextPayer(members: Record<string, Member> | null | undefined, profiles: Record<string, string>): string {
 
     if (!members || Object.keys(members).length === 0) {
         return 
           ''
         ;
     }
-    const profiles = useMemberProfiles();
   
     let nextPayerId: string | null = null;
     let maxAmountOwe = -9999
@@ -178,7 +178,8 @@ export const subscribeToExpenses = (
 export const addExpenseAndCalculateDebts = async (
   tripId: string,
   expenseData: Expense,
-  members: Record<string, Member> 
+  members: Record<string, Member>,
+  profiles: Record<string, string>
 ): Promise<void> => {
 
   const paidByID = expenseData.paidById
@@ -197,7 +198,7 @@ export const addExpenseAndCalculateDebts = async (
   batch.set(newExpenseRef, expenseDocData);
   const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
   let updatesRaw: { [key: string]: number } = {}
-  updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false);
+  updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false, profiles);
   updatesRaw['totalAmtLeft'] = -expenseData.paidAmt
   let updates = formatToFirebase(updatesRaw)
 
@@ -217,10 +218,10 @@ export const addExpenseAndCalculateDebts = async (
 // This can be complex. A simpler approach might be to "soft delete" (mark as deleted)
 // or to implement a recalculation logic triggered on deletion.
 // The example below just deletes the expense doc, but DOES NOT reverse debt changes.
-export const deleteExpense = async (tripId: string, expenseId: string, members: Record<string, Member>): Promise<void> => {
+export const deleteExpense = async (tripId: string, expenseId: string, members: Record<string, Member>, profiles: Record<string, string>): Promise<void> => {
   const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
   try {
-      await reverseExpensesAndUpdate(tripId,expenseId,members,true);
+      await reverseExpensesAndUpdate(tripId,expenseId,members,true, profiles);
       await deleteDoc(expenseDocRef);
     
       console.log("Expense deleted successfully (debts not automatically reversed).");
@@ -243,7 +244,8 @@ export const reverseExpensesAndUpdate = async (
     tripId: string,
     expenseId: string,
     members: Record<string, Member>, // Needed for payer ID lookup if not stored on expense
-    reverse: boolean
+    reverse: boolean,
+    profiles: Record<string, string>
 ): Promise<void> => {
   const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
   const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
@@ -258,7 +260,7 @@ export const reverseExpensesAndUpdate = async (
     }
     
     let reversalUpdatesRaw: { [key: string]: number } = {}
-    reversalUpdatesRaw = generateExpenseImpactUpdate(reversalUpdatesRaw, expenseSnap.data() as Expense, members, reverse, expenseId);
+    reversalUpdatesRaw = generateExpenseImpactUpdate(reversalUpdatesRaw, expenseSnap.data() as Expense, members, reverse, profiles, expenseId);
     let reversalUpdates = formatToFirebase(reversalUpdatesRaw)
     
     batch.update(tripDocRef, reversalUpdates);
@@ -277,9 +279,10 @@ export const generateExpenseImpactUpdate = (
   expenseData: Expense,
   members: Record<string, Member>,
   reverse: boolean,
+  profiles: Record<string, string>,
   expenseId?: string,
 ): { [key: string]: any } => {
-  const profiles = useMemberProfiles();
+
   const { sharedWith, paidById: paidById } = expenseData;
 
   const paidByID = Object.keys(members).find(id => id === paidByID);

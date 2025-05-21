@@ -22,8 +22,13 @@ export function MemberProfilesProvider({
       snapshot.docs.forEach((doc) => {
         const data = doc.data();
         // only keep the ones in memberUids
-        if (memberUids.includes(doc.id) && typeof data.name === "string") {
-          map[doc.id] = data.name;
+        if (memberUids.includes(doc.id)) {
+          map[doc.id] =
+            typeof data.name === "string"
+              ? data.name
+              : typeof data.username === "string"
+              ? data.username
+              : doc.id;
         }
       });
       setProfiles(map);

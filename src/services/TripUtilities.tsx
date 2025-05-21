@@ -94,7 +94,7 @@ export const addMemberToTrip = async (
     // 2) Ensure the users collection has this user's profile
     await setDoc(
       userRef,
-      { name: trimmedName },
+      { username: trimmedName },
       { merge: true }
     );
     console.log(`User profile for ${memberId} upserted in users collection`);

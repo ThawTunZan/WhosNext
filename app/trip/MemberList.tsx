@@ -3,6 +3,7 @@ import { Card, Button, TextInput } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Member } from '@/src/types/DataTypes'; // Adjust path if needed
+import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 type MemberListProps = {
   members: { [id: string]: Member };
@@ -11,6 +12,7 @@ type MemberListProps = {
 };
 
 export default function MemberList({ members, onAddMember, onRemoveMember }: MemberListProps) {
+  const profiles = useMemberProfiles();
   const [newMember, setNewMember] = useState("");
   const [newMemberBudget, setNewMemberBudget] = useState(0);
   const [showAddCard, setShowAddCard] = useState(false);
@@ -33,7 +35,7 @@ export default function MemberList({ members, onAddMember, onRemoveMember }: Mem
 
       {(Object.entries(members) as [string, Member][]).map(([id, member]) => (
         <View key={id} style={styles.memberRow}>
-          <Text>{member.name}</Text>
+          <Text>{profiles[id]}</Text>
           <Pressable onPress={() => onRemoveMember(id)}>
             <Ionicons name="remove-circle-outline" size={20} color="red" />
           </Pressable>

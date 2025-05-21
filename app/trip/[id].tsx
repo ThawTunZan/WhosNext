@@ -11,7 +11,6 @@ import {
   Alert,
 } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import * as Progress from "react-native-progress";
 import {
   Button,
   ProgressBar,
@@ -25,10 +24,6 @@ import {
 
 import { useTripData } from "@/src/hooks/useTripData";
 import {
-  addMemberToTrip,
-  leaveTripIfEligible,
-  removeMemberFromTrip,
-  deleteTripAndRelatedData,
   updatePersonalBudget,
 } from "@/src/services/TripUtilities";
 
@@ -42,16 +37,15 @@ import ReceiptSection from "../(sections)/ReceiptSection";
 import InviteSection from "../(sections)/InviteSection";
 
 import {
-  addExpenseAndCalculateDebts,
-  updateExpenseAndRecalculateDebts,
   calculateNextPayer,
 } from "@/src/services/expenseService";
-import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
 
 import { useUser } from "@clerk/clerk-expo";
 import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 import type { Member, ProposedActivity, Expense } from "@/src/types/DataTypes";
+import { useTripHandlers } from "@/src/utilities/TripHandlers";
+
 
 export default function TripDetailPage() {
   // ─── 1) ALL HOOKS FIRST ───────────────────────────────────
@@ -72,7 +66,7 @@ export default function TripDetailPage() {
   const profiles = useMemberProfiles();
 
   const nextPayer = useMemo(
-    () => calculateNextPayer(trip?.members || null),
+    () => calculateNextPayer(trip?.members || null, profiles),
     [trip?.members]
   );
 
@@ -85,11 +79,52 @@ export default function TripDetailPage() {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
-  const [isDeletingTrip, setIsDeletingTrip] = useState(false);
   const [hasLeftTrip, setHasLeftTrip] = useState(false);
 
   const [budgetDialogVisible, setBudgetDialogVisible] = useState(false);
   const [newBudgetInput, setNewBudgetInput] = useState<string>("");
+
+    const openAddExpenseModal = useCallback(
+    (initialData: Partial<Expense> | null = null, isEditing = false) => {
+      setInitialExpenseData(initialData);
+      setEditingExpenseId(
+        isEditing && initialData && typeof initialData.id === "string"
+          ? initialData.id
+          : null
+      );
+      setAddExpenseModalVisible(true);
+    },
+    []
+  );
+
+  const closeAddExpenseModal = useCallback(() => {
+    setAddExpenseModalVisible(false);
+    setInitialExpenseData(null);
+    setActivityToDeleteId(null);
+    setEditingExpenseId(null);
+  }, []);
+
+  
+    const {
+      handleAddMember,
+      handleRemoveMember,
+      handleAddOrUpdateExpenseSubmit,
+      handleEditExpense,
+      handleDeleteActivity,
+      handleAddExpenseFromActivity,
+      handleLeaveTrip,
+      handleDeleteTrip,
+      isDeletingTrip,
+    } = useTripHandlers({
+      tripId: tripId!,
+      trip: trip!,
+      profiles,
+      activityToDeleteId,
+      openAddExpenseModal,
+      closeAddExpenseModal,
+      setSnackbarMessage,
+      setSnackbarVisible,
+    });
 
   // All useCallback handlers here:
   const openBudgetDialog = useCallback(() => {
@@ -117,147 +152,6 @@ export default function TripDetailPage() {
       setBudgetDialogVisible(false);
     }
   }, [newBudgetInput, tripId, currentUserId]);
-
-  const openAddExpenseModal = useCallback(
-    (initialData: Partial<Expense> | null = null, isEditing = false) => {
-      setInitialExpenseData(initialData);
-      setEditingExpenseId(
-        isEditing && initialData && typeof initialData.id === "string"
-          ? initialData.id
-          : null
-      );
-      setAddExpenseModalVisible(true);
-    },
-    []
-  );
-
-  const closeAddExpenseModal = useCallback(() => {
-    setAddExpenseModalVisible(false);
-    setInitialExpenseData(null);
-    setActivityToDeleteId(null);
-    setEditingExpenseId(null);
-  }, []);
-
-  const handleAddMember = useCallback(
-    async (memberId: string, name: string, budget: number) => {
-      if (!tripId) return;
-      try {
-        await addMemberToTrip(tripId, memberId, name, budget);
-        setSnackbarMessage(`${name} added to the trip!`);
-        setSnackbarVisible(true);
-      } catch (err: any) {
-        console.error(err);
-        setSnackbarMessage(`Error adding member: ${err.message}`);
-        setSnackbarVisible(true);
-      }
-    },
-    [tripId]
-  );
-
-  const handleRemoveMember = useCallback(
-    async (memberIdToRemove: string) => {
-      if (!tripId || !trip?.members?.[memberIdToRemove]) {
-        setSnackbarMessage("Cannot remove member: Data missing.");
-        setSnackbarVisible(true);
-        return;
-      }
-      const name = profiles[memberIdToRemove];
-      Alert.alert(
-        "Remove Member",
-        `Are you sure you want to remove ${name}?`,
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Remove",
-            style: "destructive",
-            onPress: async () => {
-              try {
-                await removeMemberFromTrip(tripId, memberIdToRemove, trip.members[memberIdToRemove]);
-                setSnackbarMessage(`${name} removed.`);
-                setSnackbarVisible(true);
-              } catch (err: any) {
-                console.error(err);
-                setSnackbarMessage(`Error removing member: ${err.message}`);
-                setSnackbarVisible(true);
-              }
-            },
-          },
-        ]
-      );
-    },
-    [tripId, trip, profiles]
-  );
-
-  const handleAddOrUpdateExpenseSubmit = useCallback(
-    async (expenseData: Expense, currentEditingExpenseId: string | null) => {
-      if (!tripId) throw new Error("Trip ID is missing");
-      const members = trip?.members;
-      if (!members) throw new Error("Trip members not available");
-
-      try {
-        if (currentEditingExpenseId) {
-          await updateExpenseAndRecalculateDebts(tripId, currentEditingExpenseId, expenseData, members);
-          setSnackbarMessage("Expense updated successfully!");
-        } else {
-          await addExpenseAndCalculateDebts(tripId, expenseData, members);
-          setSnackbarMessage("Expense added successfully!");
-          if (activityToDeleteId) {
-            await deleteProposedActivity(tripId, activityToDeleteId);
-          }
-        }
-        setSnackbarVisible(true);
-        closeAddExpenseModal();
-      } catch (err: any) {
-        console.error(err);
-        setSnackbarMessage(`Error saving expense: ${err.message}`);
-        setSnackbarVisible(true);
-        throw err;
-      }
-    },
-    [tripId, trip, activityToDeleteId, closeAddExpenseModal]
-  );
-
-  const handleEditExpense = useCallback(
-    (expenseToEdit: Expense) => openAddExpenseModal(expenseToEdit, true),
-    [openAddExpenseModal]
-  );
-
-  const handleDeleteActivityParent = useCallback(
-    async (activityId: string) => {
-      if (!tripId) return;
-      try {
-        await deleteProposedActivity(tripId, activityId);
-        setSnackbarMessage("Activity proposal deleted.");
-        setSnackbarVisible(true);
-      } catch (err: any) {
-        console.error(err);
-        setSnackbarMessage(`Error deleting activity: ${err.message}`);
-        setSnackbarVisible(true);
-      }
-    },
-    [tripId]
-  );
-
-  const handleAddExpenseFromActivity = useCallback(
-    (activity: ProposedActivity) =>
-      openAddExpenseModal({ activityName: activity.name, paidAmt: activity.estCost ?? 0 }, false),
-    [openAddExpenseModal]
-  );
-
-  const handleLeaveTrip = useCallback(async () => {
-    if (!tripId) return;
-    try {
-      await leaveTripIfEligible(tripId, currentUserId, trip?.members?.[currentUserId]!);
-      setHasLeftTrip(true);
-      setSnackbarMessage("You left the trip.");
-      setSnackbarVisible(true);
-      setTimeout(() => router.replace("/"), 1000);
-    } catch (err: any) {
-      console.error(err);
-      setSnackbarMessage(`Failed to leave trip: ${err.message}`);
-      setSnackbarVisible(true);
-    }
-  }, [tripId, currentUserId, trip, router]);
 
   // ─── 2) EARLY RETURNS ────────────────────────────────────
   if (!isLoaded) return null;
@@ -376,31 +270,18 @@ export default function TripDetailPage() {
 
               {/* Delete / Leave */}
               {trip.userId === currentUserId && (
-                <Button
-                  mode="contained"
-                  onPress={async () => {
-                    setIsDeletingTrip(true);
-                    try {
-                      await deleteTripAndRelatedData(tripId!);
-                      setSnackbarMessage("Trip deleted.");
-                      setSnackbarVisible(true);
-                      setTimeout(() => router.replace("/"), 1000);
-                    } catch {
-                      setSnackbarMessage("Failed to delete trip.");
-                      setSnackbarVisible(true);
-                    } finally {
-                      setIsDeletingTrip(false);
-                    }
-                  }}
-                  loading={isDeletingTrip}
-                  style={{ backgroundColor: "#dc3545", marginVertical: 8 }}
-                >
-                  Delete Trip
+                  <Button
+                    mode="contained"
+                    onPress={handleDeleteTrip}
+                    loading={isDeletingTrip}
+                    style={{ backgroundColor: "#dc3545", marginVertical: 8 }}
+                  >
+                    Delete Trip
+                  </Button>
+                )}
+                <Button mode="outlined" onPress={handleLeaveTrip}>
+                  Leave Trip
                 </Button>
-              )}
-              <Button mode="outlined" onPress={handleLeaveTrip}>
-                Leave Trip
-              </Button>
             </ScrollView>
           )}
 
@@ -410,7 +291,7 @@ export default function TripDetailPage() {
               members={trip.members}
               onAddExpensePress={() => openAddExpenseModal(null, false)}
               onEditExpense={handleEditExpense}
-              nextPayerName={nextPayer}
+              nextPayerId={nextPayer}
             />
           )}
 
@@ -421,7 +302,7 @@ export default function TripDetailPage() {
               tripId={tripId!}
               members={trip.members}
               onAddExpenseFromActivity={handleAddExpenseFromActivity}
-              onDeleteActivity={handleDeleteActivityParent}
+              onDeleteActivity={handleDeleteActivity}
             />
           )}
 
