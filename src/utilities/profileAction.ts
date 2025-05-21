@@ -18,7 +18,7 @@ export function useProfileActions() {
 
   /** Navigate to your custom Profile Settings screen */
   const onEditProfile = () => {
-    router.push("../profile page/ProfileSettingsScreen")
+    router.push("/profile_screens/ProfileSettingsScreen")
   }
 
   /** Sign out via Clerk and send the user to the sign-in page */
