@@ -20,7 +20,8 @@ export default {
     },
   },
   plugins: [
-    "expo-router"
+    "expo-router",
+    "expo-barcode-scanner"
   ],
   userInterfaceStyle: "automatic",
   scheme: "whosnext", 

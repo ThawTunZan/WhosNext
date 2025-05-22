@@ -6,6 +6,9 @@ import * as Linking from 'expo-linking'
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
 import { createInvite } from '@/src/services/InviteUtilities'
+import QRCode from 'react-native-qrcode-svg';
+import { ScrollView } from 'react-native';
+
 
 type InviteSectionProps = { tripId: string }
 
@@ -15,11 +18,15 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
   const [loading, setLoading] = useState(false)
   const [snackbarVisible, setSnackbarVisible] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState('')
+  const [showQR, setShowQR] = useState(false)
 
   // 1. Guard: wait for Clerk, redirect if not signed in
   if (!isLoaded) return null
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />
   console.log("INVITE SECTION LOADED")
+
+  const inviteUrl = `https://myapp.com/invite?tripId=${tripId}`
+
 
   const userId = user.id
   const userName =
@@ -66,7 +73,7 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
   }, [inviteId])
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       {loading ? (
         <ActivityIndicator style={{ marginVertical: 20 }} size="large" />
       ) : (
@@ -84,15 +91,20 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
           <Button
             mode="outlined"
             icon="qrcode-scan"
-            onPress={() => {
-              /* TODO: show a QR code here */
-              setSnackbarMessage('QR code feature coming soon!')
-              setSnackbarVisible(true)
-            }}
+            onPress={() => setShowQR(true)}
             style={styles.button}
           >
             Show QR Code
           </Button>
+
+          {showQR && inviteId && (
+            <View style={styles.qrWrapper}>
+              <QRCode
+                value={Linking.createURL(`invite/${inviteId}`)} // This generates your deep link
+                size={200}
+              />
+            </View>
+          )}
         </>
       )}
 
@@ -103,11 +115,18 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
       >
         {snackbarMessage}
       </Snackbar>
-    </View>
+    </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
+  qrWrapper: {
+    marginTop: 24,
+    marginBottom: 60, // prevent overlap with bottom nav
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   container: {
     flex: 1,
     padding: 20,

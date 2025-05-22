@@ -11,9 +11,10 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSignIn } from '@clerk/clerk-expo'
 import { Feather } from '@expo/vector-icons'
+
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn()
@@ -23,13 +24,15 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('')
   const [hidePassword, setHidePassword] = useState(true)
 
+  const { redirect_to } = useLocalSearchParams<{ redirect_to?: string }>();
+
   const onSignInPress = async () => {
     if (!isLoaded) return
     try {
       const attempt = await signIn.create({ identifier: username, password })
       if (attempt.status === 'complete') {
         await setActive({ session: attempt.createdSessionId })
-        router.replace('/')
+        router.replace(redirect_to ?? '/'); 
       }
     } catch (err) {
       console.error(err)
@@ -80,7 +83,7 @@ export default function SignInScreen() {
               </View>
 
               <TouchableOpacity
-                onPress={() => router.replace('/auth/forgot-password')}
+                onPress={() => router.push('/auth/forgot-password')}
               >
                 <Text style={styles.forgot}>Forgot password?</Text>
               </TouchableOpacity>
@@ -95,7 +98,7 @@ export default function SignInScreen() {
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>Don’t have an account?</Text>
-              <TouchableOpacity onPress={() => router.replace('/auth/sign-up')}>
+              <TouchableOpacity onPress={() => router.push('/auth/sign-up')}>
                 <Text style={styles.footerLink}> Sign Up</Text>
               </TouchableOpacity>
             </View>

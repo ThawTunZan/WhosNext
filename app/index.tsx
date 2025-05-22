@@ -1,12 +1,14 @@
 // File: app/index.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, FlatList, Pressable } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useRouter, Redirect } from 'expo-router';
+import { useRouter, Redirect, useFocusEffect } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
 import { db } from '../firebase'; // adjust path if needed
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { Text, Card, Title, Paragraph, IconButton } from 'react-native-paper';
+
+
 
 export default function Index() {
   // 1) All hooks at the top, always
@@ -16,7 +18,10 @@ export default function Index() {
 
   useEffect(() => {
     if (!user?.id) return;
-    const q = query(collection(db, 'trips'), where('userId', '==', user.id));
+    const q = query(
+      collection(db, 'trips'),
+      where(`members.${user.id}`, '!=', null)
+    );
     const unsub = onSnapshot(q, (snap) => {
       setTrips(snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
     });

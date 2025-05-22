@@ -1,9 +1,32 @@
 // src/utils/tripUtils.ts
 import { collection, getDocs, doc, updateDoc, increment, deleteField, deleteDoc, query, where, runTransaction,
   Timestamp,
-  setDoc, } from 'firebase/firestore';
+  setDoc,
+  getDoc, } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Member } from '../types/DataTypes';
+
+export async function addMemberToTripIfNotExists(tripId: string, userId: string) {
+  const tripRef = doc(db, "trips", tripId);
+  const tripSnap = await getDoc(tripRef);
+
+  if (!tripSnap.exists()) throw new Error("Trip does not exist");
+
+  const tripData = tripSnap.data();
+  const members = tripData.members || {};
+
+  if (!members[userId]) {
+    members[userId] = {
+      budget: 0,
+      amtLeft: 0,
+      owesTotal: 0,
+    };
+
+    await updateDoc(tripRef, {
+      [`members.${userId}`]: members[userId],
+    });
+  }
+}
 
 /**
  * Update a member's personal budget and adjust their amtLeft by the same delta.

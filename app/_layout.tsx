@@ -66,7 +66,7 @@ function AuthGateAndStack() {
   useFocusEffect(syncUser);
 
   if (!isLoaded) return null;
-  if (!isSignedIn && path !== "/auth/sign-in") {
+  if (!isSignedIn && !path.startsWith("/auth")) {
     return <Redirect href="/auth/sign-in" />;
   }
 

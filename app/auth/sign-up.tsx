@@ -11,12 +11,14 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native'
-import { useSignUp } from '@clerk/clerk-expo'
+import { useSignUp, useUser } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
 
 export default function SignUpScreen() {
   const { isLoaded, signUp, setActive } = useSignUp()
+  const { isSignedIn } = useUser()
+  console.log("isSignedIn:", isSignedIn)
   const router = useRouter()
 
   const [username, setUsername] = useState('')
@@ -43,7 +45,7 @@ export default function SignUpScreen() {
       const attempt = await signUp.attemptEmailAddressVerification({ code })
       if (attempt.status === 'complete') {
         await setActive({ session: attempt.createdSessionId })
-        router.replace('/')
+        router.push('/')
       }
     } catch (err) {
       console.error(err)
@@ -141,7 +143,7 @@ export default function SignUpScreen() {
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account?</Text>
               <TouchableOpacity
-                onPress={() => router.replace('/auth/sign-in')}
+                onPress={() => router.push('/auth/sign-in')}
               >
                 <Text style={styles.footerLink}> Sign in</Text>
               </TouchableOpacity>
