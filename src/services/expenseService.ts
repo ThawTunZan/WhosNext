@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase'; // Adjust path as needed
 import { Expense, Member } from '../types/DataTypes';
+import { NotificationService, NOTIFICATION_TYPES } from './notification';
 
 const TRIPS_COLLECTION = 'trips';
 const EXPENSES_SUBCOLLECTION = 'expenses';
@@ -179,35 +180,53 @@ export const addExpenseAndCalculateDebts = async (
   members: Record<string, Member>,
   profiles: Record<string, string>
 ): Promise<void> => {
-
-  const paidByID = expenseData.paidById
+  const paidByID = expenseData.paidById;
 
   if (!paidByID) {
     throw new Error(`Could not find member ID for payer: ${expenseData.paidById}`);
   }
 
   const expenseDocData = {
-      ...expenseData,
-      createdAt: Timestamp.now(), // Firestore Timestamp
+    ...expenseData,
+    createdAt: Timestamp.now(),
   };
 
   const batch = writeBatch(db);
   const newExpenseRef = doc(collection(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION));
   batch.set(newExpenseRef, expenseDocData);
   const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
-  let updatesRaw: { [key: string]: number } = {}
+  let updatesRaw: { [key: string]: number } = {};
   updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false, profiles);
-  updatesRaw['totalAmtLeft'] = -expenseData.paidAmt
-  let updates = formatToFirebase(updatesRaw)
+  updatesRaw['totalAmtLeft'] = -expenseData.paidAmt;
+  let updates = formatToFirebase(updatesRaw);
 
   batch.update(tripDocRef, updates);
   try {
-      await batch.commit();
-      console.log("Expense added and debts updated successfully.");
+    await batch.commit();
+    console.log("Expense added and debts updated successfully.");
+
+    // Send notifications to all members involved
+    const paidByName = profiles[paidByID] || 'Someone';
+    const amount = expenseData.paidAmt.toFixed(2);
+
+    // Notify everyone who needs to pay
+    expenseData.sharedWith.forEach(async (shared) => {
+      if (shared.payeeID !== paidByID) { // Don't notify the person who paid
+        await NotificationService.sendExpenseAlert(
+          "New Expense Added",
+          `${paidByName} paid ${amount} for ${expenseData.activityName}`,
+          {
+            type: NOTIFICATION_TYPES.EXPENSE_ALERT,
+            id: newExpenseRef.id,
+            tripId: tripId
+          }
+        );
+      }
+    });
+
   } catch (error) {
-      console.error("Error adding expense or updating debts: ", error);
-      // Rethrow or handle the error (e.g., show a message to the user)
-      throw error;
+    console.error("Error adding expense or updating debts: ", error);
+    throw error;
   }
 };
 

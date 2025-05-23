@@ -11,6 +11,7 @@ import {
     query,
     orderBy,
     updateDoc,
+    getDoc,
     // serverTimestamp // Alternative to Timestamp.now()
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -19,6 +20,7 @@ import {
     NewProposedActivityData,
     VoteType
 } from '../types/DataTypes';
+import { NotificationService, NOTIFICATION_TYPES } from './notification';
 
 const TRIPS_COLLECTION = 'trips';
 const ACTIVITIES_SUBCOLLECTION = 'proposed_activities';
@@ -124,10 +126,38 @@ export const addProposedActivity = async (
     try {
         const docRef = await addDoc(activitiesColRef, docData);
         console.log("Proposed activity added with ID: ", docRef.id);
+
+        // Get trip members to notify them
+        const tripRef = doc(db, TRIPS_COLLECTION, tripId);
+        const tripSnap = await getDoc(tripRef);
+        const tripData = tripSnap.data();
+
+        if (tripData && tripData.members) {
+            // Get proposer's name from users collection
+            const userRef = doc(db, "users", activityData.suggestedByID);
+            const userSnap = await getDoc(userRef);
+            const proposerName = userSnap.exists() ? userSnap.data().username : 'Someone';
+
+            // Notify all members except the proposer
+            Object.keys(tripData.members).forEach(async (memberId) => {
+                if (memberId !== activityData.suggestedByID) {
+                    await NotificationService.sendTripReminder(
+                        "New Activity Proposed",
+                        `${proposerName} proposed "${activityData.name}" - Vote now!`,
+                        {
+                            type: NOTIFICATION_TYPES.TRIP_REMINDER,
+                            id: docRef.id,
+                            tripId: tripId
+                        }
+                    );
+                }
+            });
+        }
+
         return docRef.id;
     } catch (error) {
         console.error("Error adding proposed activity: ", error);
-        throw error; // Re-throw for handling in UI
+        throw error;
     }
 };
 

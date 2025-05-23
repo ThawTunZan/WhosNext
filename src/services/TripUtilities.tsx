@@ -5,6 +5,7 @@ import { collection, getDocs, doc, updateDoc, increment, deleteField, deleteDoc,
   getDoc, } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Member } from '../types/DataTypes';
+import { NotificationService, NOTIFICATION_TYPES } from './notification';
 
 export async function addMemberToTripIfNotExists(tripId: string, userId: string) {
   const tripRef = doc(db, "trips", tripId);
@@ -121,6 +122,25 @@ export const addMemberToTrip = async (
       { merge: true }
     );
     console.log(`User profile for ${memberId} upserted in users collection`);
+
+    // Send notification to all existing members
+    const tripSnapshot = await getDoc(tripRef);
+    const tripData = tripSnapshot.data();
+    if (tripData && tripData.members) {
+      Object.keys(tripData.members).forEach(async (existingMemberId) => {
+        if (existingMemberId !== memberId) { // Don't notify the new member
+          await NotificationService.sendTripUpdate(
+            "New Member Joined",
+            `${trimmedName} has joined the trip!`,
+            {
+              type: NOTIFICATION_TYPES.TRIP_UPDATE,
+              tripId: tripId,
+              memberId: memberId
+            }
+          );
+        }
+      });
+    }
   } catch (error) {
     console.error("Error adding member to trip and/or users:", error);
     throw error;
@@ -181,7 +201,7 @@ export const leaveTripIfEligible = async (
 export const removeMemberFromTrip = async (
     tripId: string,
     memberIdToRemove: string,
-    memberToRemoveData: Member // Pass the member's data for budget reversal
+    memberToRemoveData: Member
 ): Promise<void> => {
     if (!tripId || !memberIdToRemove) {
         throw new Error("Trip ID and Member ID are required to remove a member.");
@@ -189,14 +209,34 @@ export const removeMemberFromTrip = async (
     const docRef = doc(db, "trips", tripId);
 
     try {
+        // Get member name before removing
+        const userRef = doc(db, "users", memberIdToRemove);
+        const userSnap = await getDoc(userRef);
+        const userName = userSnap.exists() ? userSnap.data().username : 'A member';
+
         await updateDoc(docRef, {
             totalBudget: increment(-(memberToRemoveData.budget || 0)),
             totalAmtLeft: increment(-(memberToRemoveData.amtLeft || 0)),
-            [`members.${memberIdToRemove}`]: deleteField(), // Delete the member map entry
-            // TODO: Consider what happens to expenses/debts involving this member.
-            // This might require a more complex cleanup, potentially a Cloud Function.
+            [`members.${memberIdToRemove}`]: deleteField(),
         });
         console.log(`Member ${memberIdToRemove} removed from trip ${tripId}`);
+
+        // Get remaining members and notify them
+        const tripSnap = await getDoc(docRef);
+        const tripData = tripSnap.data();
+        if (tripData && tripData.members) {
+            Object.keys(tripData.members).forEach(async (memberId) => {
+                await NotificationService.sendTripUpdate(
+                    "Member Left Trip",
+                    `${userName} has left the trip.`,
+                    {
+                        type: NOTIFICATION_TYPES.TRIP_UPDATE,
+                        tripId: tripId,
+                        memberId: memberIdToRemove
+                    }
+                );
+            });
+        }
     } catch (error) {
         console.error("Error removing member from trip:", error);
         throw error;
