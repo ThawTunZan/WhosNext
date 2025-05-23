@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NotificationService, NotificationSettings } from '@/src/services/notification/NotificationService';
+import { useTheme } from '@/src/context/ThemeContext';
 
 const NOTIFICATION_SETTINGS = [
   { key: 'tripUpdates', label: 'Trip Updates', description: 'Get notified about changes to your trips' },
@@ -55,6 +56,7 @@ const DEFAULT_TRIP_SETTINGS = [
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { isDarkMode, setDarkMode } = useTheme();
   const [notifications, setNotifications] = useState<NotificationSettings>({
     tripUpdates: true,
     expenseAlerts: true,
@@ -62,7 +64,7 @@ export default function SettingsScreen() {
     tripReminders: true,
   });
   const [appearance, setAppearance] = useState({
-    darkMode: false,
+    darkMode: isDarkMode,
     compactView: false,
   });
   const [selectedCurrency, setSelectedCurrency] = useState('USD - US Dollar');
@@ -120,17 +122,26 @@ export default function SettingsScreen() {
     }
   };
 
-  const toggleSetting = (section: 'notifications' | 'appearance', key: string) => {
+  const toggleSetting = async (section: 'notifications' | 'appearance', key: string) => {
     if (section === 'notifications') {
       setNotifications(prev => ({
         ...prev,
         [key]: !prev[key as keyof typeof notifications],
       }));
-    } else {
-      setAppearance(prev => ({
-        ...prev,
-        [key]: !prev[key as keyof typeof appearance],
-      }));
+    } else if (section === 'appearance') {
+      if (key === 'darkMode') {
+        const newValue = !appearance.darkMode;
+        setAppearance(prev => ({
+          ...prev,
+          darkMode: newValue,
+        }));
+        setDarkMode(newValue);
+      } else {
+        setAppearance(prev => ({
+          ...prev,
+          [key]: !prev[key as keyof typeof appearance],
+        }));
+      }
     }
   };
 
@@ -144,16 +155,18 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Surface style={styles.section}>
-        <Text style={styles.sectionTitle}>Notifications</Text>
+    <ScrollView style={[styles.container, isDarkMode && styles.darkContainer]}>
+      <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Notifications</Text>
         <View style={styles.settingsList}>
           {NOTIFICATION_SETTINGS.map((setting, index) => (
             <React.Fragment key={setting.key}>
               <View style={styles.settingItem}>
                 <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>{setting.label}</Text>
-                  <Text style={styles.settingDescription}>{setting.description}</Text>
+                  <Text style={[styles.settingLabel, isDarkMode && styles.darkText]}>{setting.label}</Text>
+                  <Text style={[styles.settingDescription, isDarkMode && styles.darkSubtext]}>
+                    {setting.description}
+                  </Text>
                 </View>
                 <Switch
                   value={notifications[setting.key as keyof NotificationSettings]}
@@ -166,15 +179,17 @@ export default function SettingsScreen() {
         </View>
       </Surface>
 
-      <Surface style={styles.section}>
-        <Text style={styles.sectionTitle}>Appearance</Text>
+      <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Appearance</Text>
         <View style={styles.settingsList}>
           {APPEARANCE_SETTINGS.map((setting, index) => (
             <React.Fragment key={setting.key}>
               <View style={styles.settingItem}>
                 <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>{setting.label}</Text>
-                  <Text style={styles.settingDescription}>{setting.description}</Text>
+                  <Text style={[styles.settingLabel, isDarkMode && styles.darkText]}>{setting.label}</Text>
+                  <Text style={[styles.settingDescription, isDarkMode && styles.darkSubtext]}>
+                    {setting.description}
+                  </Text>
                 </View>
                 <Switch
                   value={appearance[setting.key as keyof typeof appearance]}
@@ -187,8 +202,8 @@ export default function SettingsScreen() {
         </View>
       </Surface>
 
-      <Surface style={styles.section}>
-        <Text style={styles.sectionTitle}>Language</Text>
+      <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Language</Text>
         <List.Accordion
           title={LANGUAGE_OPTIONS.find(lang => lang.code === selectedLanguage)?.label || 'English'}
           expanded={showLanguagePicker}
@@ -210,15 +225,17 @@ export default function SettingsScreen() {
         </List.Accordion>
       </Surface>
 
-      <Surface style={styles.section}>
-        <Text style={styles.sectionTitle}>Privacy</Text>
+      <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Privacy</Text>
         <View style={styles.settingsList}>
           {PRIVACY_SETTINGS.map((setting, index) => (
             <React.Fragment key={setting.key}>
               <View style={styles.settingItem}>
                 <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>{setting.label}</Text>
-                  <Text style={styles.settingDescription}>{setting.description}</Text>
+                  <Text style={[styles.settingLabel, isDarkMode && styles.darkText]}>{setting.label}</Text>
+                  <Text style={[styles.settingDescription, isDarkMode && styles.darkSubtext]}>
+                    {setting.description}
+                  </Text>
                 </View>
                 <Switch
                   value={privacySettings[setting.key as keyof typeof privacySettings]}
@@ -236,15 +253,17 @@ export default function SettingsScreen() {
         </View>
       </Surface>
 
-      <Surface style={styles.section}>
-        <Text style={styles.sectionTitle}>Sound & Haptics</Text>
+      <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Sound & Haptics</Text>
         <View style={styles.settingsList}>
           {SOUND_SETTINGS.map((setting, index) => (
             <React.Fragment key={setting.key}>
               <View style={styles.settingItem}>
                 <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>{setting.label}</Text>
-                  <Text style={styles.settingDescription}>{setting.description}</Text>
+                  <Text style={[styles.settingLabel, isDarkMode && styles.darkText]}>{setting.label}</Text>
+                  <Text style={[styles.settingDescription, isDarkMode && styles.darkSubtext]}>
+                    {setting.description}
+                  </Text>
                 </View>
                 <Switch
                   value={soundSettings[setting.key as keyof typeof soundSettings]}
@@ -262,8 +281,8 @@ export default function SettingsScreen() {
         </View>
       </Surface>
 
-      <Surface style={styles.section}>
-        <Text style={styles.sectionTitle}>Default Trip Settings</Text>
+      <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Default Trip Settings</Text>
         <View style={styles.settingsList}>
           {DEFAULT_TRIP_SETTINGS.map((setting, index) => (
             <List.Item
@@ -277,8 +296,8 @@ export default function SettingsScreen() {
         </View>
       </Surface>
 
-      <Surface style={styles.section}>
-        <Text style={styles.sectionTitle}>Backup & Sync</Text>
+      <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Backup & Sync</Text>
         <List.Accordion
           title="Backup Options"
           expanded={showBackupOptions}
@@ -303,8 +322,8 @@ export default function SettingsScreen() {
         </List.Accordion>
       </Surface>
 
-      <Surface style={styles.section}>
-        <Text style={styles.sectionTitle}>Export Data</Text>
+      <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Export Data</Text>
         <View style={styles.settingsList}>
           <Button 
             mode="outlined" 
@@ -325,8 +344,8 @@ export default function SettingsScreen() {
         </View>
       </Surface>
 
-      <Surface style={styles.section}>
-        <Text style={styles.sectionTitle}>Currency</Text>
+      <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Currency</Text>
         <List.Accordion
           title={selectedCurrency}
           expanded={showCurrencyPicker}
@@ -347,8 +366,8 @@ export default function SettingsScreen() {
         </List.Accordion>
       </Surface>
 
-      <Surface style={styles.section}>
-        <Text style={styles.sectionTitle}>Data & Storage</Text>
+      <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Data & Storage</Text>
         <View style={styles.settingsList}>
           <Button 
             mode="outlined" 
@@ -362,7 +381,7 @@ export default function SettingsScreen() {
       </Surface>
 
       <View style={styles.versionContainer}>
-        <Text style={styles.versionText}>Version 1.0.0</Text>
+        <Text style={[styles.versionText, isDarkMode && styles.darkText]}>Version 1.0.0</Text>
       </View>
     </ScrollView>
   );
@@ -373,28 +392,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F3F4F6',
   },
+  darkContainer: {
+    backgroundColor: '#111827',
+  },
   section: {
+    marginVertical: 8,
     marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  darkSection: {
+    backgroundColor: '#1F2937',
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginHorizontal: 16,
-    marginVertical: 16,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    color: '#1F2937',
+  },
+  darkText: {
+    color: '#F9FAFB',
   },
   settingsList: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 8,
   },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   settingInfo: {
     flex: 1,
@@ -402,12 +431,15 @@ const styles = StyleSheet.create({
   },
   settingLabel: {
     fontSize: 16,
-    color: '#111827',
     marginBottom: 4,
+    color: '#1F2937',
   },
   settingDescription: {
     fontSize: 14,
     color: '#6B7280',
+  },
+  darkSubtext: {
+    color: '#9CA3AF',
   },
   currencyPicker: {
     backgroundColor: 'white',

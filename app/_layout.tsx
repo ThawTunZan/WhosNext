@@ -3,55 +3,106 @@
 import "expo-router/entry";
 import React from "react";
 import { ClerkProvider, useUser } from "@clerk/clerk-expo";
-import { Provider as PaperProvider, MD3LightTheme } from "react-native-paper";
-import { SafeAreaView, View, StyleSheet, TouchableOpacity, Text } from "react-native";
+import { Provider as PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
+import { SafeAreaView, View, StyleSheet, TouchableOpacity, Text, Platform } from "react-native";
 import { Redirect, router, Stack, useFocusEffect, usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService";
 import { useNavigationDirection } from "@/src/navigation/useNavigationDirection";
+import { ThemeProvider } from '@/src/context/ThemeContext';
+import { useTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
-// (If you have a NavButton component extract it here; otherwise inline it.)
+// NavButton component
 function NavButton({
   icon,
   label,
   onPress,
+  color,
 }: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   label: string;
   onPress: () => void;
+  color: string;
 }) {
   return (
     <TouchableOpacity style={styles.navItem} onPress={onPress}>
-      <Ionicons name={icon} size={24} color={MD3LightTheme.colors.primary} />
-      <Text style={styles.navLabel}>{label}</Text>
+      <Ionicons name={icon} size={24} color={color} />
+      <Text style={[styles.navLabel, { color }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
-const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
 
-export default function RootLayout() {
+function RootLayoutNav() {
+  const { isDarkMode } = useTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
   const path = usePathname();
-  const isAuthScreen = path.startsWith('/auth/');
+
+  // Combine react-native-paper theme with our custom theme
+  const paperTheme = isDarkMode
+    ? { ...MD3DarkTheme, colors: { ...MD3DarkTheme.colors, ...darkTheme.colors } }
+    : { ...MD3LightTheme, colors: { ...MD3LightTheme.colors, ...lightTheme.colors } };
 
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-      <PaperProvider theme={MD3LightTheme}>
-        <SafeAreaView style={{ flex: 1 }}>
-          {/* This view grows to fill above-bottom-nav */}
-          <View style={{ flex: 1 }}>
-            <AuthGateAndStack />
-          </View>
+    <PaperProvider theme={paperTheme}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Stack screenOptions={{ 
+          headerShown: false,
+          contentStyle: { 
+            paddingTop: Platform.OS === 'ios' ? 50 : 0,
+            backgroundColor: theme.colors.background 
+          }
+        }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="create-trip" />
+          <Stack.Screen name="profile" />
+          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="auth/sign-in" />
+          <Stack.Screen name="auth/sign-up" />
+          <Stack.Screen name="trip/[id]" />
+          <Stack.Screen name="profile_screens/settings" />
+          <Stack.Screen name="profile_screens/FriendsScreen" />
+        </Stack>
 
-          {!isAuthScreen && (
-            <View style={styles.bottomBar}>
-              <NavButton icon="home-outline" label="Home" onPress={() => router.push("/")} />
-              <NavButton icon="add-circle-outline" label="Create" onPress={() => router.push("/create-trip")} />
-              <NavButton icon="person-outline" label="Profile" onPress={() => router.push("/profile")} />
-            </View>
-          )}
-        </SafeAreaView>
-      </PaperProvider>
+        {/* Bottom Navigation Bar */}
+        {!path.includes('auth') && !path.includes('modal') && (
+          <SafeAreaView style={[styles.bottomBar, { 
+            backgroundColor: theme.colors.background,
+            borderTopColor: theme.colors.border
+          }]}>
+            <NavButton
+              icon="home"
+              label="Home"
+              onPress={() => router.push('/')}
+              color={path === '/' ? theme.colors.primary : theme.colors.subtext}
+            />
+            <NavButton
+              icon="add-circle"
+              label="New Trip"
+              onPress={() => router.push('/create-trip')}
+              color={path === '/create-trip' ? theme.colors.primary : theme.colors.subtext}
+            />
+            <NavButton
+              icon="person"
+              label="Profile"
+              onPress={() => router.push('/profile')}
+              color={path === '/profile' ? theme.colors.primary : theme.colors.subtext}
+            />
+          </SafeAreaView>
+        )}
+      </SafeAreaView>
+    </PaperProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+      <ThemeProvider>
+        <RootLayoutNav />
+      </ThemeProvider>
     </ClerkProvider>
   );
 }
@@ -86,13 +137,22 @@ function AuthGateAndStack() {
         animation,
       }}
     >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="create-trip" />
-      <Stack.Screen name="profile" />
+      <Stack.Screen name="index" 
+        options={{
+          headerShown: false,
+        }}/>
+      <Stack.Screen name="create-trip" 
+        options={{
+          headerShown: false,
+        }}/>
+      <Stack.Screen name="profile" 
+        options={{
+          headerShown: false,
+        }}/>
       <Stack.Screen 
         name="trip/[id]" 
         options={{
-          headerShown: true,
+          headerShown: false,
         }}
       />
       <Stack.Screen name="profile_screens" />
@@ -101,12 +161,14 @@ function AuthGateAndStack() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   bottomBar: {
-    height: 60,
+    height: Platform.OS === 'ios' ? 85 : 60,
     flexDirection: "row",
     borderTopWidth: 1,
-    borderTopColor: "#ddd",
-    backgroundColor: "#fff",
+    paddingBottom: Platform.OS === 'ios' ? 25 : 0,
   },
   navItem: {
     flex: 1,
@@ -115,7 +177,6 @@ const styles = StyleSheet.create({
   },
   navLabel: {
     fontSize: 12,
-    color: MD3LightTheme.colors.primary,
     marginTop: 2,
   },
 });

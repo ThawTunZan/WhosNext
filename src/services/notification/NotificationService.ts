@@ -136,3 +136,5 @@ export class NotificationService {
     });
   }
 } 
+
+export { NotificationSettings };
