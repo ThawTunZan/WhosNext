@@ -10,11 +10,13 @@ import {
   Platform,
   Alert,
 } from "react-native"
-import { Text, Surface, Button } from "react-native-paper"
+import { Text, Surface, Button, Avatar, IconButton } from "react-native-paper"
 import { Ionicons } from "@expo/vector-icons"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useClerk, useUser } from "@clerk/clerk-expo"
 import * as ImagePicker from 'expo-image-picker'
+import { useTheme } from '@/src/context/ThemeContext'
+import { lightTheme, darkTheme } from '@/src/theme/theme'
 
 import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService"
 import { useProfileActions } from "@/src/utilities/profileAction"
@@ -55,6 +57,8 @@ export default function ProfileScreen() {
   const { isLoaded, isSignedIn, user } = useUser()
   const { signOut } = useClerk()
   const [uploading, setUploading] = useState(false)
+  const { isDarkMode } = useTheme()
+  const theme = isDarkMode ? darkTheme : lightTheme
 
   if (!isLoaded || !isSignedIn) {
     return null
@@ -121,46 +125,39 @@ export default function ProfileScreen() {
   ]
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Surface style={styles.header} elevation={2}>
-        <View style={styles.profileHeader}>
-          <TouchableOpacity onPress={handleImagePick} disabled={uploading}>
-            <View style={styles.profilePicContainer}>
-              <Image 
-                source={{ uri: user.imageUrl || "https://placekitten.com/200/200" }} 
-                style={styles.profilePic} 
-              />
-              <View style={styles.editIconContainer}>
-                <Ionicons name="camera" size={14} color="white" />
-              </View>
-            </View>
-          </TouchableOpacity>
-          
-          <Text style={styles.name}>{user.fullName || user.username}</Text>
-          <Text style={styles.email}>{user.primaryEmailAddress?.emailAddress}</Text>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <Text style={[styles.username, { color: theme.colors.text }]}>{user?.username || 'testacc'}</Text>
+        <Text style={[styles.email, { color: theme.colors.subtext }]}>{user?.emailAddresses[0].emailAddress}</Text>
 
-          <View style={styles.statsContainer}>
-            {stats.map((stat, index) => (
-              <View key={index} style={styles.statItem}>
-                <Text style={styles.statValue}>{stat.value}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
-              </View>
-            ))}
+        <View style={styles.stats}>
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: theme.colors.text }]}>12</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.subtext }]}>Trips</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: theme.colors.text }]}>48</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.subtext }]}>Friends</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: theme.colors.text }]}>256</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.subtext }]}>Expenses</Text>
           </View>
         </View>
-      </Surface>
+      </View>
 
       <View style={styles.content}>
         {SECTIONS.map((section, index) => (
           <View key={index} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <Surface style={styles.sectionContent} elevation={1}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{section.title}</Text>
+            <Surface style={[styles.sectionContent, { backgroundColor: theme.colors.surface }]} elevation={1}>
               {section.items.map((item, itemIndex) => (
                 <TouchableOpacity
                   key={itemIndex}
                   style={[
                     styles.settingItem,
                     itemIndex === section.items.length - 1 && styles.lastItem,
+                    { borderBottomColor: theme.colors.border }
                   ]}
                   onPress={() => {
                     if (item.action) {
@@ -174,10 +171,11 @@ export default function ProfileScreen() {
                     <Ionicons 
                       name={item.icon} 
                       size={22} 
-                      color={item.danger ? '#EF4444' : '#374151'} 
+                      color={item.danger ? '#EF4444' : theme.colors.text} 
                     />
                     <Text style={[
                       styles.settingText,
+                      { color: theme.colors.text },
                       item.danger && styles.dangerText,
                     ]}>
                       {item.label}
@@ -186,7 +184,7 @@ export default function ProfileScreen() {
                   <Ionicons 
                     name="chevron-forward" 
                     size={20} 
-                    color={item.danger ? '#EF4444' : '#9CA3AF'} 
+                    color={item.danger ? '#EF4444' : theme.colors.subtext} 
                   />
                 </TouchableOpacity>
               ))}
@@ -201,103 +199,60 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
   },
   header: {
-    backgroundColor: 'white',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingBottom: 24,
-    marginBottom: 24,
-  },
-  profileHeader: {
     alignItems: 'center',
-    paddingTop: 24,
+    padding: 20,
+    paddingTop: 40,
   },
-  profilePicContainer: {
-    position: 'relative',
-    marginBottom: 16,
-  },
-  profilePic: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    borderColor: '#E5E7EB',
-  },
-  editIconContainer: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'white',
-  },
-  name: {
+  username: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
+    marginTop: 12,
   },
   email: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 24,
+    fontSize: 16,
+    marginTop: 4,
   },
-  statsContainer: {
+  stats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    paddingHorizontal: 16,
+    marginTop: 20,
   },
   statItem: {
     alignItems: 'center',
   },
-  statValue: {
+  statNumber: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#111827',
   },
   statLabel: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: 14,
     marginTop: 4,
   },
   content: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
+    padding: 16,
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 12,
     marginLeft: 4,
   },
   sectionContent: {
-    backgroundColor: 'white',
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   settingItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    justifyContent: 'space-between',
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  lastItem: {
-    borderBottomWidth: 0,
   },
   settingLeft: {
     flexDirection: 'row',
@@ -305,8 +260,10 @@ const styles = StyleSheet.create({
   },
   settingText: {
     fontSize: 16,
-    color: '#374151',
     marginLeft: 12,
+  },
+  lastItem: {
+    borderBottomWidth: 0,
   },
   dangerText: {
     color: '#EF4444',

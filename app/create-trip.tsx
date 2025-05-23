@@ -18,9 +18,11 @@ import {
 } from 'react-native-paper';
 import { Redirect, useRouter } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
-import { db } from '../firebase';
+import { db } from '@/firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { StatusBar } from 'expo-status-bar';
+import { useTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +31,8 @@ export default function CreateTripScreen() {
   const [totalBudget, setTotalBudget] = useState('');
   const router = useRouter();
   const { isLoaded, isSignedIn, user } = useUser();
+  const { isDarkMode } = useTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
 
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />;
@@ -72,14 +76,14 @@ export default function CreateTripScreen() {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: theme.colors.background }}
       >
-        <StatusBar style="dark" />
-        <SafeAreaView style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.logo}>Who's Next</Text>
+        <StatusBar style={isDarkMode ? "light" : "dark"} />
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+            <Text style={[styles.logo, { color: theme.colors.text }]}>Who's Next</Text>
             <Text 
-              style={styles.skip}
+              style={[styles.skip, { color: theme.colors.subtext }]}
               onPress={() => router.back()}
             >
               Skip
@@ -93,19 +97,25 @@ export default function CreateTripScreen() {
           >
             <View style={styles.illustrationContainer}>
               {/* Placeholder for illustration */}
-              <View style={styles.illustrationPlaceholder} />
+              <View style={[styles.illustrationPlaceholder, { backgroundColor: theme.colors.surfaceVariant }]} />
             </View>
 
-            <View style={styles.bottomCard}>
-              <Text style={styles.title}>Plan your next adventure</Text>
+            <View style={[styles.bottomCard, { backgroundColor: theme.colors.surface }]}>
+              <Text style={[styles.title, { color: theme.colors.text }]}>Plan your next adventure</Text>
               
               <TextInput
                 mode="flat"
                 placeholder="Where are you going?"
                 value={destination}
                 onChangeText={setDestination}
-                style={styles.input}
-                theme={{ colors: { primary: '#6B4EFF' }}}
+                style={[styles.input, { backgroundColor: 'transparent' }]}
+                theme={{ 
+                  colors: { 
+                    primary: theme.colors.primary,
+                    text: theme.colors.text,
+                    placeholder: theme.colors.subtext,
+                  }
+                }}
               />
 
               <TextInput
@@ -114,25 +124,31 @@ export default function CreateTripScreen() {
                 value={totalBudget}
                 onChangeText={setTotalBudget}
                 keyboardType="numeric"
-                style={styles.input}
-                left={<TextInput.Affix text="$" />}
-                theme={{ colors: { primary: '#6B4EFF' }}}
+                style={[styles.input, { backgroundColor: 'transparent' }]}
+                left={<TextInput.Affix text="$" textStyle={{ color: theme.colors.text }} />}
+                theme={{ 
+                  colors: { 
+                    primary: theme.colors.primary,
+                    text: theme.colors.text,
+                    placeholder: theme.colors.subtext,
+                  }
+                }}
               />
 
-              <Button
-                mode="contained"
+              <Button 
+                mode="contained" 
                 onPress={handleCreateTrip}
                 style={styles.button}
                 contentStyle={styles.buttonContent}
-                labelStyle={styles.buttonLabel}
+                labelStyle={[styles.buttonLabel, { color: theme.colors.text }]}
               >
                 Get Started
               </Button>
 
               <View style={styles.progressDots}>
-                <View style={[styles.dot, styles.activeDot]} />
-                <View style={styles.dot} />
-                <View style={styles.dot} />
+                <View style={[styles.dot, styles.activeDot, { backgroundColor: theme.colors.primary }]} />
+                <View style={[styles.dot, { backgroundColor: theme.colors.surfaceVariant }]} />
+                <View style={[styles.dot, { backgroundColor: theme.colors.surfaceVariant }]} />
               </View>
             </View>
           </ScrollView>
@@ -145,7 +161,6 @@ export default function CreateTripScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E8E3FF',
   },
   header: {
     flexDirection: 'row',
@@ -153,15 +168,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 20,
+    borderBottomWidth: 1,
   },
   logo: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#333',
   },
   skip: {
     fontSize: 16,
-    color: '#666',
   },
   illustrationContainer: {
     flex: 1,
@@ -172,11 +186,9 @@ const styles = StyleSheet.create({
   illustrationPlaceholder: {
     width: width * 0.6,
     height: width * 0.6,
-    backgroundColor: '#D1CAFF',
     borderRadius: width * 0.3,
   },
   bottomCard: {
-    backgroundColor: 'white',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     padding: 30,
@@ -185,18 +197,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#333',
     marginBottom: 30,
     textAlign: 'center',
   },
   input: {
-    backgroundColor: 'transparent',
     marginBottom: 20,
   },
   button: {
     marginTop: 20,
     borderRadius: 30,
-    backgroundColor: '#42404F',
   },
   buttonContent: {
     paddingVertical: 8,
@@ -215,11 +224,9 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#E0E0E0',
     marginHorizontal: 4,
   },
   activeDot: {
-    backgroundColor: '#42404F',
     width: 24,
   },
 });
