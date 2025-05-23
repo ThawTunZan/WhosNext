@@ -3,16 +3,14 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
 } from 'react-native';
 import {
   Text,
   Card,
   Button,
   Searchbar,
-  Avatar,
   List,
-  Chip,
+  Avatar,
   IconButton,
   Portal,
   Modal,
@@ -20,15 +18,15 @@ import {
   Divider,
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 type Friend = {
   id: string;
   name: string;
-  avatar?: string;
   email: string;
-  status: 'active' | 'pending' | 'blocked';
-  groups: string[];
-  lastInteraction?: string;
+  status: 'online' | 'offline';
+  avatar?: string;
 };
 
 type Group = {
@@ -40,86 +38,31 @@ type Group = {
 
 export default function FriendsScreen() {
   const router = useRouter();
+  const { isDarkMode } = useTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTab, setSelectedTab] = useState<'all' | 'groups'>('all');
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [groupModalVisible, setGroupModalVisible] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<'all' | 'groups'>('all');
 
-  // Dummy data for demonstration
-  const [friends] = useState<Friend[]>([
-    {
-      id: '1',
-      name: 'John Doe',
-      email: 'john@example.com',
-      status: 'active',
-      groups: ['Family', 'Close Friends'],
-      lastInteraction: '2 days ago',
-    },
-    {
-      id: '2',
-      name: 'Jane Smith',
-      email: 'jane@example.com',
-      status: 'active',
-      groups: ['Work', 'Close Friends'],
-      lastInteraction: '5 days ago',
-    },
-    {
-      id: '3',
-      name: 'Mike Johnson',
-      email: 'mike@example.com',
-      status: 'pending',
-      groups: [],
-    },
-    {
-      id: '4',
-      name: 'Sarah Wilson',
-      email: 'sarah@example.com',
-      status: 'blocked',
-      groups: ['Work'],
-      lastInteraction: '1 month ago',
-    },
-  ]);
+  // Dummy data
+  const friends: Friend[] = [
+    { id: '1', name: 'John Doe', email: 'john@example.com', status: 'online' },
+    { id: '2', name: 'Jane Smith', email: 'jane@example.com', status: 'offline' },
+    { id: '3', name: 'Mike Johnson', email: 'mike@example.com', status: 'online' },
+  ];
 
-  const [groups] = useState<Group[]>([
-    {
-      id: '1',
-      name: 'Family',
-      members: ['1'],
-      color: '#FF9800',
-    },
-    {
-      id: '2',
-      name: 'Work',
-      members: ['2', '4'],
-      color: '#2196F3',
-    },
-    {
-      id: '3',
-      name: 'Close Friends',
-      members: ['1', '2'],
-      color: '#4CAF50',
-    },
-  ]);
-
-  const getStatusColor = (status: Friend['status']) => {
-    switch (status) {
-      case 'active':
-        return '#4CAF50';
-      case 'pending':
-        return '#FFC107';
-      case 'blocked':
-        return '#F44336';
-      default:
-        return '#999';
-    }
-  };
+  const groups: Group[] = [
+    { id: '1', name: 'Travel Buddies', members: ['1', '2'], color: '#4CAF50' },
+    { id: '2', name: 'Weekend Squad', members: ['1', '2', '3'], color: '#2196F3' },
+  ];
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header Section */}
-      <View style={styles.header}>
-        <Text variant="headlineMedium" style={styles.title}>Friends</Text>
-        <Text variant="bodyLarge" style={styles.subtitle}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Friends & Groups</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.subtext }]}>
           Manage your friends and groups
         </Text>
       </View>
@@ -129,7 +72,10 @@ export default function FriendsScreen() {
         placeholder="Search friends..."
         onChangeText={setSearchQuery}
         value={searchQuery}
-        style={styles.searchBar}
+        style={[styles.searchBar, { backgroundColor: theme.colors.surface }]}
+        iconColor={theme.colors.text}
+        inputStyle={{ color: theme.colors.text }}
+        placeholderTextColor={theme.colors.subtext}
       />
 
       {/* Tab Buttons */}
@@ -152,64 +98,62 @@ export default function FriendsScreen() {
 
       {selectedTab === 'all' ? (
         // Friends List
-        <Card style={styles.section}>
+        <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
             {friends.map((friend) => (
-              <List.Item
-                key={friend.id}
-                title={friend.name}
-                description={friend.email}
-                left={props => (
-                  <Avatar.Text
-                    {...props}
-                    size={40}
-                    label={friend.name.split(' ').map(n => n[0]).join('')}
-                  />
-                )}
-                right={props => (
-                  <View style={styles.friendActions}>
-                    <View style={[
-                      styles.statusDot,
-                      { backgroundColor: getStatusColor(friend.status) }
-                    ]} />
-                    <IconButton
+              <React.Fragment key={friend.id}>
+                <List.Item
+                  title={friend.name}
+                  description={friend.email}
+                  left={props => (
+                    <Avatar.Text
                       {...props}
-                      icon="dots-vertical"
-                      onPress={() => {}}
+                      size={40}
+                      label={friend.name.charAt(0)}
                     />
-                  </View>
-                )}
-                style={styles.friendItem}
-              />
+                  )}
+                  right={props => (
+                    <View style={styles.friendActions}>
+                      <View style={[
+                        styles.statusDot,
+                        { backgroundColor: friend.status === 'online' ? theme.colors.success : theme.colors.subtext }
+                      ]} />
+                      <IconButton {...props} icon="dots-vertical" onPress={() => {}} />
+                    </View>
+                  )}
+                  titleStyle={{ color: theme.colors.text }}
+                  descriptionStyle={{ color: theme.colors.subtext }}
+                />
+                <Divider />
+              </React.Fragment>
             ))}
           </Card.Content>
         </Card>
       ) : (
         // Groups List
-        <Card style={styles.section}>
+        <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
             {groups.map((group) => (
-              <List.Item
-                key={group.id}
-                title={group.name}
-                description={`${group.members.length} members`}
-                left={props => (
-                  <Avatar.Text
-                    {...props}
-                    size={40}
-                    label={group.name[0]}
-                    style={{ backgroundColor: group.color }}
-                  />
-                )}
-                right={props => (
-                  <IconButton
-                    {...props}
-                    icon="dots-vertical"
-                    onPress={() => {}}
-                  />
-                )}
-                style={styles.groupItem}
-              />
+              <React.Fragment key={group.id}>
+                <List.Item
+                  title={group.name}
+                  description={`${group.members.length} members`}
+                  left={props => (
+                    <Avatar.Text
+                      {...props}
+                      size={40}
+                      label={group.name[0]}
+                      style={{ backgroundColor: group.color }}
+                    />
+                  )}
+                  right={props => (
+                    <IconButton {...props} icon="dots-vertical" onPress={() => {}} />
+                  )}
+                  titleStyle={{ color: theme.colors.text }}
+                  descriptionStyle={{ color: theme.colors.subtext }}
+                />
+                <Divider />
+              </React.Fragment>
             ))}
           </Card.Content>
         </Card>
@@ -240,15 +184,14 @@ export default function FriendsScreen() {
         <Modal
           visible={addModalVisible}
           onDismiss={() => setAddModalVisible(false)}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}
         >
-          <Text variant="headlineSmall" style={styles.modalTitle}>
-            Add Friend
-          </Text>
+          <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Add Friend</Text>
           <TextInput
             label="Email or Username"
             mode="outlined"
             style={styles.input}
+            theme={{ colors: { primary: theme.colors.primary } }}
           />
           <View style={styles.modalActions}>
             <Button
@@ -274,43 +217,15 @@ export default function FriendsScreen() {
         <Modal
           visible={groupModalVisible}
           onDismiss={() => setGroupModalVisible(false)}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}
         >
-          <Text variant="headlineSmall" style={styles.modalTitle}>
-            Create Group
-          </Text>
+          <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Create Group</Text>
           <TextInput
             label="Group Name"
             mode="outlined"
             style={styles.input}
+            theme={{ colors: { primary: theme.colors.primary } }}
           />
-          <Text variant="bodyMedium" style={styles.label}>
-            Select Members
-          </Text>
-          <ScrollView style={styles.membersList}>
-            {friends
-              .filter(f => f.status === 'active')
-              .map(friend => (
-                <List.Item
-                  key={friend.id}
-                  title={friend.name}
-                  left={props => (
-                    <Avatar.Text
-                      {...props}
-                      size={40}
-                      label={friend.name.split(' ').map(n => n[0]).join('')}
-                    />
-                  )}
-                  right={props => (
-                    <IconButton
-                      {...props}
-                      icon="checkbox-blank-outline"
-                      onPress={() => {}}
-                    />
-                  )}
-                />
-              ))}
-          </ScrollView>
           <View style={styles.modalActions}>
             <Button
               mode="outlined"
@@ -336,18 +251,17 @@ export default function FriendsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   header: {
     padding: 20,
-    backgroundColor: '#fff',
   },
   title: {
+    fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 8,
   },
   subtitle: {
-    color: '#666',
+    fontSize: 16,
   },
   searchBar: {
     margin: 16,
@@ -365,12 +279,6 @@ const styles = StyleSheet.create({
   section: {
     margin: 16,
     elevation: 2,
-  },
-  friendItem: {
-    paddingVertical: 8,
-  },
-  groupItem: {
-    paddingVertical: 8,
   },
   friendActions: {
     flexDirection: 'row',
@@ -391,24 +299,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalContent: {
-    backgroundColor: 'white',
     margin: 20,
     padding: 20,
     borderRadius: 8,
-    maxHeight: '80%',
   },
   modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
   },
   input: {
-    marginBottom: 16,
-  },
-  label: {
-    marginBottom: 8,
-  },
-  membersList: {
-    maxHeight: 200,
     marginBottom: 16,
   },
   modalActions: {

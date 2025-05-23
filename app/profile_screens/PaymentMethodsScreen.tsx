@@ -20,6 +20,8 @@ import {
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 type PaymentMethod = {
   id: string;
@@ -33,6 +35,8 @@ type PaymentMethod = {
 
 export default function PaymentMethodsScreen() {
   const router = useRouter();
+  const { isDarkMode } = useTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedType, setSelectedType] = useState<'card' | 'bank' | 'paypal' | 'venmo'>('card');
 
@@ -87,17 +91,17 @@ export default function PaymentMethodsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header Section */}
-      <View style={styles.header}>
-        <Text variant="headlineMedium" style={styles.title}>Payment Methods</Text>
-        <Text variant="bodyLarge" style={styles.subtitle}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Payment Methods</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.subtext }]}>
           Add and manage your payment methods
         </Text>
       </View>
 
       {/* Default Payment Method */}
-      <Card style={styles.section}>
+      <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
         <Card.Title
           title="Default Payment Method"
           left={(props) => (
@@ -131,7 +135,7 @@ export default function PaymentMethodsScreen() {
       </Card>
 
       {/* All Payment Methods */}
-      <Card style={styles.section}>
+      <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
         <Card.Title title="All Payment Methods" />
         <Card.Content>
           {paymentMethods.map((method) => (
@@ -150,7 +154,7 @@ export default function PaymentMethodsScreen() {
               right={props => (
                 <View style={styles.methodActions}>
                   {method.isDefault && (
-                    <Text style={styles.defaultLabel}>Default</Text>
+                    <Text style={[styles.defaultLabel, { color: theme.colors.primary }]}>Default</Text>
                   )}
                   <IconButton
                     {...props}
@@ -179,11 +183,9 @@ export default function PaymentMethodsScreen() {
         <Modal
           visible={modalVisible}
           onDismiss={() => setModalVisible(false)}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}
         >
-          <Text variant="headlineSmall" style={styles.modalTitle}>
-            Add Payment Method
-          </Text>
+          <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Add Payment Method</Text>
 
           <SegmentedButtons
             value={selectedType}
