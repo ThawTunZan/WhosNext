@@ -10,11 +10,11 @@ import {
   Text,
   Platform,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSignIn } from '@clerk/clerk-expo'
 import { Feather } from '@expo/vector-icons'
-
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn()
@@ -23,20 +23,79 @@ export default function SignInScreen() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [hidePassword, setHidePassword] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState({
+    username: '',
+    password: '',
+    general: '',
+  })
 
-  const { redirect_to } = useLocalSearchParams<{ redirect_to?: string }>();
+  const { redirect_to } = useLocalSearchParams<{ redirect_to?: string }>()
+
+  const validateForm = () => {
+    let isValid = true
+    const newErrors = {
+      username: '',
+      password: '',
+      general: '',
+    }
+
+    if (!username.trim()) {
+      newErrors.username = 'Username is required'
+      isValid = false
+    } else if (username.length < 3) {
+      newErrors.username = 'Username must be at least 3 characters'
+      isValid = false
+    }
+
+    if (!password) {
+      newErrors.password = 'Password is required'
+      isValid = false
+    } else if (password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters'
+      isValid = false
+    }
+
+    setErrors(newErrors)
+    return isValid
+  }
 
   const onSignInPress = async () => {
-    if (!isLoaded) return
+    if (!isLoaded || loading) return
+
+    if (!validateForm()) return
+
+    setLoading(true)
+    setErrors({ username: '', password: '', general: '' })
+
     try {
       const attempt = await signIn.create({ identifier: username, password })
+      
       if (attempt.status === 'complete') {
         await setActive({ session: attempt.createdSessionId })
-        router.replace(redirect_to ?? '/'); 
+        router.replace(redirect_to ?? '/')
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
+      // Handle specific error cases
+      if (err.errors?.[0]?.message?.includes('identifier')) {
+        setErrors(prev => ({ ...prev, username: 'Invalid username' }))
+      } else if (err.errors?.[0]?.message?.includes('password')) {
+        setErrors(prev => ({ ...prev, password: 'Invalid password' }))
+      } else {
+        setErrors(prev => ({ 
+          ...prev, 
+          general: 'Sign in failed. Please check your credentials and try again.' 
+        }))
+      }
+    } finally {
+      setLoading(false)
     }
+  }
+
+  const renderError = (error: string) => {
+    if (!error) return null
+    return <Text style={styles.errorText}>{error}</Text>
   }
 
   return (
@@ -51,35 +110,60 @@ export default function SignInScreen() {
         >
           <View style={styles.inner}>
             <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Sign in to continue to Who’s Next</Text>
+            <Text style={styles.subtitle}>Sign in to continue to Who's Next</Text>
+
+            {renderError(errors.general)}
 
             <View style={styles.form}>
-              <TextInput
-                style={styles.input}
-                placeholder="Username"
-                autoCapitalize="none"
-                value={username}
-                onChangeText={setUsername}
-              />
-
-              <View style={styles.passwordWrapper}>
+              <View style={styles.inputContainer}>
                 <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  placeholder="Password"
-                  secureTextEntry={hidePassword}
-                  value={password}
-                  onChangeText={setPassword}
+                  style={[
+                    styles.input,
+                    errors.username ? styles.inputError : null,
+                  ]}
+                  placeholder="Username"
+                  autoCapitalize="none"
+                  value={username}
+                  onChangeText={(text) => {
+                    setUsername(text)
+                    if (errors.username) {
+                      setErrors(prev => ({ ...prev, username: '' }))
+                    }
+                  }}
                 />
-                <TouchableOpacity
-                  onPress={() => setHidePassword(!hidePassword)}
-                  style={styles.eyeButton}
-                >
-                  <Feather
-                    name={hidePassword ? 'eye-off' : 'eye'}
-                    size={20}
-                    color="#6B7280"
+                {renderError(errors.username)}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <View style={styles.passwordWrapper}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      { flex: 1 },
+                      errors.password ? styles.inputError : null,
+                    ]}
+                    placeholder="Password"
+                    secureTextEntry={hidePassword}
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text)
+                      if (errors.password) {
+                        setErrors(prev => ({ ...prev, password: '' }))
+                      }
+                    }}
                   />
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setHidePassword(!hidePassword)}
+                    style={styles.eyeButton}
+                  >
+                    <Feather
+                      name={hidePassword ? 'eye-off' : 'eye'}
+                      size={20}
+                      color="#6B7280"
+                    />
+                  </TouchableOpacity>
+                </View>
+                {renderError(errors.password)}
               </View>
 
               <TouchableOpacity
@@ -91,13 +175,21 @@ export default function SignInScreen() {
 
             <TouchableOpacity
               onPress={onSignInPress}
-              style={styles.signInButton}
+              style={[
+                styles.signInButton,
+                loading ? styles.signInButtonDisabled : null,
+              ]}
+              disabled={loading}
             >
-              <Text style={styles.signInText}>Sign In</Text>
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.signInText}>Sign In</Text>
+              )}
             </TouchableOpacity>
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Don’t have an account?</Text>
+              <Text style={styles.footerText}>Don't have an account?</Text>
               <TouchableOpacity onPress={() => router.push('/auth/sign-up')}>
                 <Text style={styles.footerLink}> Sign Up</Text>
               </TouchableOpacity>
@@ -112,7 +204,7 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#E0F2FE', // similar to bg-blue-50
+    backgroundColor: '#E0F2FE',
   },
   avoid: {
     flex: 1,
@@ -129,12 +221,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1F2937', // gray-800
+    color: '#1F2937',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#4B5563', // gray-600
+    color: '#4B5563',
     marginBottom: 24,
     textAlign: 'center',
   },
@@ -142,16 +234,28 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 32,
   },
+  inputContainer: {
+    marginBottom: 16,
+    width: '100%',
+  },
   input: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#E5E7EB', // gray-200
+    borderColor: '#E5E7EB',
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    marginBottom: 16,
-    color: '#111827', // gray-900
+    color: '#111827',
+  },
+  inputError: {
+    borderColor: '#EF4444',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
   passwordWrapper: {
     flexDirection: 'row',
@@ -164,17 +268,20 @@ const styles = StyleSheet.create({
   },
   forgot: {
     alignSelf: 'flex-end',
-    color: '#2563EB', // blue-600
+    color: '#2563EB',
     fontSize: 14,
     marginTop: 4,
   },
   signInButton: {
     width: '100%',
-    backgroundColor: '#2563EB', // blue-600
+    backgroundColor: '#2563EB',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 24,
+  },
+  signInButtonDisabled: {
+    backgroundColor: '#93C5FD',
   },
   signInText: {
     color: '#FFFFFF',
@@ -187,11 +294,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: '#6B7280', // gray-500
+    color: '#6B7280',
   },
   footerLink: {
     fontSize: 14,
-    color: '#2563EB', // blue-600
+    color: '#2563EB',
     fontWeight: '600',
   },
-})
+});

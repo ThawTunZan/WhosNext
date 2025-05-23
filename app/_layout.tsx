@@ -31,6 +31,9 @@ function NavButton({
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
 export default function RootLayout() {
+  const path = usePathname();
+  const isAuthScreen = path.startsWith('/auth/');
+
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
       <PaperProvider theme={MD3LightTheme}>
@@ -40,12 +43,13 @@ export default function RootLayout() {
             <AuthGateAndStack />
           </View>
 
-          {/* Bottom navigation bar */}
-          <View style={styles.bottomBar}>
-            <NavButton icon="home-outline" label="Home" onPress={() => router.push("/")} />
-            <NavButton icon="add-circle-outline" label="Create" onPress={() => router.push("/create-trip")} />
-            <NavButton icon="person-outline" label="Profile" onPress={() => router.push("/profile")} />
-          </View>
+          {!isAuthScreen && (
+            <View style={styles.bottomBar}>
+              <NavButton icon="home-outline" label="Home" onPress={() => router.push("/")} />
+              <NavButton icon="add-circle-outline" label="Create" onPress={() => router.push("/create-trip")} />
+              <NavButton icon="person-outline" label="Profile" onPress={() => router.push("/profile")} />
+            </View>
+          )}
         </SafeAreaView>
       </PaperProvider>
     </ClerkProvider>
