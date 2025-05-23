@@ -1,25 +1,44 @@
 // src/components/AddExpenseModal.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Button, Card, Text, TextInput, RadioButton, HelperText, Caption } from 'react-native-paper';
-import { AddExpenseModalProps, SharedWith, MembersMap, NewExpenseData } from '../types/DataTypes'; // Adjust path
+import { AddExpenseModalProps, Expense, SharedWith } from '../types/DataTypes';
+import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
+import { useUser } from '@clerk/clerk-expo';
+import { Redirect } from 'expo-router';
+import { db } from "@/firebase";
+import { collection, doc } from "firebase/firestore";
 
-const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerName }: AddExpenseModalProps) => {
+const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerId }: AddExpenseModalProps) => {
   const [expenseName, setExpenseName] = useState('');
-  const [paidAmtStr, setPaidAmtStr] = useState(''); // Store as string for input
-  const [paidById, setPaidByID] = useState<string>('');
+  const [paidAmtStr, setPaidAmtStr] = useState('');
   const [sharedWithIds, setSharedWithIds] = useState<string[]>([]);
   const [splitType, setSplitType] = useState<'even' | 'custom'>('even');
-  const [customAmounts, setCustomAmounts] = useState<{ [id: string]: string }>({}); // Store custom amounts as strings keyed by member ID
+  const [customAmounts, setCustomAmounts] = useState<{ [id: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const memberEntries = React.useMemo(() => Object.entries(members), [members]);
-  const userId = "test-user-id"
-  const userName = "Test User"
-  const isEditing = !!editingExpenseId;
-  
 
+  const { isLoaded, isSignedIn, user } = useUser()
+  if (!isLoaded) return null
+  if (!isSignedIn) return <Redirect href="/auth/sign-in" />
+  const currentUserId = user.id
+  const profiles = useMemberProfiles();
+
+  const allMemberIds = Object.keys(members);
+  const initialPayerId = initialData?.paidById
+    // if parent passed an explicit payer-id suggestion, use it
+    ?? suggestedPayerId
+    // otherwise use the current user
+    ?? currentUserId
+    // if even that is missing (unlikely), pick the first member in the list
+    ?? allMemberIds[0]
+    ?? "";
+
+  // **After**: initialize state with that computed default
+  const [paidById, setPaidByID] = useState<string>(initialPayerId);
+  
   // Reset form when modal is opened/closed or members change
   useEffect(() => {
     const isEditingMode = !!editingExpenseId;
@@ -34,8 +53,7 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
       setPaidAmtStr(initialData?.paidAmt?.toString() || ''); // Use paidAmt if present
       if (isEditingMode && initialData) {
         // --- Pre-fill specific to EDIT mode ---
-        const payerIdFromName = Object.keys(members).find(id => members[id].name === initialData.paidBy) || '';
-        setPaidByID(payerIdFromName);
+        setPaidByID(initialData.paidById);
       
         if (initialData.sharedWith && initialData.sharedWith.length > 0) {
             const initialSharedIds = initialData.sharedWith.map(sw => sw.payeeID);
@@ -73,12 +91,9 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
           const allMemberIds = Object.keys(members);
           setSharedWithIds(allMemberIds);
           // If suggestedPayerName is available, try to find their ID and set it
-          let defaultPayerId = '';
-          if (suggestedPayerName) {
-              const suggestedId = Object.keys(members).find(id => members[id].name === suggestedPayerName);
-              if (suggestedId) defaultPayerId = suggestedId;
-          }
-          if (!defaultPayerId && allMemberIds.length > 0) defaultPayerId = userId || allMemberIds[0]; // Fallback to current user or first member
+          let defaultPayerId = suggestedPayerId;
+          if (!defaultPayerId) defaultPayerId = currentUserId;
+          if (!defaultPayerId && allMemberIds.length) defaultPayerId = allMemberIds[0];
           setPaidByID(defaultPayerId);
 
           setSplitType('even');
@@ -95,7 +110,7 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
       setErrors({});
       setIsSubmitting(false);
   }
-  }, [visible, members, initialData, editingExpenseId, suggestedPayerName, userId]); // Reset on visibility change or if members list changes
+  }, [visible, members, initialData, editingExpenseId, suggestedPayerId, currentUserId]); // Reset on visibility change or if members list changes
 
 
   const validateForm = (): boolean => {
@@ -173,7 +188,7 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
              totalCalculated += share; // Use the base share for tracking total
              return {
                 payeeID: id,
-                payeeName: members[id]?.name || 'Unknown',
+                payeeName: profiles[id] || 'Unknown',
                 amount: currentShare,
             };
         });
@@ -181,14 +196,19 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
       } else { // Custom split
         parsedSharedWith = sharedWithIds.map(id => ({
           payeeID: id,
-          payeeName: members[id]?.name || 'Unknown',
+          payeeName: profiles[id] || 'Unknown',
           amount: parseFloat(customAmounts[id] || '0'), // Already validated
         }));
       }
+      const newExpenseRef = doc(
+        collection(db, "trips", tripId, "expenses")
+      );
+      const newId = newExpenseRef.id;
 
-      const expenseData: NewExpenseData = {
+      const expenseData: Expense = {
+        id: newId,
         activityName: expenseName.trim(),
-        paidBy: members[paidById].name, // Get name from selected ID
+        paidById: paidById, // Get name from selected ID
         paidAmt: paidAmount,
         sharedWith: parsedSharedWith,
         // `createdAt` will be added by the service
@@ -252,9 +272,9 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
 
               {/* Paid By Selection */}
               <Text style={styles.label}>Paid by:</Text>
-              {suggestedPayerName && (
+              {suggestedPayerId && (
                   <Caption style={styles.suggestionText}>
-                      Suggestion: {suggestedPayerName} is next to pay.
+                      Suggestion: {profiles[suggestedPayerId]} is next to pay.
                   </Caption>
               )}
               {memberEntries.length > 0 ? (
@@ -262,7 +282,7 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
                   {memberEntries.map(([id, member]) => (
                     <View key={id} style={styles.radioItem}>
                        <RadioButton value={id} />
-                       <Text>{member.name}</Text>
+                       <Text>{profiles[id]}</Text>
                     </View>
                   ))}
                 </RadioButton.Group>
@@ -291,7 +311,7 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
                   onPress={() => toggleSharedMember(id)}
                   style={[styles.sharedOption, sharedWithIds.includes(id) && styles.sharedOptionSelected]}
                 >
-                  <Text>{member.name}</Text>
+                  <Text>{profiles[id]}</Text>
                   {/* Maybe add a Checkbox icon here */}
                 </TouchableOpacity>
               )) : <Text style={styles.infoText}>No members available.</Text>}
@@ -317,7 +337,7 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
                   <Text style={styles.label}>Enter Custom Amounts:</Text>
                   {sharedWithIds.map(id => (
                     <View key={id} style={styles.customAmountRow}>
-                      <Text style={styles.customAmountLabel}>{members[id]?.name}:</Text>
+                      <Text style={styles.customAmountLabel}>{profiles[id]}:</Text>
                       <TextInput
                         dense // Smaller input
                         style={styles.customAmountInput}

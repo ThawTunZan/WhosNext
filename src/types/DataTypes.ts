@@ -8,20 +8,16 @@ export type MemberInfo = { name: string }; // Basic info for components needing 
 // Individual member data
 export type Member = {
   id: string;
-  name: string;
   budget: number;
   amtLeft: number;
   owesTotal?: number;
   };
-
-export type MembersMap = { [id: string]: { name: string } }; // Or use Member type if more details needed
   
 export type Expenses = {[id:string]: {expense: Expense}}
   
   // Type for how an expense is shared among payees
 export type SharedWith = {
   payeeID: string;
-  payeeName: string;
   amount: number;
 };
   
@@ -29,24 +25,21 @@ export type SharedWith = {
 export type Expense = {
   id: string; // Firestore document ID
   activityName: string;
-  paidBy: string; // Name of the person who paid
+  paidById: string; // Name of the person who paid
   paidAmt: number;
   sharedWith: SharedWith[];
   createdAt?: string; // Firestore Timestamp type for consistency
 };
 
-// Type for the data used to create a new expense (without the Firestore ID)
-export type NewExpenseData = Omit<Expense, 'id'>;
-
 // Props for the main ExpensesSection component
 export type ExpensesSectionProps = {
   tripId: string;
-  members: MembersMap;
+  members: Record<string, Member>;
   // Consider removing setIsRowSwiping if swipe logic is handled differently or locally
   // setIsRowSwiping: (v: boolean) => void;
   onAddExpensePress: () => void;
   onEditExpense: (expense: Expense) => void;
-  nextPayerName: string | null
+  nextPayerId: string | null
 };
 
 // Props for the ExpenseListItem component
@@ -62,18 +55,18 @@ export type ExpenseListItemProps = {
 export type AddExpenseModalProps = {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: NewExpenseData, editingExpenseId: string | null) => Promise<void>;
-  members: MembersMap;
+  onSubmit: (data: Expense, editingExpenseId: string | null) => Promise<void>;
+  members: Record<string, Member>;
   tripId: string; // Needed for debt calculation within the modal or its handler
-  initialData?: Partial<NewExpenseData> | null;
-  suggestedPayerName: string | null;
+  initialData?: Partial<Expense> | null;
+  suggestedPayerId: string | null;
   editingExpenseId: string | null;
 };
 
 // Props for the ActivityVotingSection component
 export type ActivityVotingSectionProps = {
   tripId: string; // Might be needed later for backend calls
-  members: MembersMap; // Might be needed for displaying member names/avatars
+  members: Record<string, Member>; // Might be needed for displaying member names/avatars
   onAddExpenseFromActivity: (activity: ProposedActivity) => void;
   onDeleteActivity: (activityId: string) => void;
 };
@@ -85,6 +78,7 @@ export type ActivityCardProps = {
   onVoteDown: (id: string) => void;
   onAddExpense: (activity: ProposedActivity) => void; // Placeholder
   onDelete: (activityId: string) => void;
+  onEdit: (activity: ProposedActivity) => void;
 };
 
 export type VoteType = 'up' | 'down';
@@ -94,7 +88,6 @@ export type ProposedActivity = {
   name: string;
   description?: string | null;
   suggestedByID: string | null;
-  suggestedByName: string | null;
   estCost?: number | null;
   currency?: string | null;
   createdAt: Timestamp; // Firestore Timestamp
@@ -120,6 +113,7 @@ export type ProposeActivityModalProps = {
   // Pass current user's ID and Name to assign as proposer
   currentUserId: string | null;
   currentUserName: string | null;
+  initialData?: Partial<NewProposedActivityData>
 };
 
 export interface TripData {
@@ -129,5 +123,6 @@ export interface TripData {
   totalAmtLeft?: number;
   debts?: Record<string, number>; // Keep simple debts map for now
   // expenses field seems unused in state, data comes from hook/listener
+  userId: string;
 }
 

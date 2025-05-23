@@ -1,8 +1,8 @@
 // src/hooks/useProposedActivities.ts
 
 import { useState, useEffect } from 'react';
-import { subscribeToProposedActivities } from '../services/ActivityUtilities';
-import { ProposedActivity } from '../types/DataTypes';
+import { subscribeToProposedActivities } from '@/src/services/ActivityUtilities';
+import { ProposedActivity } from '@/src/types/DataTypes';
 
 export const useProposedActivities = (tripId: string | null) => {
   const [activities, setActivities] = useState<ProposedActivity[]>([]);
@@ -10,7 +10,6 @@ export const useProposedActivities = (tripId: string | null) => {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // Reset state when tripId changes or becomes invalid
     setIsLoading(true);
     setError(null);
     setActivities([]);

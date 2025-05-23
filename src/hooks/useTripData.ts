@@ -1,12 +1,12 @@
 // src/hooks/useTripData.ts
 import { useState, useEffect } from 'react';
 import { doc, collection, onSnapshot, DocumentData } from 'firebase/firestore';
-import { db } from '../../firebase'; // Adjust path
-import { TripData, Expense } from '../types/DataTypes'; // Adjust path
+import { db } from '../../firebase';
+import { TripData, Expense } from '../types/DataTypes';
 
 export const useTripData = (tripId: string | null | undefined) => {
     const [trip, setTrip] = useState<TripData | null>(null);
-    const [expenses, setExpenses] = useState<Expense[]>([]); // Use specific Expense type
+    const [expenses, setExpenses] = useState<Expense[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
@@ -33,7 +33,7 @@ export const useTripData = (tripId: string | null | undefined) => {
                 setTrip(null);
                 setError(new Error(`Trip with ID ${tripId} not found.`));
             }
-            setLoading(false); // Set loading false after first trip snapshot
+            setLoading(false);
         }, (err) => {
             console.error("Error fetching trip data:", err);
             setError(err);
@@ -60,7 +60,7 @@ export const useTripData = (tripId: string | null | undefined) => {
             unsubscribeTrip();
             unsubscribeExpenses();
         };
-    }, [tripId]); // Re-run if tripId changes
+    }, [tripId]);
 
     return { trip, expenses, loading, error };
 };

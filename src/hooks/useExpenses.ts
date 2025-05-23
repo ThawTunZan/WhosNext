@@ -1,7 +1,7 @@
 // src/hooks/useExpenses.ts
 import { useState, useEffect } from 'react';
-import { subscribeToExpenses } from '../services/expenseService'; // Adjust path
-import { Expense } from '../types/DataTypes'; // Adjust path
+import { subscribeToExpenses } from '@/src/services/expenseService';
+import { Expense } from '@/src/types/DataTypes';
 
 export const useExpenses = (tripId: string) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);

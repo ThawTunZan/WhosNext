@@ -4,22 +4,23 @@ import {
     doc,
     addDoc,
     onSnapshot,
-    writeBatch,
     Timestamp,
     runTransaction,
     increment,
     deleteDoc, // Might need later if activities can be deleted
     query,
     orderBy,
+    updateDoc,
+    getDoc,
     // serverTimestamp // Alternative to Timestamp.now()
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import {
     ProposedActivity,
     NewProposedActivityData,
-    MembersMap, // Assuming MembersMap is defined elsewhere (e.g., types/expenses.ts)
     VoteType
-} from '../types/DataTypes'; // Adjust path
+} from '../types/DataTypes';
+import { NotificationService, NOTIFICATION_TYPES } from './notification';
 
 const TRIPS_COLLECTION = 'trips';
 const ACTIVITIES_SUBCOLLECTION = 'proposed_activities';
@@ -53,11 +54,10 @@ export const subscribeToProposedActivities = (
                 name: raw.name,
                 description: raw.description,
                 suggestedByID: raw.suggestedByID,
-                suggestedByName: raw.suggestedByName,
                 estCost: raw.estCost,
                 currency: raw.currency,
                 createdAt: raw.createdAt, 
-                votes: raw.votes || {}, // vote map
+                votes: raw.votes || {},
                 votesUp: raw.votesUp || 0,
                 votesDown: raw.votesDown || 0,
             } as ProposedActivity; 
@@ -71,6 +71,29 @@ export const subscribeToProposedActivities = (
 
     return unsubscribe;
 };
+
+export const updateProposedActivity = async (
+  tripId: string,
+  activityId: string,
+  updatedData: Partial<NewProposedActivityData>
+): Promise<void> => {
+  if (!tripId || !activityId) {
+    throw new Error("Trip ID and Activity ID are required to update an activity.")
+  }
+  const docRef = doc(db, TRIPS_COLLECTION, tripId, ACTIVITIES_SUBCOLLECTION, activityId)
+  try {
+    // only overwrite the fields the user changed
+    await updateDoc(docRef, {
+      ...updatedData,
+      // you may or may not want to bump a `lastEditedAt` timestamp here
+      updatedAt: Timestamp.now(),
+    })
+    console.log(`Activity ${activityId} updated.`)
+  } catch (err) {
+    console.error(`Failed to update activity ${activityId}:`, err)
+    throw err
+  }
+}
 
 /**
  * Adds a new proposed activity to a trip.
@@ -86,8 +109,8 @@ export const addProposedActivity = async (
         throw new Error("No Trip ID provided to add activity.");
     }
     // if the ID o the name of the person who suggested the activity is not provided
-     if (!activityData.suggestedByID || !activityData.suggestedByName) {
-         throw new Error("Activity proposer ID and Name are required.");
+     if (!activityData.suggestedByID) {
+         throw new Error("Activity proposer ID is required.");
      }
 
     const activitiesColRef = collection(db, TRIPS_COLLECTION, tripId, ACTIVITIES_SUBCOLLECTION);
@@ -103,10 +126,38 @@ export const addProposedActivity = async (
     try {
         const docRef = await addDoc(activitiesColRef, docData);
         console.log("Proposed activity added with ID: ", docRef.id);
+
+        // Get trip members to notify them
+        const tripRef = doc(db, TRIPS_COLLECTION, tripId);
+        const tripSnap = await getDoc(tripRef);
+        const tripData = tripSnap.data();
+
+        if (tripData && tripData.members) {
+            // Get proposer's name from users collection
+            const userRef = doc(db, "users", activityData.suggestedByID);
+            const userSnap = await getDoc(userRef);
+            const proposerName = userSnap.exists() ? userSnap.data().username : 'Someone';
+
+            // Notify all members except the proposer
+            Object.keys(tripData.members).forEach(async (memberId) => {
+                if (memberId !== activityData.suggestedByID) {
+                    await NotificationService.sendTripReminder(
+                        "New Activity Proposed",
+                        `${proposerName} proposed "${activityData.name}" - Vote now!`,
+                        {
+                            type: NOTIFICATION_TYPES.TRIP_REMINDER,
+                            id: docRef.id,
+                            tripId: tripId
+                        }
+                    );
+                }
+            });
+        }
+
         return docRef.id;
     } catch (error) {
         console.error("Error adding proposed activity: ", error);
-        throw error; // Re-throw for handling in UI
+        throw error;
     }
 };
 

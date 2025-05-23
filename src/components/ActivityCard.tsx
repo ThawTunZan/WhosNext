@@ -1,21 +1,22 @@
 // src/components/ActivityCard.tsx
-
 import React from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Button, IconButton, Divider, Caption } from 'react-native-paper';
 import { ActivityCardProps } from '../types/DataTypes'; // Adjust path if using activities.ts
+import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
-const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense, onDelete }: ActivityCardProps) => {
-  // Placeholder state for voting appearance (replace with actual logic later)
-  // const currentUserVote = activity.currentUserVote; // Example
+const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense, onDelete, onEdit }: ActivityCardProps) => {
+
+  const profiles = useMemberProfiles();
 
   return (
     <Card style={styles.card}>
       <Card.Title
         title={activity.name}
         titleStyle={styles.cardTitle}
-        subtitle={`Suggested by ${activity.suggestedByName}`}
+        subtitle={`Suggested by ${profiles[activity.suggestedByID]}`}
         right={(props) => (
+          <>
           <IconButton
               {...props}
               icon="trash-can-outline"
@@ -23,6 +24,8 @@ const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense,
               size={20}
               iconColor={styles.deleteIcon.color} // Use style color
           />
+          <IconButton icon="pencil" onPress={() => onEdit(activity)} />
+            </>
       )}
       />
       <Card.Content>

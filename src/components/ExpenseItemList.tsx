@@ -3,12 +3,15 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, View, Alert } from 'react-native';
 import { Card, Text, Divider, Button } from 'react-native-paper';
-import { ExpenseListItemProps } from '../types/DataTypes'; // Adjust path
+import { ExpenseListItemProps } from '../types/DataTypes';
+import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 const ExpenseItemList = React.memo(({ item, isExpanded, onToggleExpand, onDelete, onEdit }: ExpenseListItemProps) => {
   // Memoize the sharedWith string calculation
+
+  const profiles = useMemberProfiles();
   const sharedWithString = React.useMemo(() => {
-    return item.sharedWith.map((p) => p.payeeName).join(', ');
+    return item.sharedWith.map((p) => profiles[p.payeeID]).join(', ');
   }, [item.sharedWith]);
 
   const showDeleteConfirmation = () => {
@@ -31,7 +34,7 @@ const ExpenseItemList = React.memo(({ item, isExpanded, onToggleExpand, onDelete
       <Card style={styles.card}>
         <Card.Title
           title={`💰 ${item.activityName}`}
-          subtitle={`Paid by ${item.paidBy}`}
+          subtitle={`Paid by ${profiles[item.paidById]}`}
           right={() => (
             <Text style={styles.amount}>
               ${item.paidAmt.toFixed(2)} {/* Format currency */}

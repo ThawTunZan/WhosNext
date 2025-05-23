@@ -1,11 +1,10 @@
 // src/components/ProposeActivityModal.tsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, View, StyleSheet, ScrollView } from 'react-native';
 import {
     Button,
     Card,
-    Text,
     TextInput,
     HelperText,
     Caption,
@@ -21,6 +20,7 @@ const ProposeActivityModal = ({
     onSubmit,
     currentUserId,
     currentUserName,
+    initialData,
 }: ProposeActivityModalProps) => {
     const [activityName, setActivityName] = useState('');
     const [description, setDescription] = useState('');
@@ -84,7 +84,6 @@ const ProposeActivityModal = ({
             estCost: !isNaN(cost) && cost > 0 ? cost : null,
             currency: currencyStr.trim() || null,
             suggestedByID: currentUserId,
-            suggestedByName: currentUserName,
         };
 
         try {
@@ -185,7 +184,7 @@ const ProposeActivityModal = ({
                             disabled={isSubmitting}
                             icon="check"
                         >
-                            Propose
+                             {initialData ? 'Save Changes' : 'Propose Activity'}
                         </Button>
                     </Card.Actions>
                 </Card>
