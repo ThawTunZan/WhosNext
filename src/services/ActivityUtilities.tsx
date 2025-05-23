@@ -11,6 +11,7 @@ import {
     query,
     orderBy,
     updateDoc,
+    getDoc,
     // serverTimestamp // Alternative to Timestamp.now()
 } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -19,7 +20,7 @@ import {
     NewProposedActivityData,
     VoteType
 } from '../types/DataTypes';
-import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
+import { NotificationService, NOTIFICATION_TYPES } from './notification';
 
 const TRIPS_COLLECTION = 'trips';
 const ACTIVITIES_SUBCOLLECTION = 'proposed_activities';
@@ -53,7 +54,6 @@ export const subscribeToProposedActivities = (
                 name: raw.name,
                 description: raw.description,
                 suggestedByID: raw.suggestedByID,
-                suggestedByName: raw.suggestedByName,
                 estCost: raw.estCost,
                 currency: raw.currency,
                 createdAt: raw.createdAt, 
@@ -108,10 +108,9 @@ export const addProposedActivity = async (
      if (!tripId) {
         throw new Error("No Trip ID provided to add activity.");
     }
-    const profiles = useMemberProfiles();
     // if the ID o the name of the person who suggested the activity is not provided
-     if (!activityData.suggestedByID || !profiles[activityData.suggestedByID]) {
-         throw new Error("Activity proposer ID and Name are required.");
+     if (!activityData.suggestedByID) {
+         throw new Error("Activity proposer ID is required.");
      }
 
     const activitiesColRef = collection(db, TRIPS_COLLECTION, tripId, ACTIVITIES_SUBCOLLECTION);
@@ -127,10 +126,38 @@ export const addProposedActivity = async (
     try {
         const docRef = await addDoc(activitiesColRef, docData);
         console.log("Proposed activity added with ID: ", docRef.id);
+
+        // Get trip members to notify them
+        const tripRef = doc(db, TRIPS_COLLECTION, tripId);
+        const tripSnap = await getDoc(tripRef);
+        const tripData = tripSnap.data();
+
+        if (tripData && tripData.members) {
+            // Get proposer's name from users collection
+            const userRef = doc(db, "users", activityData.suggestedByID);
+            const userSnap = await getDoc(userRef);
+            const proposerName = userSnap.exists() ? userSnap.data().username : 'Someone';
+
+            // Notify all members except the proposer
+            Object.keys(tripData.members).forEach(async (memberId) => {
+                if (memberId !== activityData.suggestedByID) {
+                    await NotificationService.sendTripReminder(
+                        "New Activity Proposed",
+                        `${proposerName} proposed "${activityData.name}" - Vote now!`,
+                        {
+                            type: NOTIFICATION_TYPES.TRIP_REMINDER,
+                            id: docRef.id,
+                            tripId: tripId
+                        }
+                    );
+                }
+            });
+        }
+
         return docRef.id;
     } catch (error) {
         console.error("Error adding proposed activity: ", error);
-        throw error; // Re-throw for handling in UI
+        throw error;
     }
 };
 

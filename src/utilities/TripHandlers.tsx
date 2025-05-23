@@ -20,23 +20,25 @@ import type { Expense, ProposedActivity } from "@/src/types/DataTypes";
 interface UseTripHandlersParams {
   tripId: string;
   trip: any;
+  profiles: Record<string,string>;
   activityToDeleteId: string | null;
+  openAddExpenseModal: (d: Partial<Expense> | null, isEditing?: boolean) => void;
   closeAddExpenseModal: () => void;
-  openAddExpenseModal: (initialData: Partial<Expense> | null, isEditing?: boolean) => void;
-  setSnackbarMessage: (msg: string) => void;
+  setSnackbarMessage: (m: string) => void;
   setSnackbarVisible: (v: boolean) => void;
 }
 
 export function useTripHandlers({
   tripId,
   trip,
+  profiles,
   activityToDeleteId,
-  closeAddExpenseModal,
   openAddExpenseModal,
+  closeAddExpenseModal,
   setSnackbarMessage,
   setSnackbarVisible,
 }: UseTripHandlersParams) {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { user } = useUser();
   const currentUserId = user.id;
   const router = useRouter();
   const [isDeletingTrip, setIsDeletingTrip] = useState(false);
@@ -58,12 +60,13 @@ export function useTripHandlers({
   );
 
   const handleRemoveMember = useCallback(
-    async (memberIdToRemove: string, name: string) => {
+    async (memberIdToRemove: string) => {
       if (!tripId || !trip?.members?.[memberIdToRemove]) {
         setSnackbarMessage("Cannot remove member: Data missing.");
         setSnackbarVisible(true);
         return;
       }
+      const name = profiles[memberIdToRemove];
       Alert.alert(
         "Remove Member",
         `Are you sure you want to remove ${name}?`,
@@ -91,58 +94,27 @@ export function useTripHandlers({
         ]
       );
     },
-    [tripId, trip]
+    [tripId, trip, profiles]
   );
-
-  const handleLeaveTrip = useCallback(async () => {
-    if (!tripId) return;
-    try {
-      await leaveTripIfEligible(
-        tripId,
-        currentUserId,
-        trip.members[currentUserId]
-      );
-      setSnackbarMessage("You left the trip.");
-      setSnackbarVisible(true);
-      setTimeout(() => router.replace("/"), 1000);
-    } catch (err: any) {
-      console.error(err);
-      setSnackbarMessage(`Failed to leave trip: ${err.message}`);
-      setSnackbarVisible(true);
-    }
-  }, [tripId, currentUserId, trip, router]);
-
-  const handleDeleteTrip = useCallback(async () => {
-    setIsDeletingTrip(true);
-    try {
-      await deleteTripAndRelatedData(tripId);
-      setSnackbarMessage("Trip deleted.");
-      setSnackbarVisible(true);
-      setTimeout(() => router.replace("/"), 1000);
-    } catch (err: any) {
-      console.error(err);
-      setSnackbarMessage("Failed to delete trip.");
-      setSnackbarVisible(true);
-    } finally {
-      setIsDeletingTrip(false);
-    }
-  }, [tripId]);
 
   const handleAddOrUpdateExpenseSubmit = useCallback(
     async (expenseData: Expense, editingExpenseId: string | null) => {
+      if (!tripId) throw new Error("Trip ID is missing");
       const members = trip.members;
       if (!members) throw new Error("Trip members not available");
+
       try {
         if (editingExpenseId) {
           await updateExpenseAndRecalculateDebts(
             tripId,
             editingExpenseId,
             expenseData,
-            members
+            members,
+            profiles
           );
           setSnackbarMessage("Expense updated successfully!");
         } else {
-          await addExpenseAndCalculateDebts(tripId, expenseData, members);
+          await addExpenseAndCalculateDebts(tripId, expenseData, members, profiles);
           setSnackbarMessage("Expense added successfully!");
           if (activityToDeleteId) {
             await deleteProposedActivity(tripId, activityToDeleteId);
@@ -161,12 +133,13 @@ export function useTripHandlers({
   );
 
   const handleEditExpense = useCallback(
-    (expense: Expense) => openAddExpenseModal(expense, true),
+    (expenseToEdit: Expense) => openAddExpenseModal(expenseToEdit, true),
     [openAddExpenseModal]
   );
 
   const handleDeleteActivity = useCallback(
     async (activityId: string) => {
+      if (!tripId) return;
       try {
         await deleteProposedActivity(tripId, activityId);
         setSnackbarMessage("Activity deleted.");
@@ -189,15 +162,47 @@ export function useTripHandlers({
     [openAddExpenseModal]
   );
 
+  const handleLeaveTrip = useCallback(async () => {
+    if (!tripId) return;
+    try {
+      await leaveTripIfEligible(
+        tripId,
+        currentUserId,
+        trip.members[currentUserId]
+      );
+      setSnackbarMessage("You left the trip.");
+      setSnackbarVisible(true);
+      setTimeout(() => router.replace("/"), 1000);
+    } catch (err: any) {
+      console.error(err);
+      setSnackbarMessage(`Failed to leave trip: ${err.message}`);
+      setSnackbarVisible(true);
+    }
+  }, [tripId, currentUserId, trip, router]);
+
   return {
     handleAddMember,
     handleRemoveMember,
-    handleLeaveTrip,
-    handleDeleteTrip,
     handleAddOrUpdateExpenseSubmit,
     handleEditExpense,
     handleDeleteActivity,
     handleAddExpenseFromActivity,
+    handleLeaveTrip,
+    handleDeleteTrip: () => {
+      setIsDeletingTrip(true);
+      deleteTripAndRelatedData(tripId)
+        .then(() => {
+          setSnackbarMessage("Trip deleted.");
+          setSnackbarVisible(true);
+          router.push("/");
+        })
+        .catch((e) => {
+          console.error(e);
+          setSnackbarMessage("Failed to delete trip.");
+          setSnackbarVisible(true);
+        })
+        .finally(() => setIsDeletingTrip(false));
+    },
     isDeletingTrip,
   };
 }

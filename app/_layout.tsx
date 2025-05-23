@@ -1,63 +1,89 @@
 // app/_layout.tsx
 
 import "expo-router/entry";
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import { ClerkProvider, useUser } from "@clerk/clerk-expo";
-import { Provider as PaperProvider, MD3LightTheme } from "react-native-paper";
-import { SafeAreaView, View, StyleSheet, TouchableOpacity, Text } from "react-native";
+import { Provider as PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
+import { SafeAreaView, View, StyleSheet, TouchableOpacity, Text, Platform } from "react-native";
 import { Redirect, router, Stack, useFocusEffect, usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService";
+import { ThemeProvider } from '@/src/context/ThemeContext';
+import { useTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
-// (If you have a NavButton component extract it here; otherwise inline it.)
-function NavButton({
+// NavButton component memoized
+const NavButton = React.memo(({
   icon,
   label,
   onPress,
+  color,
 }: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   label: string;
   onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity style={styles.navItem} onPress={onPress}>
-      <Ionicons name={icon} size={24} color={MD3LightTheme.colors.primary} />
-      <Text style={styles.navLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
+  color: string;
+}) => (
+  <TouchableOpacity style={styles.navItem} onPress={onPress}>
+    <Ionicons name={icon} size={24} color={color} />
+    <Text style={[styles.navLabel, { color }]}>{label}</Text>
+  </TouchableOpacity>
+));
 
-const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+
+// Bottom Navigation memoized
+const BottomNav = React.memo(({ path, theme }: { path: string; theme: any }) => (
+  <SafeAreaView style={[styles.bottomBar, { 
+    backgroundColor: theme.colors.background,
+    borderTopColor: theme.colors.border
+  }]}>
+    <NavButton
+      icon="home"
+      label="Home"
+      onPress={() => router.push('/')}
+      color={path === '/' ? theme.colors.primary : theme.colors.subtext}
+    />
+    <NavButton
+      icon="add-circle"
+      label="New Trip"
+      onPress={() => router.push('/create-trip')}
+      color={path === '/create-trip' ? theme.colors.primary : theme.colors.subtext}
+    />
+    <NavButton
+      icon="person"
+      label="Profile"
+      onPress={() => router.push('/profile')}
+      color={path === '/profile' ? theme.colors.primary : theme.colors.subtext}
+    />
+  </SafeAreaView>
+));
 
 export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-      <PaperProvider theme={MD3LightTheme}>
-        <SafeAreaView style={{ flex: 1 }}>
-          {/* This view grows to fill above-bottom-nav */}
-          <View style={{ flex: 1 }}>
-            <AuthGateAndStack />
-          </View>
-
-          {/* Bottom navigation bar */}
-          <View style={styles.bottomBar}>
-            <NavButton icon="home-outline" label="Home" onPress={() => router.push("/")} />
-            <NavButton icon="add-circle-outline" label="Create" onPress={() => router.push("/create-trip")} />
-            <NavButton icon="person-outline" label="Profile" onPress={() => router.push("/profile")} />
-          </View>
-        </SafeAreaView>
-      </PaperProvider>
+      <ThemeProvider>
+        <AuthGateAndStack />
+      </ThemeProvider>
     </ClerkProvider>
   );
 }
 
-
-// Your AuthGateAndStack remains exactly as before:
 function AuthGateAndStack() {
   const { isLoaded, isSignedIn, user } = useUser();
   const path = usePathname();
+  const { isDarkMode } = useTheme();
+  
+  const theme = useMemo(() => isDarkMode ? darkTheme : lightTheme, [isDarkMode]);
+  const paperTheme = useMemo(() => ({
+    ...(isDarkMode ? MD3DarkTheme : MD3LightTheme),
+    colors: {
+      ...(isDarkMode ? MD3DarkTheme.colors : MD3LightTheme.colors),
+      ...theme.colors,
+    },
+  }), [isDarkMode, theme.colors]);
 
-  const syncUser = React.useCallback(() => {
+  const syncUser = useCallback(() => {
     if (isLoaded && isSignedIn && user) {
       upsertClerkUserToFirestore(user).catch(console.error);
     }
@@ -66,32 +92,63 @@ function AuthGateAndStack() {
   useFocusEffect(syncUser);
 
   if (!isLoaded) return null;
-  if (!isSignedIn && path !== "/auth/sign-in") {
+  if (!isSignedIn && !path.startsWith("/auth")) {
     return <Redirect href="/auth/sign-in" />;
   }
 
   return (
-    <Stack
-      screenOptions={{
-        gestureEnabled: true,
-        headerShown: true,
-      }}
-    >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="create-trip" />
-      <Stack.Screen name="profile" />
-      <Stack.Screen name="trip/[id]" />
-    </Stack>
+    <PaperProvider theme={paperTheme}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <Stack 
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { 
+              paddingTop: Platform.OS === 'ios' ? 50 : 0,
+              backgroundColor: theme.colors.background 
+            }
+          }}
+        >
+          <Stack.Screen 
+            name="index" 
+            options={{
+              animation: 'none'
+            }}
+          />
+          <Stack.Screen 
+            name="create-trip"
+            options={{
+              animation: 'none'
+            }}
+          />
+          <Stack.Screen 
+            name="profile"
+            options={{
+              animation: 'none'
+            }}
+          />
+          <Stack.Screen name="auth" />
+          <Stack.Screen name="trip/[id]" />
+          <Stack.Screen name="profile_screens" />
+        </Stack>
+
+        {/* Bottom Navigation Bar */}
+        {!path.includes('auth') && !path.includes('modal') && (
+          <BottomNav path={path} theme={theme} />
+        )}
+      </SafeAreaView>
+    </PaperProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   bottomBar: {
-    height: 60,
+    height: Platform.OS === 'ios' ? 85 : 60,
     flexDirection: "row",
     borderTopWidth: 1,
-    borderTopColor: "#ddd",
-    backgroundColor: "#fff",
+    paddingBottom: Platform.OS === 'ios' ? 25 : 0,
   },
   navItem: {
     flex: 1,
@@ -100,7 +157,7 @@ const styles = StyleSheet.create({
   },
   navLabel: {
     fontSize: 12,
-    color: MD3LightTheme.colors.primary,
     marginTop: 2,
   },
 });
+

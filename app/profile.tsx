@@ -1,32 +1,69 @@
 // File: app/profile.tsx
-import React from "react"
+import React, { useState } from "react"
 import {
   View,
   ScrollView,
   Image,
   TouchableOpacity,
   StyleSheet,
+  Dimensions,
+  Platform,
+  Alert,
 } from "react-native"
-import { Text } from "react-native-paper"
+import { Text, Surface, Button, Avatar, IconButton } from "react-native-paper"
 import { Ionicons } from "@expo/vector-icons"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useClerk, useUser } from "@clerk/clerk-expo"
+import * as ImagePicker from 'expo-image-picker'
+import { useTheme } from '@/src/context/ThemeContext'
+import { lightTheme, darkTheme } from '@/src/theme/theme'
 
 import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService"
 import { useProfileActions } from "@/src/utilities/profileAction"
+
+const { width } = Dimensions.get('window')
+
+const SECTIONS = [
+  {
+    title: 'Account',
+    items: [
+      { label: 'Edit Profile', icon: 'pencil-outline', action: 'onEditProfile' },
+      { label: 'App Settings', icon: 'settings-outline', route: '/profile_screens/settings' },
+      { label: 'Payment Methods', icon: 'card-outline', route: '/profile_screens/PaymentMethodsScreen' },
+      { label: 'Change Password', icon: 'key-outline', action: 'onChangePassword' },
+    ],
+  },
+  {
+    title: 'Social',
+    items: [
+      { label: 'Friends & Groups', icon: 'people-outline', route: '/profile_screens/FriendsScreen' },
+      { label: 'Referral / Invite Code', icon: 'share-outline', route: '/profile_screens/referral' },
+    ],
+  },
+  {
+    title: 'Support',
+    items: [
+      { label: 'Privacy Settings', icon: 'lock-closed-outline', route: '/profile_screens/privacy' },
+      { label: 'Rate Who\'s Next', icon: 'star-outline', route: '/profile_screens/rate' },
+      { label: 'Contact Us', icon: 'call-outline', route: '/profile_screens/ContactUsScreen' },
+      { label: 'Logout', icon: 'log-out-outline', action: 'onLogout', danger: true },
+    ],
+  },
+]
 
 export default function ProfileScreen() {
   const router = useRouter()
   const { onEditProfile, onLogout, onChangePassword } = useProfileActions()
   const { isLoaded, isSignedIn, user } = useUser()
   const { signOut } = useClerk()
+  const [uploading, setUploading] = useState(false)
+  const { isDarkMode } = useTheme()
+  const theme = isDarkMode ? darkTheme : lightTheme
 
   if (!isLoaded || !isSignedIn) {
     return null
   }
 
-  // Fallback avatar
-  const avatarUri = "https://placekitten.com/200/200"
   useFocusEffect(
     React.useCallback(() => {
       if (user) {
@@ -35,60 +72,125 @@ export default function ProfileScreen() {
     }, [user])
   );
 
+  const handleImagePick = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant permission to access your photos')
+        return
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      })
+
+      if (!result.canceled) {
+        setUploading(true)
+        try {
+          // TODO: Implement image upload to storage and update user profile
+          // For now, we'll just show an alert
+          Alert.alert('Success', 'Profile photo updated!')
+        } catch (error) {
+          Alert.alert('Error', 'Failed to update profile photo')
+        } finally {
+          setUploading(false)
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image')
+    }
+  }
+
+  const handleAction = (action: string) => {
+    switch (action) {
+      case 'onEditProfile':
+        onEditProfile()
+        break
+      case 'onChangePassword':
+        onChangePassword()
+        break
+      case 'onLogout':
+        onLogout()
+        break
+    }
+  }
+
+  const stats = [
+    { label: 'Trips', value: '12' },
+    { label: 'Friends', value: '48' },
+    { label: 'Expenses', value: '256' },
+  ]
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Profile Picture */}
-      <View style={styles.profilePicContainer}>
-        <Image source={{ uri: avatarUri }} style={styles.profilePic} />
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <Text style={[styles.username, { color: theme.colors.text }]}>{user?.username || 'testacc'}</Text>
+        <Text style={[styles.email, { color: theme.colors.subtext }]}>{user?.emailAddresses[0].emailAddress}</Text>
+
+        <View style={styles.stats}>
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: theme.colors.text }]}>12</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.subtext }]}>Trips</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: theme.colors.text }]}>48</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.subtext }]}>Friends</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: theme.colors.text }]}>256</Text>
+            <Text style={[styles.statLabel, { color: theme.colors.subtext }]}>Expenses</Text>
+          </View>
+        </View>
       </View>
 
-      {/* Settings List */}
-      <View style={styles.settingsContainer}>
-        <TouchableOpacity
-          style={styles.settingItem}
-          onPress={onEditProfile}
-        >
-          <Text style={styles.settingText}>Edit Profile</Text>
-          <Ionicons name="pencil-outline" size={20} color="black" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingItem}>
-          <Text style={styles.settingText}>App Settings</Text>
-          <Ionicons name="settings-outline" size={20} color="black" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingItem}>
-          <Text style={styles.settingText}>Privacy Settings</Text>
-          <Ionicons name="lock-closed-outline" size={20} color="black" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingItem}>
-          <Text style={styles.settingText}>Referral / Invite Code</Text>
-          <Ionicons name="share-outline" size={20} color="black" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingItem} onPress={onChangePassword}>
-          <Text style={styles.settingText}>Change Password</Text>
-          <Ionicons name="key-outline" size={20} color="black" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.settingItem}
-          onPress={onLogout}
-        >
-          <Text style={styles.settingText}>Logout</Text>
-          <Ionicons name="log-out-outline" size={20} color="black" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingItem}>
-          <Text style={styles.settingText}>Rate Who’s Next</Text>
-          <Ionicons name="star-outline" size={20} color="black" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingItem}>
-          <Text style={styles.settingText}>Contact Us</Text>
-          <Ionicons name="call-outline" size={20} color="black" />
-        </TouchableOpacity>
+      <View style={styles.content}>
+        {SECTIONS.map((section, index) => (
+          <View key={index} style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{section.title}</Text>
+            <Surface style={[styles.sectionContent, { backgroundColor: theme.colors.surface }]} elevation={1}>
+              {section.items.map((item, itemIndex) => (
+                <TouchableOpacity
+                  key={itemIndex}
+                  style={[
+                    styles.settingItem,
+                    itemIndex === section.items.length - 1 && styles.lastItem,
+                    { borderBottomColor: theme.colors.border }
+                  ]}
+                  onPress={() => {
+                    if (item.action) {
+                      handleAction(item.action)
+                    } else if (item.route) {
+                      router.push(item.route)
+                    }
+                  }}
+                >
+                  <View style={styles.settingLeft}>
+                    <Ionicons 
+                      name={item.icon} 
+                      size={22} 
+                      color={item.danger ? '#EF4444' : theme.colors.text} 
+                    />
+                    <Text style={[
+                      styles.settingText,
+                      { color: theme.colors.text },
+                      item.danger && styles.dangerText,
+                    ]}>
+                      {item.label}
+                    </Text>
+                  </View>
+                  <Ionicons 
+                    name="chevron-forward" 
+                    size={20} 
+                    color={item.danger ? '#EF4444' : theme.colors.subtext} 
+                  />
+                </TouchableOpacity>
+              ))}
+            </Surface>
+          </View>
+        ))}
       </View>
     </ScrollView>
   )
@@ -97,33 +199,73 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
-  profilePicContainer: {
-    justifyContent: "center",
-    alignItems: "center",
+  header: {
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: 40,
+  },
+  username: {
+    fontSize: 24,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  email: {
+    fontSize: 16,
+    marginTop: 4,
+  },
+  stats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
     marginTop: 20,
-    marginBottom: 30,
   },
-  profilePic: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: "#ddd",
+  statItem: {
+    alignItems: 'center',
   },
-  settingsContainer: {
-    marginHorizontal: 20,
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  statLabel: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  content: {
+    padding: 16,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  sectionContent: {
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   settingItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f1f1",
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   settingText: {
-    fontSize: 18,
+    fontSize: 16,
+    marginLeft: 12,
   },
-})
+  lastItem: {
+    borderBottomWidth: 0,
+  },
+  dangerText: {
+    color: '#EF4444',
+  },
+});

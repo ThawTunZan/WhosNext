@@ -24,10 +24,10 @@ export function useProfileActions() {
   /** Sign out via Clerk and send the user to the sign-in page */
   const onLogout = async () => {
     await signOut()
-    router.replace("/auth/sign-in")
+    router.push("/auth/sign-in")
   }
   const onChangePassword = async () => {
-    router.replace("/profile_screens/ChangePasswordScreen/")
+    router.push("/profile_screens/ChangePasswordScreen/")
   }
 
   /**

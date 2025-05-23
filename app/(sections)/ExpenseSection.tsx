@@ -1,7 +1,9 @@
 // src/screens/TripDetails/ExpensesSection.tsx
 import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
-import { Button, Text, Snackbar, Chip } from 'react-native-paper';
+import { Button, Text, Snackbar, Chip, useTheme } from 'react-native-paper';
+import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 import { useExpenses } from '../../src/hooks/useExpenses';
 import { addExpenseAndCalculateDebts, deleteExpense } from '../../src/services/expenseService';
@@ -11,6 +13,9 @@ import { ExpensesSectionProps, Expense } from '../../src/types/DataTypes';
 import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, nextPayerId }: ExpensesSectionProps) => {
+  const { isDarkMode } = useCustomTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
+  const paperTheme = useTheme();
   const { expenses, isLoading, error: fetchError } = useExpenses(tripId);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -101,18 +106,19 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   // --- Render Logic ---
    if (isLoading && expenses.length === 0) { // Show loader only on initial load
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
-        <Text>Loading Expenses...</Text>
+      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={paperTheme.colors.primary} />
+        <Text style={{ color: theme.colors.text }}>Loading Expenses...</Text>
       </View>
     );
   }
 
   if (fetchError) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>Error loading expenses: {fetchError}</Text>
-        {/* Optionally add a retry button */}
+      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+          Error loading expenses: {fetchError}
+        </Text>
       </View>
     );
   }
@@ -120,13 +126,13 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   // ListHeaderComponent for the header
   const renderListHeader = () => (
     <>
-      <Text style={styles.header}>🧾 Expenses</Text>
+      <Text style={[styles.header, { color: theme.colors.text }]}>🧾 Expenses</Text>
       {/* Conditionally render the Chip/Text if name exists */}
       {nextPayerId && (
           <Chip
               icon="account-arrow-right"
-              style={styles.nextPayerChip}
-              textStyle={styles.nextPayerChipText}
+              style={[styles.nextPayerChip, { backgroundColor: theme.colors.surfaceVariant }]}
+              textStyle={[styles.nextPayerChipText, { color: theme.colors.text }]}
           >
               Next Payer: {profiles[nextPayerId]}
           </Chip>
@@ -147,7 +153,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
 
       <FlatList
         data={expenses}
@@ -156,12 +162,16 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
         ListHeaderComponent={renderListHeader}
         ListFooterComponent={renderListFooter}
         ListEmptyComponent={
-           <View style={styles.centered}>
-               <Text>No expenses added yet.</Text>
+           <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+               <Text style={{ color: theme.colors.text }}>No expenses added yet.</Text>
            </View>
         }
-        refreshControl={ // Pull-to-refresh
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        refreshControl={
+          <RefreshControl 
+            refreshing={isRefreshing} 
+            onRefresh={onRefresh}
+            tintColor={paperTheme.colors.primary}
+          />
         }
         contentContainerStyle={styles.listContentContainer}
         
@@ -189,45 +199,41 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
 };
 
 const styles = StyleSheet.create({
-  nextPayerChip: {
-    alignSelf: 'flex-start', // Position chip left
-    marginTop: -5, // Adjust spacing relative to header
-    marginBottom: 15,
-    marginLeft: 5, // Align with header margin
-    backgroundColor: '#e8eaf6', // Example background color
-  },
-  nextPayerChipText: {
-    fontSize: 13,
-  },
   container: {
-    flex: 1, // Make this container take up available space
-    // Remove padding here if you want padding only around list content
+    flex: 1,
   },
-  listContentContainer: {
-     paddingHorizontal: 15, // Add horizontal padding inside the list
-     paddingBottom: 20, // Add padding at the bottom of list content
-  },
-   centered: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginTop: 50,
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 15,
-    marginLeft: 5, 
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
   },
-  addButton: {
-      marginVertical: 50,
-      marginHorizontal: 50,
+  nextPayerChip: {
+    alignSelf: 'flex-start',
+    marginTop: -5,
+    marginBottom: 15,
+    marginLeft: 16,
+  },
+  nextPayerChipText: {
+    fontSize: 13,
   },
   errorText: {
-      color: 'red',
-      textAlign: 'center',
+    textAlign: 'center',
+    marginHorizontal: 20,
   },
-
+  listContentContainer: {
+    flexGrow: 1,
+    paddingBottom: 16,
+  },
+  addButton: {
+    margin: 16,
+  },
 });
 
 export default ExpensesSection;

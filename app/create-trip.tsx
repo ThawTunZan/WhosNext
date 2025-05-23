@@ -1,135 +1,232 @@
 // app/create.tsx - Create Trip Screen
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Button, SafeAreaView,
-  Keyboard, TouchableWithoutFeedback, ScrollView, KeyboardAvoidingView, Platform,StyleSheet
+  View,
+  StyleSheet,
+  SafeAreaView,
+  Dimensions,
+  TouchableWithoutFeedback,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
-import { db } from '../firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import {
+  Text,
+  TextInput,
+  Button,
+} from 'react-native-paper';
 import { Redirect, useRouter } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
+import { db } from '@/firebase';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { StatusBar } from 'expo-status-bar';
+import { useTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
+
+const { width } = Dimensions.get('window');
 
 export default function CreateTripScreen() {
   const [destination, setDestination] = useState('');
-  const [totalBudget, setTotalBudget] = useState(0);
+  const [totalBudget, setTotalBudget] = useState('');
   const router = useRouter();
-  const { isLoaded, isSignedIn, user } = useUser()
+  const { isLoaded, isSignedIn, user } = useUser();
+  const { isDarkMode } = useTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
 
-  if (!isLoaded) {
-    return null
-  }
-
-  if (!isSignedIn) {
-    return <Redirect href="/auth/sign-in" />
-  }
-
-  const userId = user.id
-  const initialBudgetForCreator = totalBudget;
+  if (!isLoaded) return null;
+  if (!isSignedIn) return <Redirect href="/auth/sign-in" />;
 
   const handleCreateTrip = async () => {
-    
     if (!destination) {
       alert("Please enter a destination.");
       return;
     }
-    // This first entry is for the test account
+
+    const parsedBudget = parseFloat(totalBudget) || 0;
+    const userId = user.id;
+
     const initialMembers = {
       [userId]: {
-        budget: initialBudgetForCreator,
-        amtLeft: initialBudgetForCreator,
+        budget: parsedBudget,
+        amtLeft: parsedBudget,
         owesTotal: 0,
       }
     };
 
     try {
-      console.log("Creating trip with data:", {
-          destination: destination.trim(),
-          totalBudget: Number(initialBudgetForCreator),
-          totalAmtLeft: Number(initialBudgetForCreator),
-          userId, 
-          members: initialMembers,
-          debts: {}, 
-          createdAt: Timestamp.now()
-      });
-
       await addDoc(collection(db, 'trips'), {
-          destination: destination.trim(),
-          totalBudget: initialBudgetForCreator,
-          totalAmtLeft: initialBudgetForCreator,
-          userId, // Trip owner
-          members: initialMembers,
-          debts: {}, // Initialize empty debts map
-          createdAt: Timestamp.now()
+        destination: destination.trim(),
+        totalBudget: parsedBudget,
+        totalAmtLeft: parsedBudget,
+        userId,
+        members: initialMembers,
+        debts: {},
+        createdAt: Timestamp.now()
       });
 
-      setDestination('');
-      router.push('/'); // Navigate home after creation
-
+      router.push('/');
     } catch (error) {
       console.error("Error creating trip:", error);
-      alert("Failed to create trip. Please try again."); 
+      alert("Failed to create trip. Please try again.");
     }
   };
 
-
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1, backgroundColor: theme.colors.background }}
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, justifyContent: 'center' }}>
-          <Text style={styles.title}>➕ Create New Trip</Text>
+        <StatusBar style={isDarkMode ? "light" : "dark"} />
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+            <Text style={[styles.logo, { color: theme.colors.text }]}>Who's Next</Text>
+            <Text 
+              style={[styles.skip, { color: theme.colors.subtext }]}
+              onPress={() => router.back()}
+            >
+              Skip
+            </Text>
+          </View>
 
-          <TextInput
-            placeholder="Destination"
-            placeholderTextColor="#555"
-            value={destination}
-            onChangeText={setDestination}
-            style={styles.input}
-          />
-          <TextInput
-            placeholder="YOUR Budget"
-            placeholderTextColor="#555"
-            value={String(totalBudget)}
-            onChangeText=
-            {(text: string) => {
-              const numericValue = parseFloat(text); // Or Number(text)
-              setTotalBudget(isNaN(numericValue) ? 0 : numericValue); // Set to number, or 0 if input is not a valid number
-            }}
-            style={styles.input}
-          />
+          <ScrollView 
+            style={{ flex: 1 }}
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.illustrationContainer}>
+              {/* Placeholder for illustration */}
+              <View style={[styles.illustrationPlaceholder, { backgroundColor: theme.colors.surfaceVariant }]} />
+            </View>
 
-          <Button title="Create Trip" onPress={() => {
-            handleCreateTrip();
-          }} />
-        </ScrollView>
+            <View style={[styles.bottomCard, { backgroundColor: theme.colors.surface }]}>
+              <Text style={[styles.title, { color: theme.colors.text }]}>Plan your next adventure</Text>
+              
+              <TextInput
+                mode="flat"
+                placeholder="Where are you going?"
+                value={destination}
+                onChangeText={setDestination}
+                style={[styles.input, { backgroundColor: 'transparent' }]}
+                theme={{ 
+                  colors: { 
+                    primary: theme.colors.primary,
+                    text: theme.colors.text,
+                    placeholder: theme.colors.subtext,
+                  }
+                }}
+              />
+
+              <TextInput
+                mode="flat"
+                placeholder="What's your budget?"
+                value={totalBudget}
+                onChangeText={setTotalBudget}
+                keyboardType="numeric"
+                style={[styles.input, { backgroundColor: 'transparent' }]}
+                left={<TextInput.Affix text="$" textStyle={{ color: theme.colors.text }} />}
+                theme={{ 
+                  colors: { 
+                    primary: theme.colors.primary,
+                    text: theme.colors.text,
+                    placeholder: theme.colors.subtext,
+                  }
+                }}
+              />
+
+              <Button 
+                mode="contained" 
+                onPress={handleCreateTrip}
+                style={styles.button}
+                contentStyle={styles.buttonContent}
+                labelStyle={[styles.buttonLabel, { color: theme.colors.text }]}
+              >
+                Get Started
+              </Button>
+
+              <View style={styles.progressDots}>
+                <View style={[styles.dot, styles.activeDot, { backgroundColor: theme.colors.primary }]} />
+                <View style={[styles.dot, { backgroundColor: theme.colors.surfaceVariant }]} />
+                <View style={[styles.dot, { backgroundColor: theme.colors.surfaceVariant }]} />
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
       </KeyboardAvoidingView>
-      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }
 
-// Add styles
 const styles = StyleSheet.create({
-  scrollViewContent: {
-      flexGrow: 1,
-      padding: 20,
-      justifyContent: 'center'
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    borderBottomWidth: 1,
+  },
+  logo: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  skip: {
+    fontSize: 16,
+  },
+  illustrationContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  illustrationPlaceholder: {
+    width: width * 0.6,
+    height: width * 0.6,
+    borderRadius: width * 0.3,
+  },
+  bottomCard: {
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 30,
+    paddingTop: 40,
   },
   title: {
-      fontSize: 24,
-      fontWeight: 'bold', // Make title bold
-      marginBottom: 30, // Increase spacing
-      textAlign: 'center',
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 30,
+    textAlign: 'center',
   },
   input: {
-      borderWidth: 1,
-      borderColor: '#ccc',
-      backgroundColor: '#fff', // Add background
-      paddingHorizontal: 15, // Increase padding
-      paddingVertical: 12,
-      borderRadius: 8,
-      marginBottom: 25, // Increase spacing
-      fontSize: 16, // Set font size
-  }
+    marginBottom: 20,
+  },
+  button: {
+    marginTop: 20,
+    borderRadius: 30,
+  },
+  buttonContent: {
+    paddingVertical: 8,
+    height: 56,
+  },
+  buttonLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  progressDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 30,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    width: 24,
+  },
 });
