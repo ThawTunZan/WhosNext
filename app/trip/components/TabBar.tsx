@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, useTheme } from 'react-native-paper';
+import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 type TabType = "overview" | "expenses" | "settle" | "activities" | "add" | "receipts" | "invite";
 
@@ -12,8 +14,12 @@ type TabBarProps = {
 const TABS: TabType[] = ["overview", "expenses", "settle", "activities", "add", "receipts", "invite"];
 
 export default function TabBar({ selectedTab, onTabSelect }: TabBarProps) {
+  const { isDarkMode } = useCustomTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
+  const paperTheme = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false} 
@@ -24,12 +30,19 @@ export default function TabBar({ selectedTab, onTabSelect }: TabBarProps) {
             key={tab}
             style={[
               styles.tab,
-              selectedTab === tab && styles.selectedTab,
+              {
+                backgroundColor: selectedTab === tab ? paperTheme.colors.primary : 'transparent',
+              },
             ]}
           >
             <Text
               style={[
                 styles.tabText,
+                {
+                  color: selectedTab === tab 
+                    ? '#fff'
+                    : theme.colors.subtext,
+                },
                 selectedTab === tab && styles.selectedTabText,
               ]}
               onPress={() => onTabSelect(tab)}
@@ -45,7 +58,6 @@ export default function TabBar({ selectedTab, onTabSelect }: TabBarProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f8f9fa',
     paddingVertical: 8,
   },
   scrollContent: {
@@ -56,17 +68,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginRight: 8,
     borderRadius: 20,
-    backgroundColor: 'transparent',
-  },
-  selectedTab: {
-    backgroundColor: '#6200ee',
   },
   tabText: {
     fontSize: 16,
-    color: '#666',
   },
   selectedTabText: {
-    color: '#fff',
     fontWeight: '500',
   },
 }); 

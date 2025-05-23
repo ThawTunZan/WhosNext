@@ -15,7 +15,10 @@ import {
   Modal,
   Portal,
   TextInput,
+  useTheme,
 } from "react-native-paper"
+import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { Picker } from "@react-native-picker/picker"
 import * as ImagePicker from "expo-image-picker"
 import { useUser } from "@clerk/clerk-expo"
@@ -51,6 +54,9 @@ type Receipt = {
 type Expense = { id: string; activityName: string, paidById?: string }
 
 export default function ReceiptSection({ tripId }: Props) {
+  const { isDarkMode } = useCustomTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
+  const paperTheme = useTheme();
 
   const { isLoaded, isSignedIn, user } = useUser()
   const profiles = useMemberProfiles()
@@ -188,7 +194,16 @@ export default function ReceiptSection({ tripId }: Props) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView 
+      contentContainerStyle={[
+        styles.container, 
+        { backgroundColor: theme.colors.background }
+      ]}
+    >
+      <Text style={[styles.header, { color: theme.colors.text }]}>
+        📸 Receipts
+      </Text>
+
       <Button
         mode="contained"
         onPress={() => setModalVisible(true)}
@@ -198,137 +213,224 @@ export default function ReceiptSection({ tripId }: Props) {
       </Button>
 
       {receipts.length === 0 ? (
-        <Text style={styles.emptyText}>No receipts yet.</Text>
+        <Text style={[styles.emptyText, { color: theme.colors.subtext }]}>
+          No receipts uploaded yet
+        </Text>
       ) : (
-        receipts.map((r) => (
-          
-          <Card key={r.id} style={styles.card}>
-            <Image
-              source={{ uri: r.url }}
-              style={styles.image}
-              resizeMode="contain"
+        receipts.map((receipt) => (
+          <Card 
+            key={receipt.id} 
+            style={[styles.card, { backgroundColor: theme.colors.surface }]}
+          >
+            <Card.Title
+              title={receipt.expenseName || "Unlinked Receipt"}
+              titleStyle={{ color: theme.colors.text }}
+              subtitle={`Paid by: ${profiles[receipt.paidById] || "Unknown"}`}
+              subtitleStyle={{ color: theme.colors.subtext }}
             />
             <Card.Content>
-              <Text>Expense: {r.expenseName}</Text>
-              <Text>Uploaded by {profiles[r.createdById]}</Text>
-              <Text>Paid by: {profiles[r.paidById]}</Text>
-              <Text>
-                {r.createdAt?.toDate().toLocaleDateString()}
-              </Text>
+              <Image
+                source={{ uri: receipt.url }}
+                style={styles.receiptImage}
+                resizeMode="contain"
+              />
             </Card.Content>
-            <Button
-              onPress={() => handleDelete(r)}
-              mode="outlined"
-              disabled={loading}
-              style={styles.deleteBtn}
-            >
-              Delete
-            </Button>
+            <Card.Actions>
+              <Button
+                onPress={() => handleDelete(receipt)}
+                mode="outlined"
+                loading={loading}
+              >
+                Delete
+              </Button>
+            </Card.Actions>
           </Card>
         ))
       )}
 
-      {/* Modal */}
       <Portal>
         <Modal
           visible={modalVisible}
-          onDismiss={() => setModalVisible(false)}
-          contentContainerStyle={styles.modal}
+          onDismiss={() => {
+            setModalVisible(false)
+            setPickedImageUri(null)
+            setSelectedExpense(null)
+          }}
+          contentContainerStyle={[
+            styles.modal,
+            { backgroundColor: theme.colors.surface }
+          ]}
         >
-          <Text variant="headlineSmall" style={{ marginBottom: 16 }}>
-            Attach Receipt
+          <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+            Add Receipt
           </Text>
 
-          {/* Picker */}
-          <TextInput
-            label="Select Expense"
-            value={selectedExpense ?? ""}
-            mode="outlined"
-            style={{ marginBottom: 12 }}
-            render={(props) => (
+          <View style={styles.pickerContainer}>
+            <Text style={[styles.label, { color: theme.colors.text }]}>
+              Link to Expense (Optional)
+            </Text>
+            <View style={[
+              styles.pickerWrapper, 
+              { 
+                backgroundColor: theme.colors.background,
+                borderColor: theme.colors.border 
+              }
+            ]}>
               <Picker
                 selectedValue={selectedExpense}
-                onValueChange={(v) => setSelectedExpense(v)}
-                style={{ width: "100%", height: 50 }}
+                onValueChange={setSelectedExpense}
+                style={[styles.picker, { color: theme.colors.text }]}
+                dropdownIconColor={theme.colors.text}
               >
-                <Picker.Item label="— Choose —" value={null} />
-                {availableExpenses.map((e) => (
+                <Picker.Item label="Select an expense..." value={null} />
+                {availableExpenses.map((expense) => (
                   <Picker.Item
-                    key={e.id}
-                    label={e.activityName}
-                    value={e.id}
+                    key={expense.id}
+                    label={expense.activityName}
+                    value={expense.id}
                   />
                 ))}
               </Picker>
-            )}
-          />
-
-          {/* Image Preview */}
-          {pickedImageUri && (
-            <Image
-              source={{ uri: pickedImageUri }}
-              style={{ width: "100%", height: 200, marginBottom: 12 }}
-            />
-          )}
-
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Button
-              icon="image"
-              mode="outlined"
-              onPress={pickFromLibrary}
-            >
-              Library
-            </Button>
-            <Button icon="camera" mode="outlined" onPress={pickFromCamera}>
-              Camera
-            </Button>
+            </View>
           </View>
 
-          <Button
-            mode="contained"
-            onPress={saveReceipt}
-            loading={loading}
-            style={{ marginTop: 16 }}
-          >
-            Save
-          </Button>
+          {pickedImageUri ? (
+            <View style={styles.previewContainer}>
+              <Image
+                source={{ uri: pickedImageUri }}
+                style={styles.previewImage}
+                resizeMode="contain"
+              />
+              <Button
+                onPress={() => setPickedImageUri(null)}
+                mode="outlined"
+                style={styles.removeBtn}
+              >
+                Remove
+              </Button>
+            </View>
+          ) : (
+            <View style={styles.buttonGroup}>
+              <Button
+                mode="outlined"
+                onPress={pickFromLibrary}
+                style={styles.pickBtn}
+                icon="image"
+              >
+                Gallery
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={pickFromCamera}
+                style={styles.pickBtn}
+                icon="camera"
+              >
+                Camera
+              </Button>
+            </View>
+          )}
+
+          <View style={styles.modalActions}>
+            <Button
+              onPress={() => {
+                setModalVisible(false)
+                setPickedImageUri(null)
+                setSelectedExpense(null)
+              }}
+              mode="outlined"
+            >
+              Cancel
+            </Button>
+            <Button
+              onPress={saveReceipt}
+              mode="contained"
+              loading={loading}
+              disabled={!pickedImageUri}
+            >
+              Upload
+            </Button>
+          </View>
         </Modal>
       </Portal>
     </ScrollView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flexGrow: 1,
     padding: 16,
-    alignItems: "center",
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
   },
   uploadBtn: {
     marginBottom: 16,
-    width: "100%",
   },
   emptyText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: "#6c757d",
+    textAlign: 'center',
+    marginTop: 32,
+    fontStyle: 'italic',
   },
   card: {
-    marginBottom: 12,
-    width: "100%",
+    marginBottom: 16,
   },
-  image: {
-    width: "100%",
+  receiptImage: {
+    width: '100%',
     height: 200,
-  },
-  deleteBtn: {
-    alignSelf: "flex-end",
-    margin: 8,
+    marginVertical: 8,
   },
   modal: {
-    backgroundColor: "white",
     margin: 20,
-    padding: 16,
+    padding: 20,
     borderRadius: 8,
   },
-})
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  pickerContainer: {
+    marginBottom: 16,
+  },
+  label: {
+    marginBottom: 8,
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  picker: {
+    width: '100%',
+  },
+  previewContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    marginBottom: 8,
+  },
+  removeBtn: {
+    marginTop: 8,
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  pickBtn: {
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+});
 

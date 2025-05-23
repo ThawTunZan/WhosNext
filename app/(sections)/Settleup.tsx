@@ -2,7 +2,9 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, SectionList } from 'react-native';
-import { Card, Text, Divider, Button } from 'react-native-paper';
+import { Card, Text, Divider, Button, useTheme } from 'react-native-paper';
+import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 import {
     parseAndGroupDebts,
@@ -13,6 +15,7 @@ import {
 } from '@/src/services/SettleUpUtilities'; 
 import { Member } from '@/src/types/DataTypes';
 import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
+
 // Props type specific to this component
 type SettleUpProps = {
   debts: DebtsMap;
@@ -20,6 +23,9 @@ type SettleUpProps = {
 };
 
 export default function SettleUpSection({ debts }: SettleUpProps) {
+  const { isDarkMode } = useCustomTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
+  const paperTheme = useTheme();
 
   const profiles = useMemberProfiles();
   const [isSimplified, setIsSimplified] = useState(false);
@@ -34,24 +40,27 @@ export default function SettleUpSection({ debts }: SettleUpProps) {
   }, []);
 
   // Render function for each debt item
-  const renderItem = useCallback(({ item }: { item: ParsedDebt }) => ( // Use imported ParsedDebt type
-    <Card style={styles.card}>
+  const renderItem = useCallback(({ item }: { item: ParsedDebt }) => (
+    <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
       <Card.Title
         title={`Owes ${item.toName}`}
+        titleStyle={{ color: theme.colors.text }}
         right={() => (
-          <Text style={styles.amountText}>
+          <Text style={[styles.amountText, { color: theme.colors.text }]}>
             ${item.amount.toFixed(2)}
           </Text>
         )}
         rightStyle={styles.amountContainer}
       />
     </Card>
-  ), []); 
+  ), [theme.colors]); 
 
   // Render function for section headers
   const renderSectionHeader = useCallback(({ section }: { section: GroupedSectionData }) => (
-    <Text style={styles.sectionHeader}>{section.title}</Text> 
-  ), []);
+    <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>
+      {section.title}
+    </Text> 
+  ), [theme.colors]);
 
   const keyExtractor = useCallback((item: ParsedDebt, index: number) =>
      `${item.fromId}-${item.toId}-${index}`, 
@@ -59,8 +68,8 @@ export default function SettleUpSection({ debts }: SettleUpProps) {
 
   const renderListHeader = () => (
     <>
-      <Text style={styles.header}>💸 Settle Up</Text>
-      <Divider style={styles.divider} />
+      <Text style={[styles.header, { color: theme.colors.text }]}>💸 Settle Up</Text>
+      <Divider style={[styles.divider, { backgroundColor: theme.colors.divider }]} />
     </>
   );
 
@@ -77,38 +86,39 @@ export default function SettleUpSection({ debts }: SettleUpProps) {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <SectionList
         sections={shownDebts}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         renderSectionHeader={renderSectionHeader}
-        ListHeaderComponent={renderListHeader} // <-- Add Header Here
-        ListFooterComponent={renderListFooter} // <-- Add Button Here
-        ListEmptyComponent={<Text style={styles.noDebtText}>No debts to settle 🎉</Text>}
+        ListHeaderComponent={renderListHeader}
+        ListFooterComponent={renderListFooter}
+        ListEmptyComponent={
+          <Text style={[styles.noDebtText, { color: theme.colors.subtext }]}>
+            No debts to settle 🎉
+          </Text>
+        }
         stickySectionHeadersEnabled={false}
-        contentContainerStyle={styles.listContentContainer} // Add padding if needed inside list
-         // Optionally add style={{ flex: 1 }}
+        contentContainerStyle={styles.listContentContainer}
       />
     </View>
   );
 }
 
-// --- STYLES --- (Keep relevant styles, adjust as needed)
 const styles = StyleSheet.create({
   container: {
-    flex: 1, // Make this container take up available space
-     // Remove paddingHorizontal here if handled by listContentContainer
-   },
-   listContentContainer: {
-     paddingHorizontal: 15, // Add horizontal padding inside the list
-     paddingBottom: 20, // Add padding at the bottom of list content
-   },
+    flex: 1,
+  },
+  listContentContainer: {
+    paddingHorizontal: 15,
+    paddingBottom: 20,
+  },
   header: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 15,
-    marginLeft: 5, // Align with list content
+    marginLeft: 5,
   },
   divider: {
     marginBottom: 10,
@@ -117,34 +127,30 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginTop: 16,
-    marginBottom: 8, // Increased spacing
-    color: '#333',
-    paddingHorizontal: 5, // Align with card indentation
+    marginBottom: 8,
+    paddingHorizontal: 5,
   },
   card: {
-    marginBottom: 10, // Increased spacing
-    borderRadius: 8,  // Slightly adjusted radius
-    backgroundColor: '#fff',
+    marginBottom: 10,
+    borderRadius: 8,
     elevation: 2,
   },
-   amountContainer: {
-     paddingRight: 16, // Added for better alignment of the right element
-   },
+  amountContainer: {
+    paddingRight: 16,
+  },
   amountText: {
     fontWeight: 'bold',
     fontSize: 16,
-    color: '#1a1a1a', // Darker color for amount
   },
   noDebtText: {
     fontStyle: 'italic',
-    color: '#777',
     textAlign: 'center',
-    marginTop: 40, // More spacing when empty
+    marginTop: 40,
     marginBottom: 20,
   },
   button: {
-    marginTop: 10, // Ensure button is spaced from list
-    marginBottom: 20, // More space at the bottom
+    marginTop: 10,
+    marginBottom: 20,
     marginHorizontal: 10,
   },
 });

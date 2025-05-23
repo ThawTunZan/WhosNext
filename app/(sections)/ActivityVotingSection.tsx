@@ -1,7 +1,10 @@
 // src/screens/TripDetails/components/ActivityVotingSection.tsx
 import React, { useState, useCallback } from 'react'
 import { View, StyleSheet, FlatList, Text } from 'react-native'
-import { Button, ActivityIndicator, Snackbar } from 'react-native-paper'
+import { Button, ActivityIndicator, Snackbar, useTheme } from 'react-native-paper'
+import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
+
 import ActivityCard from '../../src/components/ActivityCard'
 import {
   NewProposedActivityData,
@@ -21,6 +24,10 @@ import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
 
 const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDeleteActivity, }: ActivityVotingSectionProps) => {
+    const { isDarkMode } = useCustomTheme();
+    const theme = isDarkMode ? darkTheme : lightTheme;
+    const paperTheme = useTheme();
+
     const { activities, isLoading, error } = useProposedActivities(tripId);
     const [snackbarVisible, setSnackbarVisible] = React.useState(false);
     const [snackbarMessage, setSnackbarMessage] = React.useState('');
@@ -129,7 +136,9 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
   const keyExtractor = useCallback((item: ProposedActivity) => item.id, []);
 
    const renderListHeader = () => (
-    <Text style={styles.header}>🗳️ Activity Voting</Text>
+    <Text style={[styles.header, { color: theme.colors.text }]}>
+        🗳️ Activity Voting
+      </Text>
   );
 
    const renderListFooter = () => (
@@ -145,11 +154,15 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
 
   // --- Render Logic ---
   if (isLoading) {
-    return <View style={styles.centered}><ActivityIndicator animating={true} size="large" /></View>;
+    return (
+      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator animating={true} size="large" color={paperTheme.colors.primary} />
+      </View>
+    );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <FlatList
         data={activities}
         renderItem={renderActivityCard}
@@ -157,8 +170,10 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
         ListHeaderComponent={renderListHeader}
         ListFooterComponent={renderListFooter}
         ListEmptyComponent={
-            <View style={styles.centered}>
-                <Text>No activities proposed yet.</Text>
+            <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+                <Text style={{ color: theme.colors.text }}>
+                    No activities proposed yet.
+                </Text>
             </View>
         }
         contentContainerStyle={styles.listContentContainer}
@@ -187,14 +202,6 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
           : undefined
        }
         />
-
-        <Snackbar
-           visible={snackbarVisible}
-           onDismiss={() => setSnackbarVisible(false)}
-           duration={3000}
-         >
-           {snackbarMessage}
-        </Snackbar>
     </View>
   );
 };

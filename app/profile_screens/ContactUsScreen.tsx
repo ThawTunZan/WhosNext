@@ -27,6 +27,8 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase';
 import * as ImagePicker from 'expo-image-picker';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 // FAQ data
 const FAQs = [
@@ -126,6 +128,8 @@ const FILE_LIMITS = {
 export default function ContactUsScreen() {
   const router = useRouter();
   const { user } = useUser();
+  const { isDarkMode } = useTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [category, setCategory] = useState<ContactCategory>('general');
@@ -275,18 +279,24 @@ export default function ContactUsScreen() {
     Linking.openURL('mailto:whosnextsplit.team@gmail.com');
   };
 
+  const categories = [
+    { value: 'general', label: 'General' },
+    { value: 'bug', label: 'Report Bug' },
+    { value: 'feature', label: 'Feature Request' },
+  ];
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header Section */}
-      <View style={styles.headerSection}>
-        <Text variant="headlineMedium" style={styles.title}>Contact Us</Text>
-        <Text variant="bodyLarge" style={styles.subtitle}>
-          Need help? Check our FAQ below or send us a message.
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>Contact Us</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.subtext }]}>
+          We're here to help! Send us a message.
         </Text>
       </View>
 
       {/* FAQ Section */}
-      <Card style={styles.section}>
+      <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
         <Card.Title title="Frequently Asked Questions" />
         <Card.Content>
           <List.AccordionGroup>
@@ -308,9 +318,10 @@ export default function ContactUsScreen() {
       <Divider style={styles.divider} />
 
       {/* Contact Form Section */}
-      <Card style={styles.section}>
+      <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
         <Card.Title title="Send us a message" />
         <Card.Content>
+          <Text style={[styles.label, { color: theme.colors.text }]}>Category</Text>
           <SegmentedButtons
             value={category}
             onValueChange={value => {
@@ -320,11 +331,7 @@ export default function ContactUsScreen() {
                 setMessage('');
               }
             }}
-            buttons={[
-              { value: 'general', label: 'General' },
-              { value: 'bug', label: 'Report Bug' },
-              { value: 'feature', label: 'Feature Request' },
-            ]}
+            buttons={categories}
             style={styles.categoryButtons}
           />
 
@@ -334,6 +341,7 @@ export default function ContactUsScreen() {
             onChangeText={setSubject}
             mode="outlined"
             style={styles.input}
+            theme={{ colors: { primary: theme.colors.primary } }}
           />
 
           <TextInput
@@ -344,6 +352,7 @@ export default function ContactUsScreen() {
             multiline
             numberOfLines={4}
             style={styles.input}
+            theme={{ colors: { primary: theme.colors.primary } }}
           />
           <HelperText type="info" visible={true}>
             {message.length}/{getCharacterLimit()} characters
@@ -402,7 +411,7 @@ export default function ContactUsScreen() {
             Send Message
           </Button>
 
-          <Text style={styles.orText}>- OR -</Text>
+          <Text style={[styles.orText, { color: theme.colors.subtext }]}>or</Text>
 
           <Button
             mode="outlined"
@@ -415,22 +424,41 @@ export default function ContactUsScreen() {
       </Card>
 
       {/* Support Links */}
-      <Card style={[styles.section, styles.lastSection]}>
+      <Card style={[styles.section, styles.lastSection, { backgroundColor: theme.colors.surface }]}>
         <Card.Title title="Other Ways to Reach Us" />
         <Card.Content>
+          <List.Item
+            title="Email Us"
+            description="support@whosnext.com"
+            left={props => <List.Icon {...props} icon="email" color={theme.colors.primary} />}
+            titleStyle={{ color: theme.colors.text }}
+            descriptionStyle={{ color: theme.colors.subtext }}
+          />
+          <Divider />
+          <List.Item
+            title="Call Us"
+            description="1-800-WHOSNEXT"
+            left={props => <List.Icon {...props} icon="phone" color={theme.colors.primary} />}
+            titleStyle={{ color: theme.colors.text }}
+            descriptionStyle={{ color: theme.colors.subtext }}
+          />
           <Button
-            mode="text"
+            mode="outlined"
             icon="twitter"
             onPress={() => Linking.openURL('https://twitter.com/whosnext')}
+            style={[styles.socialButton, { marginTop: 8 }]}
+            textColor={theme.colors.primary}
           >
-            Follow us on Twitter
+            Twitter
           </Button>
           <Button
-            mode="text"
+            mode="outlined"
             icon="instagram"
             onPress={() => Linking.openURL('https://instagram.com/whosnext')}
+            style={[styles.socialButton, { marginTop: 8 }]}
+            textColor={theme.colors.primary}
           >
-            Follow us on Instagram
+            Instagram
           </Button>
         </Card.Content>
       </Card>
@@ -441,18 +469,17 @@ export default function ContactUsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
-  headerSection: {
+  header: {
     padding: 20,
-    backgroundColor: '#fff',
   },
   title: {
+    fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 8,
   },
   subtitle: {
-    color: '#666',
+    fontSize: 16,
   },
   section: {
     margin: 16,
@@ -472,12 +499,10 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: 8,
-    marginBottom: 16,
   },
   orText: {
     textAlign: 'center',
     marginVertical: 16,
-    color: '#666',
   },
   attachmentsContainer: {
     marginBottom: 16,
@@ -503,5 +528,12 @@ const styles = StyleSheet.create({
   attachmentActions: {
     justifyContent: 'flex-end',
     padding: 4,
+  },
+  label: {
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  socialButton: {
+    justifyContent: 'flex-start',
   },
 }); 
