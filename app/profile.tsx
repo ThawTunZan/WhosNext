@@ -57,6 +57,22 @@ export default function ProfileScreen() {
           <Ionicons name="settings-outline" size={20} color="black" />
         </TouchableOpacity>
 
+        <TouchableOpacity 
+          style={styles.settingItem}
+          onPress={() => router.push("/profile_screens/PaymentMethodsScreen")}
+        >
+          <Text style={styles.settingText}>Payment Methods</Text>
+          <Ionicons name="card-outline" size={20} color="black" />
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.settingItem}
+          onPress={() => router.push("/profile_screens/FriendsScreen")}
+        >
+          <Text style={styles.settingText}>Friends & Groups</Text>
+          <Ionicons name="people-outline" size={20} color="black" />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.settingItem}>
           <Text style={styles.settingText}>Privacy Settings</Text>
           <Ionicons name="lock-closed-outline" size={20} color="black" />

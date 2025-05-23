@@ -8,6 +8,7 @@ import { SafeAreaView, View, StyleSheet, TouchableOpacity, Text } from "react-na
 import { Redirect, router, Stack, useFocusEffect, usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService";
+import { useNavigationDirection } from "@/src/navigation/useNavigationDirection";
 
 // (If you have a NavButton component extract it here; otherwise inline it.)
 function NavButton({
@@ -51,11 +52,11 @@ export default function RootLayout() {
   );
 }
 
-
 // Your AuthGateAndStack remains exactly as before:
 function AuthGateAndStack() {
   const { isLoaded, isSignedIn, user } = useUser();
   const path = usePathname();
+  const direction = useNavigationDirection();
 
   const syncUser = React.useCallback(() => {
     if (isLoaded && isSignedIn && user) {
@@ -70,17 +71,27 @@ function AuthGateAndStack() {
     return <Redirect href="/auth/sign-in" />;
   }
 
+  const animation = direction === "right" ? "slide_from_right" : "slide_from_left";
+
   return (
     <Stack
       screenOptions={{
         gestureEnabled: true,
-        headerShown: true,
+        headerShown: false,
+        gestureDirection: direction === "right" ? "horizontal" : "vertical",
+        animation,
       }}
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="create-trip" />
       <Stack.Screen name="profile" />
-      <Stack.Screen name="trip/[id]" />
+      <Stack.Screen 
+        name="trip/[id]" 
+        options={{
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen name="profile_screens" />
     </Stack>
   );
 }
