@@ -81,11 +81,14 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.settingItem}>
-          <Text style={styles.settingText}>Rate Who’s Next</Text>
+          <Text style={styles.settingText}>Rate Who's Next</Text>
           <Ionicons name="star-outline" size={20} color="black" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.settingItem}>
+        <TouchableOpacity 
+          style={styles.settingItem}
+          onPress={() => router.push("/profile_screens/ContactUsScreen")}
+        >
           <Text style={styles.settingText}>Contact Us</Text>
           <Ionicons name="call-outline" size={20} color="black" />
         </TouchableOpacity>
