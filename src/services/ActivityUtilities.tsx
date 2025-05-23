@@ -19,7 +19,6 @@ import {
     NewProposedActivityData,
     VoteType
 } from '../types/DataTypes';
-import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 const TRIPS_COLLECTION = 'trips';
 const ACTIVITIES_SUBCOLLECTION = 'proposed_activities';
@@ -53,7 +52,6 @@ export const subscribeToProposedActivities = (
                 name: raw.name,
                 description: raw.description,
                 suggestedByID: raw.suggestedByID,
-                suggestedByName: raw.suggestedByName,
                 estCost: raw.estCost,
                 currency: raw.currency,
                 createdAt: raw.createdAt, 
@@ -108,10 +106,9 @@ export const addProposedActivity = async (
      if (!tripId) {
         throw new Error("No Trip ID provided to add activity.");
     }
-    const profiles = useMemberProfiles();
     // if the ID o the name of the person who suggested the activity is not provided
-     if (!activityData.suggestedByID || !profiles[activityData.suggestedByID]) {
-         throw new Error("Activity proposer ID and Name are required.");
+     if (!activityData.suggestedByID) {
+         throw new Error("Activity proposer ID is required.");
      }
 
     const activitiesColRef = collection(db, TRIPS_COLLECTION, tripId, ACTIVITIES_SUBCOLLECTION);

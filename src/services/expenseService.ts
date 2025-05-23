@@ -6,17 +6,15 @@ import {
     doc,
     deleteDoc,
     increment,
-    writeBatch, // Use batch writes for atomicity when updating multiple docs/fields
+    writeBatch, 
     Timestamp,
-    getDoc, // Use Firestore Timestamp
+    getDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase'; // Adjust path as needed
 import { Expense, Member } from '../types/DataTypes';
-import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
-  
+
 const TRIPS_COLLECTION = 'trips';
 const EXPENSES_SUBCOLLECTION = 'expenses';
-
 
 export const updateExpenseAndRecalculateDebts = async (
   tripId: string,
@@ -283,11 +281,15 @@ export const generateExpenseImpactUpdate = (
   expenseId?: string,
 ): { [key: string]: any } => {
 
-  const { sharedWith, paidById: paidById } = expenseData;
+  const { sharedWith, paidById } = expenseData;
 
-  const paidByID = Object.keys(members).find(id => id === paidByID);
-  if (!paidByID) {
-    throw new Error(`Payer "${profiles[paidByID]}" not found in members. Failed to reverse expense ${expenseId}.`);
+  if (!paidById) {
+    throw new Error(`Payer ID is missing from expense data ${expenseId ? `for expense ${expenseId}` : ''}`);
+  }
+
+  // Check if the payer exists in members
+  if (!members[paidById]) {
+    throw new Error(`Payer "${profiles[paidById] || paidById}" not found in members. Failed to ${reverse ? 'reverse' : 'process'} expense ${expenseId || ''}.`);
   }
 
   const multiplier = (reverse)? 1 : -1;
@@ -296,10 +298,10 @@ export const generateExpenseImpactUpdate = (
     const share = Number(member.amount) * multiplier;
     const payeeID = member.payeeID;
     console.log("share is " + share)
-    if (payeeID !== paidByID) {
+    if (payeeID !== paidById) {
       updates[`members.${payeeID}.amtLeft`] = share;
       updates[`members.${payeeID}.owesTotal`] = -share;
-      updates[`debts.${payeeID}#${paidByID}`] = -share;
+      updates[`debts.${payeeID}#${paidById}`] = -share;
     } else {
       updates[`members.${payeeID}.amtLeft`] = share;
     }

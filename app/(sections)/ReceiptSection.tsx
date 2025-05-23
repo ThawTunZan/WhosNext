@@ -21,6 +21,7 @@ import * as ImagePicker from "expo-image-picker"
 import { useUser } from "@clerk/clerk-expo"
 import { Redirect } from "expo-router"
 import { db } from "@/firebase"
+import { useMemberProfiles } from "@/src/context/MemberProfilesContext"
 import {
   collection,
   addDoc,
@@ -44,22 +45,19 @@ type Receipt = {
   expenseId?: string
   expenseName?: string
   createdAt?: Timestamp
-  createdByName?: string
-  paidByName: string
+  createdById?: string
+  paidById: string
 }
-type Expense = { id: string; activityName: string, paidByName?: string }
+type Expense = { id: string; activityName: string, paidById?: string }
 
 export default function ReceiptSection({ tripId }: Props) {
 
   const { isLoaded, isSignedIn, user } = useUser()
+  const profiles = useMemberProfiles()
+
   if (!isLoaded) return null
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />
-  const currentUserName =
-    user.fullName ??
-    user.username ??
-    user.primaryEmailAddress?.emailAddress ??
-    `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
-
+  const currentUserId = user.id
   // State
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -88,7 +86,7 @@ export default function ReceiptSection({ tripId }: Props) {
       snap.docs.map((d) => ({
         id: d.id,
         activityName: (d.data() as any).activityName as string,
-        paidByName: (d.data() as any).paidBy as string,
+        paidById: (d.data() as any).paidById as string,
       }))
     )
   }
@@ -135,7 +133,11 @@ export default function ReceiptSection({ tripId }: Props) {
     try {
       const expense = expenses.find((e) => e.id === selectedExpense)
       const expenseName = expense?.activityName ?? "Unknown"
-      const paidByName = expense?.paidByName ?? "Unknown"
+      
+      if (!expense?.paidById) {
+        throw new Error("Could not find who paid for this expense")
+      }
+
       // Fetch blob
       const resp = await fetch(pickedImageUri)
       const blob = await resp.blob()
@@ -157,8 +159,8 @@ export default function ReceiptSection({ tripId }: Props) {
         url,
         path: fileRef.fullPath,
         createdAt: Timestamp.now(),
-        createdByName: currentUserName,
-        paidByName: paidByName
+        createdById: currentUserId,
+        paidById: expense.paidById
       })
 
       // Refresh lists
@@ -208,8 +210,8 @@ export default function ReceiptSection({ tripId }: Props) {
             />
             <Card.Content>
               <Text>Expense: {r.expenseName}</Text>
-              <Text>Uploaded by {r.createdByName}</Text>
-              <Text>Paid by: {r.paidByName}</Text>
+              <Text>Uploaded by {profiles[r.createdById]}</Text>
+              <Text>Paid by: {profiles[r.paidById]}</Text>
               <Text>
                 {r.createdAt?.toDate().toLocaleDateString()}
               </Text>
