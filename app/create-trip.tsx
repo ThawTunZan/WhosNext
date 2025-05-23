@@ -5,6 +5,11 @@ import {
   StyleSheet,
   SafeAreaView,
   Dimensions,
+  TouchableWithoutFeedback,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import {
   Text,
@@ -64,65 +69,76 @@ export default function CreateTripScreen() {
   };
 
   return (
-    <>
-      <StatusBar style="dark" />
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.logo}>Who's Next</Text>
-          <Text 
-            style={styles.skip}
-            onPress={() => router.back()}
-          >
-            Skip
-          </Text>
-        </View>
-
-        <View style={styles.illustrationContainer}>
-          {/* Placeholder for illustration */}
-          <View style={styles.illustrationPlaceholder} />
-        </View>
-
-        <View style={styles.bottomCard}>
-          <Text style={styles.title}>Plan your next adventure</Text>
-          
-          <TextInput
-            mode="flat"
-            placeholder="Where are you going?"
-            value={destination}
-            onChangeText={setDestination}
-            style={styles.input}
-            theme={{ colors: { primary: '#6B4EFF' }}}
-          />
-
-          <TextInput
-            mode="flat"
-            placeholder="What's your budget?"
-            value={totalBudget}
-            onChangeText={setTotalBudget}
-            keyboardType="numeric"
-            style={styles.input}
-            left={<TextInput.Affix text="$" />}
-            theme={{ colors: { primary: '#6B4EFF' }}}
-          />
-
-          <Button
-            mode="contained"
-            onPress={handleCreateTrip}
-            style={styles.button}
-            contentStyle={styles.buttonContent}
-            labelStyle={styles.buttonLabel}
-          >
-            Get Started
-          </Button>
-
-          <View style={styles.progressDots}>
-            <View style={[styles.dot, styles.activeDot]} />
-            <View style={styles.dot} />
-            <View style={styles.dot} />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <StatusBar style="dark" />
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.logo}>Who's Next</Text>
+            <Text 
+              style={styles.skip}
+              onPress={() => router.back()}
+            >
+              Skip
+            </Text>
           </View>
-        </View>
-      </SafeAreaView>
-    </>
+
+          <ScrollView 
+            style={{ flex: 1 }}
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.illustrationContainer}>
+              {/* Placeholder for illustration */}
+              <View style={styles.illustrationPlaceholder} />
+            </View>
+
+            <View style={styles.bottomCard}>
+              <Text style={styles.title}>Plan your next adventure</Text>
+              
+              <TextInput
+                mode="flat"
+                placeholder="Where are you going?"
+                value={destination}
+                onChangeText={setDestination}
+                style={styles.input}
+                theme={{ colors: { primary: '#6B4EFF' }}}
+              />
+
+              <TextInput
+                mode="flat"
+                placeholder="What's your budget?"
+                value={totalBudget}
+                onChangeText={setTotalBudget}
+                keyboardType="numeric"
+                style={styles.input}
+                left={<TextInput.Affix text="$" />}
+                theme={{ colors: { primary: '#6B4EFF' }}}
+              />
+
+              <Button
+                mode="contained"
+                onPress={handleCreateTrip}
+                style={styles.button}
+                contentStyle={styles.buttonContent}
+                labelStyle={styles.buttonLabel}
+              >
+                Get Started
+              </Button>
+
+              <View style={styles.progressDots}>
+                <View style={[styles.dot, styles.activeDot]} />
+                <View style={styles.dot} />
+                <View style={styles.dot} />
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
   );
 }
 
