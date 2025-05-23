@@ -1,6 +1,8 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import { Button } from 'react-native-paper';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Button, useTheme, Text } from 'react-native-paper';
+import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { Member } from '@/src/types/DataTypes';
 import BudgetSummaryCard from './BudgetSummaryCard';
 import PersonalBudgetCard from './PersonalBudgetCard';
@@ -36,57 +38,102 @@ export default function OverviewTab({
   isDeletingTrip,
   nextPayer,
 }: OverviewTabProps) {
+  const { isDarkMode } = useCustomTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
+  const paperTheme = useTheme();
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <MemberList 
-        members={members} 
-        onAddMember={onAddMember} 
-        onRemoveMember={onRemoveMember} 
-      />
-
-      <BudgetSummaryCard
-        members={members}
-        profiles={profiles}
-        totalBudget={totalBudget}
-        totalAmtLeft={totalAmtLeft}
-      />
-
-      {members[currentUserId] && (
-        <PersonalBudgetCard
-          member={members[currentUserId]}
-          onEditBudget={onEditBudget}
+    <ScrollView 
+      contentContainerStyle={[
+        styles.container, 
+        { backgroundColor: theme.colors.background }
+      ]}
+    >
+      <View style={styles.section}>
+        <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          👥 Members
+        </Text>
+        <MemberList 
+          members={members} 
+          onAddMember={onAddMember} 
+          onRemoveMember={onRemoveMember} 
         />
+      </View>
+
+      <View style={styles.section}>
+        <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+          💰 Budget
+        </Text>
+        <BudgetSummaryCard
+          members={members}
+          profiles={profiles}
+          totalBudget={totalBudget}
+          totalAmtLeft={totalAmtLeft}
+        />
+
+        {members[currentUserId] && (
+          <PersonalBudgetCard
+            member={members[currentUserId]}
+            onEditBudget={onEditBudget}
+          />
+        )}
+      </View>
+
+      {nextPayer && profiles[nextPayer] && (
+        <View style={styles.section}>
+          <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            ⏭️ Next Up
+          </Text>
+          <NextPayerCard name={profiles[nextPayer]} />
+        </View>
       )}
 
-      {nextPayer && (
-        <NextPayerCard name={profiles[nextPayer]} />
-      )}
-
-      {/* Delete / Leave */}
-      {Object.keys(members)[0] === currentUserId && (
-        <Button
-          mode="contained"
-          onPress={onDeleteTrip}
-          loading={isDeletingTrip}
-          style={styles.deleteButton}
+      <View style={styles.actionButtons}>
+        {Object.keys(members)[0] === currentUserId && (
+          <Button
+            mode="contained"
+            onPress={onDeleteTrip}
+            loading={isDeletingTrip}
+            style={[styles.deleteButton, { backgroundColor: theme.colors.error }]}
+            icon="delete"
+          >
+            Delete Trip
+          </Button>
+        )}
+        <Button 
+          mode="outlined" 
+          onPress={onLeaveTrip}
+          icon="exit-to-app"
+          style={styles.leaveButton}
         >
-          Delete Trip
+          Leave Trip
         </Button>
-      )}
-      <Button mode="outlined" onPress={onLeaveTrip}>
-        Leave Trip
-      </Button>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 15,
-    paddingBottom: 20,
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    marginBottom: 16,
+    fontWeight: '600',
+  },
+  actionButtons: {
+    marginTop: 8,
+    gap: 12,
   },
   deleteButton: {
-    backgroundColor: "#dc3545",
-    marginVertical: 8,
+    marginBottom: 8,
+  },
+  leaveButton: {
+    borderWidth: 2,
   },
 }); 

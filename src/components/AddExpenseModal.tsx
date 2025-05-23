@@ -1,13 +1,16 @@
 // src/components/AddExpenseModal.tsx
 import React, { useState, useEffect } from 'react';
 import { Modal, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Button, Card, Text, TextInput, RadioButton, HelperText, Caption } from 'react-native-paper';
+import { Button, Card, Text, TextInput, RadioButton, HelperText, Caption, useTheme, Surface, Divider } from 'react-native-paper';
+import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { AddExpenseModalProps, Expense, SharedWith } from '../types/DataTypes';
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { useUser } from '@clerk/clerk-expo';
 import { Redirect } from 'expo-router';
 import { db } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerId }: AddExpenseModalProps) => {
   const [expenseName, setExpenseName] = useState('');
@@ -246,6 +249,9 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
       setCustomAmounts(prev => ({ ...prev, [id]: cleanedText }));
    };
 
+  const { isDarkMode } = useCustomTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
+  const paperTheme = useTheme();
 
   return (
     <Modal
@@ -254,213 +260,359 @@ const AddExpenseModal = ({ visible, onClose, onSubmit, members, tripId, initialD
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.modalBackground}>
-          <Card style={styles.modalCard}>
-           <ScrollView keyboardShouldPersistTaps="handled" >
-            <Card.Title title="Add New Expense" />
+      <View style={[styles.modalBackground, { backgroundColor: 'rgba(0, 0, 0, 0.75)' }]}>
+        <Card style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}>
+          <ScrollView keyboardShouldPersistTaps="handled">
+            <Card.Title 
+              title={editingExpenseId ? "Edit Expense" : "Add New Expense"}
+              titleStyle={[styles.modalTitle, { color: theme.colors.text }]}
+            />
             <Card.Content>
-              {/* Expense Name */}
-              <TextInput
-                label="Expense Name"
-                value={expenseName}
-                onChangeText={setExpenseName}
-                style={styles.input}
-                error={!!errors.name}
-              />
-              {errors.name && <HelperText type="error">{errors.name}</HelperText>}
+              <Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
+                <TextInput
+                  label="Expense Name"
+                  value={expenseName}
+                  onChangeText={setExpenseName}
+                  style={[styles.input, { backgroundColor: theme.colors.surface }]}
+                  error={!!errors.name}
+                  mode="outlined"
+                />
+                {errors.name && <HelperText type="error">{errors.name}</HelperText>}
 
+                <TextInput
+                  label="Total Amount Paid"
+                  value={paidAmtStr}
+                  onChangeText={setPaidAmtStr}
+                  style={[styles.input, { backgroundColor: theme.colors.surface }]}
+                  keyboardType="numeric"
+                  error={!!errors.amount}
+                  mode="outlined"
+                  left={<TextInput.Affix text="$" />}
+                />
+                {errors.amount && <HelperText type="error">{errors.amount}</HelperText>}
+              </Surface>
 
-              {/* Paid By Selection */}
-              <Text style={styles.label}>Paid by:</Text>
-              {suggestedPayerId && (
-                  <Caption style={styles.suggestionText}>
-                      Suggestion: {profiles[suggestedPayerId]} is next to pay.
+              <Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
+                <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                  Paid by
+                </Text>
+                {suggestedPayerId && (
+                  <Caption style={[styles.suggestionText, { color: theme.colors.primary }]}>
+                    💡 Suggestion: {profiles[suggestedPayerId]} is next to pay
                   </Caption>
-              )}
-              {memberEntries.length > 0 ? (
-                <RadioButton.Group onValueChange={newValue => setPaidByID(newValue)} value={paidById}>
-                  {memberEntries.map(([id, member]) => (
-                    <View key={id} style={styles.radioItem}>
-                       <RadioButton value={id} />
-                       <Text>{profiles[id]}</Text>
-                    </View>
-                  ))}
-                </RadioButton.Group>
-              ) : (
-                  <Text style={styles.infoText}>No members available to select.</Text>
-              )}
-               {errors.paidBy && <HelperText type="error">{errors.paidBy}</HelperText>}
+                )}
+                {memberEntries.length > 0 ? (
+                  <RadioButton.Group onValueChange={newValue => setPaidByID(newValue)} value={paidById}>
+                    {memberEntries.map(([id, member]) => (
+                      <TouchableOpacity
+                        key={id}
+                        onPress={() => setPaidByID(id)}
+                        style={[
+                          styles.memberOption,
+                          paidById === id && styles.selectedMemberOption,
+                          { backgroundColor: paidById === id ? paperTheme.colors.primaryContainer : theme.colors.surface }
+                        ]}
+                      >
+                        <RadioButton.Android value={id} />
+                        <Text style={[
+                          styles.memberName,
+                          { color: paidById === id ? paperTheme.colors.onPrimaryContainer : theme.colors.text }
+                        ]}>
+                          {profiles[id]}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </RadioButton.Group>
+                ) : (
+                  <Text style={[styles.infoText, { color: theme.colors.error }]}>
+                    No members available to select
+                  </Text>
+                )}
+                {errors.paidBy && <HelperText type="error">{errors.paidBy}</HelperText>}
+              </Surface>
 
-
-              {/* Amount */}
-              <TextInput
-                label="Total Amount Paid"
-                value={paidAmtStr}
-                onChangeText={setPaidAmtStr}
-                style={styles.input}
-                keyboardType="numeric"
-                error={!!errors.amount}
-              />
-              {errors.amount && <HelperText type="error">{errors.amount}</HelperText>}
-
-              {/* Shared With Selection */}
-              <Text style={styles.label}>Shared With:</Text>
-              {memberEntries.length > 0 ? memberEntries.map(([id, member]) => (
-                <TouchableOpacity
-                  key={id}
-                  onPress={() => toggleSharedMember(id)}
-                  style={[styles.sharedOption, sharedWithIds.includes(id) && styles.sharedOptionSelected]}
+              <Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
+                <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                  Split Type
+                </Text>
+                <RadioButton.Group 
+                  onValueChange={newValue => setSplitType(newValue as 'even' | 'custom')} 
+                  value={splitType}
                 >
-                  <Text>{profiles[id]}</Text>
-                  {/* Maybe add a Checkbox icon here */}
-                </TouchableOpacity>
-              )) : <Text style={styles.infoText}>No members available.</Text>}
-              {errors.sharedWith && <HelperText type="error">{errors.sharedWith}</HelperText>}
-
-
-              {/* Split Type Selection */}
-              <Text style={styles.label}>Split Type:</Text>
-              <RadioButton.Group onValueChange={newValue => setSplitType(newValue as 'even' | 'custom')} value={splitType}>
-                 <View style={styles.radioItem}>
-                    <RadioButton value="even" />
-                    <Text>Split Evenly</Text>
-                 </View>
-                 <View style={styles.radioItem}>
-                    <RadioButton value="custom" />
-                    <Text>Custom Amounts</Text>
-                 </View>
-              </RadioButton.Group>
-
-               {/* Custom Amounts Input */}
-              {splitType === 'custom' && sharedWithIds.length > 0 && (
-                <View style={styles.customAmountsContainer}>
-                  <Text style={styles.label}>Enter Custom Amounts:</Text>
-                  {sharedWithIds.map(id => (
-                    <View key={id} style={styles.customAmountRow}>
-                      <Text style={styles.customAmountLabel}>{profiles[id]}:</Text>
-                      <TextInput
-                        dense // Smaller input
-                        style={styles.customAmountInput}
-                        value={customAmounts[id] || ''}
-                        placeholder="Amount"
-                        keyboardType="numeric"
-                        onChangeText={(text) => handleCustomAmountChange(id, text)}
-                        error={!!errors[`custom_${id}`]}
-
+                  <View style={styles.splitTypeContainer}>
+                    <TouchableOpacity
+                      onPress={() => setSplitType('even')}
+                      style={[
+                        styles.splitOption,
+                        splitType === 'even' && styles.selectedSplitOption,
+                        { backgroundColor: splitType === 'even' ? paperTheme.colors.primaryContainer : theme.colors.surface }
+                      ]}
+                    >
+                      <MaterialCommunityIcons 
+                        name="equal-box" 
+                        size={24} 
+                        color={splitType === 'even' ? paperTheme.colors.onPrimaryContainer : theme.colors.text} 
                       />
-                       {errors[`custom_${id}`] && <HelperText type="error" style={styles.inlineError}>{errors[`custom_${id}`]}</HelperText>}
-                    </View>
-                  ))}
-                  {errors.customTotal && <HelperText type="error">{errors.customTotal}</HelperText>}
-                </View>
+                      <Text style={[
+                        styles.splitOptionText,
+                        { color: splitType === 'even' ? paperTheme.colors.onPrimaryContainer : theme.colors.text }
+                      ]}>
+                        Split Evenly
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setSplitType('custom')}
+                      style={[
+                        styles.splitOption,
+                        splitType === 'custom' && styles.selectedSplitOption,
+                        { backgroundColor: splitType === 'custom' ? paperTheme.colors.primaryContainer : theme.colors.surface }
+                      ]}
+                    >
+                      <MaterialCommunityIcons 
+                        name="calculator-variant" 
+                        size={24} 
+                        color={splitType === 'custom' ? paperTheme.colors.onPrimaryContainer : theme.colors.text} 
+                      />
+                      <Text style={[
+                        styles.splitOptionText,
+                        { color: splitType === 'custom' ? paperTheme.colors.onPrimaryContainer : theme.colors.text }
+                      ]}>
+                        Custom Split
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </RadioButton.Group>
+              </Surface>
+
+              <Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
+                <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                  Shared With
+                </Text>
+                {memberEntries.length > 0 ? (
+                  <View style={styles.sharedWithContainer}>
+                    {memberEntries.map(([id, member]) => (
+                      <TouchableOpacity
+                        key={id}
+                        onPress={() => toggleSharedMember(id)}
+                        style={[
+                          styles.sharedOption,
+                          sharedWithIds.includes(id) && styles.sharedOptionSelected,
+                          { 
+                            backgroundColor: sharedWithIds.includes(id) 
+                              ? paperTheme.colors.primaryContainer 
+                              : theme.colors.surface,
+                            borderColor: theme.colors.border
+                          }
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name={sharedWithIds.includes(id) ? "checkbox-marked" : "checkbox-blank-outline"}
+                          size={24}
+                          color={sharedWithIds.includes(id) ? paperTheme.colors.primary : theme.colors.text}
+                        />
+                        <Text style={[
+                          styles.sharedOptionText,
+                          { 
+                            color: sharedWithIds.includes(id)
+                              ? paperTheme.colors.onPrimaryContainer
+                              : theme.colors.text
+                          }
+                        ]}>
+                          {profiles[id]}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={[styles.infoText, { color: theme.colors.error }]}>
+                    No members available
+                  </Text>
+                )}
+                {errors.sharedWith && <HelperText type="error">{errors.sharedWith}</HelperText>}
+              </Surface>
+
+              {splitType === 'custom' && sharedWithIds.length > 0 && (
+                <Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
+                  <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                    Custom Amounts
+                  </Text>
+                  <View style={styles.customAmountsContainer}>
+                    {sharedWithIds.map(id => (
+                      <View key={id} style={styles.customAmountRow}>
+                        <Text style={[styles.customAmountLabel, { color: theme.colors.text }]}>
+                          {profiles[id]}
+                        </Text>
+                        <TextInput
+                          mode="outlined"
+                          dense
+                          style={[styles.customAmountInput, { backgroundColor: theme.colors.surface }]}
+                          value={customAmounts[id] || ''}
+                          placeholder="0.00"
+                          keyboardType="numeric"
+                          onChangeText={(text) => handleCustomAmountChange(id, text)}
+                          error={!!errors[`custom_${id}`]}
+                          left={<TextInput.Affix text="$" />}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                  {errors.customTotal && (
+                    <HelperText type="error" style={styles.customTotalError}>
+                      {errors.customTotal}
+                    </HelperText>
+                  )}
+                </Surface>
               )}
 
-             {/* General Submit Error */}
-              {errors.submit && <HelperText type="error" style={styles.submitError}>{errors.submit}</HelperText>}
-
+              {errors.submit && (
+                <HelperText type="error" style={styles.submitError}>
+                  {errors.submit}
+                </HelperText>
+              )}
             </Card.Content>
-             </ScrollView>
-            <Card.Actions style={styles.modalActions}>
-              <Button onPress={onClose} disabled={isSubmitting}>Cancel</Button>
-              <Button
-                  mode="contained"
-                  onPress={handleInternalSubmit}
-                  loading={isSubmitting}
-                  disabled={isSubmitting}
-                >
-                Add Expense
-              </Button>
-            </Card.Actions>
-          </Card>
+          </ScrollView>
+
+          <Divider style={{ backgroundColor: theme.colors.border }} />
+          
+          <Card.Actions style={styles.modalActions}>
+            <Button 
+              onPress={onClose} 
+              disabled={isSubmitting}
+              textColor={theme.colors.text}
+            >
+              Cancel
+            </Button>
+            <Button
+              mode="contained"
+              onPress={handleInternalSubmit}
+              loading={isSubmitting}
+              disabled={isSubmitting}
+              style={{ marginLeft: 8 }}
+            >
+              {editingExpenseId ? "Save Changes" : "Add Expense"}
+            </Button>
+          </Card.Actions>
+        </Card>
       </View>
     </Modal>
   );
 };
 
-// Add Styles (similar to original, but adjust as needed)
 const styles = StyleSheet.create({
-  suggestionText: {
-  marginBottom: 8,
-  marginLeft: 5, // Indent slightly
-  fontStyle: 'italic',
-  color: '#555',
-  },
   modalBackground: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Darker overlay
+    padding: 16,
   },
   modalCard: {
-    width: '90%', // Wider modal
-    maxHeight: '85%', // Max height
-    paddingVertical: 10,
-    paddingHorizontal: 5,
+    width: '100%',
+    maxHeight: '90%',
+    borderRadius: 12,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  section: {
+    marginBottom: 24,
+    padding: 16,
+    borderRadius: 8,
+  },
+  sectionTitle: {
+    marginBottom: 12,
+    fontWeight: '600',
   },
   input: {
     marginBottom: 12,
-    backgroundColor: 'transparent', // Use Paper's theme background
   },
-  label: {
-    fontSize: 16,
+  suggestionText: {
+    marginBottom: 16,
+    fontStyle: 'italic',
+  },
+  memberOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
     marginBottom: 8,
-    marginTop: 10,
-    fontWeight: 'bold',
-    color: '#333',
   },
-  radioItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 5,
+  selectedMemberOption: {
+    elevation: 2,
+  },
+  memberName: {
+    marginLeft: 8,
+    fontSize: 16,
+  },
+  splitTypeContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  splitOption: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    elevation: 1,
+  },
+  selectedSplitOption: {
+    elevation: 3,
+  },
+  splitOptionText: {
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  sharedWithContainer: {
+    gap: 8,
   },
   sharedOption: {
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
-    marginBottom: 6,
   },
   sharedOptionSelected: {
-    backgroundColor: '#e0e0e0', // Or use theme primary color lightly
-    borderColor: '#a0a0a0',
+    elevation: 2,
+  },
+  sharedOptionText: {
+    marginLeft: 12,
+    fontSize: 16,
   },
   customAmountsContainer: {
-      marginTop: 15,
-      padding: 10,
-      backgroundColor: '#f5f5f5',
-      borderRadius: 4,
+    gap: 12,
   },
-   customAmountRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    customAmountLabel: {
-        width: '40%', // Adjust as needed
-        marginRight: 10,
-    },
-    customAmountInput: {
-        flex: 1, // Take remaining space
-        backgroundColor: 'white'
-    },
-    inlineError:{
-      // Styles for errors next to custom inputs if needed
-    },
-  modalActions: {
-    justifyContent: 'flex-end', // Align buttons to the right
-    paddingTop: 15,
-    paddingBottom: 5,
+  customAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  customAmountLabel: {
+    flex: 1,
+    fontSize: 16,
+    marginRight: 16,
+  },
+  customAmountInput: {
+    width: 120,
+  },
+  customTotalError: {
+    marginTop: 8,
   },
   submitError: {
-      marginTop: 10,
-      textAlign: 'center',
+    marginTop: 16,
+    textAlign: 'center',
   },
-   infoText: {
+  modalActions: {
+    padding: 16,
+    justifyContent: 'flex-end',
+  },
+  infoText: {
     fontStyle: 'italic',
-    color: '#666',
-    marginVertical: 10,
-  }
+    textAlign: 'center',
+    marginTop: 8,
+  },
 });
 
 export default AddExpenseModal;

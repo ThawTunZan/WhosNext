@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet } from "react-native";
-import { useTheme } from "react-native-paper";
+import { View, StyleSheet } from "react-native";
+import { Text, Surface, useTheme } from "react-native-paper";
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 
@@ -13,24 +13,35 @@ export default function TripHeader({ destination }: TripHeaderProps) {
   const paperTheme = useTheme();
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
-      <Text style={[styles.title, { color: theme.colors.text }]}>
-        🏝️ Trip to {destination}
-      </Text>
-    </View>
+    <Surface style={[styles.container, { backgroundColor: paperTheme.colors.primary }]} elevation={4}>
+      <View style={styles.contentContainer}>
+        <Text variant="headlineMedium" style={styles.emoji}>
+          🏝️
+        </Text>
+        <Text variant="headlineMedium" style={styles.title}>
+          Trip to {destination}
+        </Text>
+      </View>
+    </Surface>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  contentContainer: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
     alignItems: 'center',
-    elevation: 2,
+  },
+  emoji: {
+    fontSize: 36,
+    marginBottom: 8,
   },
   title: {
-    fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
+    color: '#fff',
   },
 });
