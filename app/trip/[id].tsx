@@ -73,6 +73,7 @@ export default function TripDetailPage() {
     handleAddExpenseFromActivity,
     handleLeaveTrip,
     handleDeleteTrip,
+    handleClaimMockUser,
     isDeletingTrip,
   } = useTripHandlers({
     tripId: tripId!,
@@ -122,6 +123,7 @@ export default function TripDetailPage() {
                 onDeleteTrip={handleDeleteTrip}
                 isDeletingTrip={isDeletingTrip}
                 nextPayer={nextPayer}
+                onClaimMockUser={handleClaimMockUser}
               />
             )}
 

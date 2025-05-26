@@ -7,7 +7,21 @@ import { db } from '../../firebase';
 import { Member } from '../types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from './notification';
 
-export async function addMemberToTripIfNotExists(tripId: string, userId: string) {
+/**
+ * Generates a random string of specified length
+ * @param length Length of the string to generate
+ * @returns Random string
+ */
+function generateRandomString(length: number): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+export async function addMemberToTripIfNotExists(tripId: string, userId: string, isMockUser: boolean = false) {
   const tripRef = doc(db, "trips", tripId);
   const tripSnap = await getDoc(tripRef);
 
@@ -21,6 +35,8 @@ export async function addMemberToTripIfNotExists(tripId: string, userId: string)
       budget: 0,
       amtLeft: 0,
       owesTotal: 0,
+      isMockUser,
+      claimCode: isMockUser ? generateRandomString(8) : undefined,
     };
 
     await updateDoc(tripRef, {
@@ -88,61 +104,120 @@ export const addMemberToTrip = async (
     tripId: string,
     memberId: string,
     name: string,
-    budget: number
+    budget: number,
+    isMockUser: boolean = false
 ): Promise<void> => {
     if (!tripId || !memberId || !name.trim()) {
-    throw new Error("Trip ID, Member ID, and Name are required to add a member.");
-  }
-
-  const trimmedName = name.trim();
-  const budgetNum = Number(budget) || 0;
-
-  const tripRef = doc(db, "trips", tripId);
-  const userRef = doc(db, "users", memberId);
-
-  const newMemberData = {
-    budget: budgetNum,
-    amtLeft: budgetNum,
-    owesTotal: 0,
-  };
-
-  try {
-    // 1) Update the trip's members map and totals
-    await updateDoc(tripRef, {
-      [`members.${memberId}`]: newMemberData,
-      totalBudget: increment(newMemberData.budget),
-      totalAmtLeft: increment(newMemberData.amtLeft),
-    });
-    console.log(`Member ${trimmedName} added to trip ${tripId}`);
-
-    // 2) Ensure the users collection has this user's profile
-    await setDoc(
-      userRef,
-      { username: trimmedName },
-      { merge: true }
-    );
-    console.log(`User profile for ${memberId} upserted in users collection`);
-
-    // Send notification to all existing members
-    const tripSnapshot = await getDoc(tripRef);
-    const tripData = tripSnapshot.data();
-    if (tripData && tripData.members) {
-      Object.keys(tripData.members).forEach(async (existingMemberId) => {
-        if (existingMemberId !== memberId) { // Don't notify the new member
-          await NotificationService.sendTripUpdate(
-            "New Member Joined",
-            `${trimmedName} has joined the trip!`,
-            {
-              type: NOTIFICATION_TYPES.TRIP_UPDATE,
-              tripId: tripId,
-              memberId: memberId
-            }
-          );
-        }
-      });
+      throw new Error("Trip ID, Member ID, and Name are required to add a member.");
     }
+
+    const trimmedName = name.trim();
+    const budgetNum = Number(budget) || 0;
+
+    const tripRef = doc(db, "trips", tripId);
+    const userRef = doc(db, "users", memberId);
+
+    const newMemberData = {
+      budget: budgetNum,
+      amtLeft: budgetNum,
+      owesTotal: 0,
+      isMockUser,
+      claimCode: isMockUser ? generateRandomString(8) : undefined,
+    };
+
+    try {
+      // 1) Update the trip's members map and totals
+      await updateDoc(tripRef, {
+        [`members.${memberId}`]: newMemberData,
+        totalBudget: increment(newMemberData.budget),
+        totalAmtLeft: increment(newMemberData.amtLeft),
+      });
+      console.log(`Member ${trimmedName} added to trip ${tripId}`);
+
+      // 2) Ensure the users collection has this user's profile
+      await setDoc(
+        userRef,
+        { username: trimmedName },
+        { merge: true }
+      );
+      console.log(`User profile for ${memberId} upserted in users collection`);
+
+      // Only send notifications for non-mock users
+      if (!isMockUser) {
+        const tripSnapshot = await getDoc(tripRef);
+        const tripData = tripSnapshot.data();
+        if (tripData && tripData.members) {
+          Object.keys(tripData.members).forEach(async (existingMemberId) => {
+            if (existingMemberId !== memberId) {
+              await NotificationService.sendTripUpdate(
+                "New Member Joined",
+                `${trimmedName} has joined the trip!`,
+                {
+                  type: NOTIFICATION_TYPES.TRIP_UPDATE,
+                  tripId: tripId,
+                  memberId: memberId
+                }
+              );
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error adding member to trip and/or users:", error);
+      throw error;
+    }
+};
+
+export const claimMockUser = async (
+  tripId: string,
+  mockUserId: string,
+  claimCode: string,
+  newUserId: string
+): Promise<void> => {
+  const tripRef = doc(db, "trips", tripId);
+  
+  try {
+    const tripSnap = await getDoc(tripRef);
+    if (!tripSnap.exists()) {
+      throw new Error("Trip not found");
+    }
+
+    const tripData = tripSnap.data();
+    const mockMember = tripData.members[mockUserId];
+
+    if (!mockMember) {
+      throw new Error("Mock user not found");
+    }
+
+    if (!mockMember.isMockUser) {
+      throw new Error("This member is not a mock user");
+    }
+
+    if (mockMember.claimCode !== claimCode) {
+      throw new Error("Invalid claim code");
+    }
+
+    // Create new member data without mock-specific fields
+    const { isMockUser, claimCode: _, ...memberData } = mockMember;
+
+    // Update trip document to replace mock user with real user
+    await updateDoc(tripRef, {
+      [`members.${mockUserId}`]: deleteField(),
+      [`members.${newUserId}`]: memberData
+    });
+
+    // Transfer the username to the new user's profile
+    const mockUserRef = doc(db, "users", mockUserId);
+    const mockUserSnap = await getDoc(mockUserRef);
+    if (mockUserSnap.exists()) {
+      const { username } = mockUserSnap.data();
+      await setDoc(doc(db, "users", newUserId), { username }, { merge: true });
+      await deleteDoc(mockUserRef);
+    }
+
+    console.log(`Mock user ${mockUserId} successfully claimed by ${newUserId}`);
   } catch (error) {
-    console.error("Error adding member to trip and/or users:", error);
+    console.error("Error claiming mock user:", error);
     throw error;
   }
 };

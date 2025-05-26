@@ -11,7 +11,9 @@ export type Member = {
   budget: number;
   amtLeft: number;
   owesTotal?: number;
-  };
+  isMockUser: boolean;
+  claimCode?: string; // Optional claim code for mock users
+};
   
 export type Expenses = {[id:string]: {expense: Expense}}
   

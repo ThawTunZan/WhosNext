@@ -9,6 +9,7 @@ import {
   removeMemberFromTrip,
   deleteTripAndRelatedData,
   updatePersonalBudget,
+  claimMockUser,
 } from "@/src/services/TripUtilities";
 import {
   addExpenseAndCalculateDebts,
@@ -47,8 +48,8 @@ export function useTripHandlers({
     async (memberId: string, name: string, budget: number) => {
       if (!tripId) return;
       try {
-        await addMemberToTrip(tripId, memberId, name, budget);
-        setSnackbarMessage(`${name} added to the trip!`);
+        await addMemberToTrip(tripId, memberId, name, budget, true);
+        setSnackbarMessage(`${name} added as a mock member!`);
         setSnackbarVisible(true);
       } catch (err: any) {
         console.error(err);
@@ -57,6 +58,23 @@ export function useTripHandlers({
       }
     },
     [tripId]
+  );
+
+  const handleClaimMockUser = useCallback(
+    async (mockUserId: string, claimCode: string) => {
+      if (!tripId || !currentUserId) return;
+      try {
+        await claimMockUser(tripId, mockUserId, claimCode, currentUserId);
+        setSnackbarMessage("Successfully claimed mock profile!");
+        setSnackbarVisible(true);
+      } catch (err: any) {
+        console.error(err);
+        setSnackbarMessage(`Error claiming profile: ${err.message}`);
+        setSnackbarVisible(true);
+        throw err;
+      }
+    },
+    [tripId, currentUserId]
   );
 
   const handleRemoveMember = useCallback(
@@ -203,6 +221,7 @@ export function useTripHandlers({
         })
         .finally(() => setIsDeletingTrip(false));
     },
+    handleClaimMockUser,
     isDeletingTrip,
   };
 }

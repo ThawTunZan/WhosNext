@@ -1,101 +1,428 @@
-import { View, Text, Pressable, StyleSheet } from "react-native";
-import { Card, Button, TextInput } from "react-native-paper";
-import { Ionicons } from "@expo/vector-icons";
+import { View, StyleSheet, Share } from "react-native";
+import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip } from "react-native-paper";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Member } from '@/src/types/DataTypes'; // Adjust path if needed
-import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
+import { Member } from '@/src/types/DataTypes';
+import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
+import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 type MemberListProps = {
   members: { [id: string]: Member };
   onAddMember: (id: string, name: string, budget: number) => void;
   onRemoveMember: (name: string) => void;
+  onGenerateClaimCode?: (memberId: string) => Promise<string>;
+  onClaimMockUser?: (memberId: string, claimCode: string) => Promise<void>;
 };
 
-export default function MemberList({ members, onAddMember, onRemoveMember }: MemberListProps) {
+export default function MemberList({ 
+  members, 
+  onAddMember, 
+  onRemoveMember,
+  onGenerateClaimCode,
+  onClaimMockUser 
+}: MemberListProps) {
   const profiles = useMemberProfiles();
   const [newMember, setNewMember] = useState("");
   const [newMemberBudget, setNewMemberBudget] = useState(0);
-  const [showAddCard, setShowAddCard] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showClaimModal, setShowClaimModal] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [claimCode, setClaimCode] = useState("");
+  const [errors, setErrors] = useState<{ name?: string; budget?: string; claim?: string }>({});
 
-  // Process the string input
+  const { isDarkMode } = useCustomTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
+  const paperTheme = useTheme();
+
   const handleAdd = () => {
     const trimmedName = newMember.trim();
-    if (trimmedName && newMemberBudget > 0) {
-      const memberId = `${trimmedName}-${Date.now()}`;
-      onAddMember(memberId,trimmedName, newMemberBudget);
-      setNewMember("");
-      setNewMemberBudget(0);
+    const newErrors: { name?: string; budget?: string } = {};
+
+    if (!trimmedName) {
+      newErrors.name = "Name is required";
+    }
+    if (!newMemberBudget || newMemberBudget <= 0) {
+      newErrors.budget = "Please enter a valid budget amount";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    const memberId = `${trimmedName}-${Date.now()}`;
+    onAddMember(memberId, trimmedName, newMemberBudget);
+    setNewMember("");
+    setNewMemberBudget(0);
+    setErrors({});
+    setShowAddModal(false);
+  };
+
+  const handleClaimAttempt = async () => {
+    if (!selectedMemberId || !claimCode) {
+      setErrors({ ...errors, claim: "Please enter a valid claim code" });
+      return;
+    }
+
+    try {
+      await onClaimMockUser?.(selectedMemberId, claimCode);
+      setShowClaimModal(false);
+      setClaimCode("");
+      setSelectedMemberId(null);
+      setErrors({});
+    } catch (error) {
+      setErrors({ ...errors, claim: "Invalid claim code" });
     }
   };
 
+  const handleGenerateClaimCode = async (memberId: string) => {
+    if (onGenerateClaimCode) {
+      try {
+        const code = await onGenerateClaimCode(memberId);
+        await Share.share({
+          message: `Claim your profile in our trip! Use this code: ${code}`,
+        });
+      } catch (error) {
+        console.error('Error generating claim code:', error);
+      }
+    }
+  };
+
+  const memberCount = Object.keys(members).length;
+
+  const MemberCard = ({ id, member, profile }: { id: string; member: Member; profile: string }) => (
+    <Surface 
+      style={[styles.memberCard, { backgroundColor: theme.colors.surface }]}
+      elevation={1}
+    >
+      <View style={styles.memberContent}>
+        <View style={styles.avatarContainer}>
+          <Avatar.Text
+            size={40}
+            label={profile?.substring(0, 2).toUpperCase() || "??"}
+            style={[
+              { backgroundColor: member.isMockUser ? 
+                theme.colors.placeholder : 
+                paperTheme.colors.primary 
+              }
+            ]}
+          />
+        </View>
+        
+        <View style={styles.memberInfo}>
+          <Text variant="titleMedium" style={[styles.memberName, { color: theme.colors.text }]}>
+            {profile}
+          </Text>
+          <Text variant="labelMedium" style={{ color: theme.colors.subtext }}>
+            Budget: ${member.budget.toFixed(2)}
+          </Text>
+        </View>
+
+        <View style={styles.rightContent}>
+          {member.isMockUser && (
+            <Chip 
+              style={styles.unverifiedBadge}
+              textStyle={{ fontSize: 10 }}
+              compact
+            >
+              UNVERIFIED
+            </Chip>
+          )}
+
+          <View style={styles.actionButtons}>
+            {member.isMockUser && onGenerateClaimCode && (
+              <IconButton
+                icon="link-variant"
+                size={20}
+                onPress={() => {
+                  setSelectedMemberId(id);
+                  setShowClaimModal(true);
+                }}
+                mode="contained-tonal"
+                containerColor={paperTheme.colors.primary}
+                iconColor="white"
+              />
+            )}
+            <IconButton
+              icon="account-remove"
+              size={20}
+              onPress={() => onRemoveMember(id)}
+              mode="contained-tonal"
+              containerColor={theme.colors.error}
+              iconColor="white"
+            />
+          </View>
+        </View>
+      </View>
+    </Surface>
+  );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>👥 Members:</Text>
-
-      {(Object.entries(members) as [string, Member][]).map(([id, member]) => (
-        <View key={id} style={styles.memberRow}>
-          <Text>{profiles[id]}</Text>
-          <Pressable onPress={() => onRemoveMember(id)}>
-            <Ionicons name="remove-circle-outline" size={20} color="red" />
-          </Pressable>
-        </View>  
-      ))}
-
-
-      <Button mode="contained" onPress={() => setShowAddCard(true)}>
-        ADD A MEMBER
-      </Button>
-      {showAddCard && (
-        <Card style={{ marginTop: 16, padding: 16 }}>
-          <Card.Title title="Add New Member" />
-          <Card.Content>
-            <TextInput
-              label="Member Name"
-              value={newMember}
-              onChangeText={setNewMember}
-              style={{ marginBottom: 10 }}
+      <Surface style={[styles.memberListContainer, { backgroundColor: theme.colors.background }]}>
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <MaterialCommunityIcons 
+              name="account-group" 
+              size={24} 
+              color={theme.colors.text} 
+              style={styles.headerIcon} 
             />
-            <TextInput
-              label="Budget"
-              value={String(newMemberBudget)}
-              onChangeText={(text) => setNewMemberBudget(Number(text))}
-              keyboardType="numeric"
-              style={{ marginBottom: 10 }}
-            />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-              <Button onPress={() => setShowAddCard(false)}>Cancel</Button>
-              <Button onPress={() => {
-                handleAdd();
-                setShowAddCard(false);
-              }} mode="contained">
-                Add
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
-      )}
+            <Text variant="titleMedium" style={{ color: theme.colors.text }}>
+              Trip Members
+            </Text>
+          </View>
+          <Text variant="labelMedium" style={{ color: theme.colors.subtext }}>
+            {memberCount} {memberCount === 1 ? 'member' : 'members'}
+          </Text>
+        </View>
 
+        <View style={styles.memberGrid}>
+          {Object.entries(members).map(([id, member]) => (
+            <MemberCard
+              key={id}
+              id={id}
+              member={member}
+              profile={profiles[id]}
+            />
+          ))}
+        </View>
+
+        <Button 
+          mode="contained" 
+          onPress={() => setShowAddModal(true)}
+          style={styles.addButton}
+          icon="account-plus"
+        >
+          Add Mock Member
+        </Button>
+      </Surface>
+
+      {/* Add Member Modal */}
+      <Portal>
+        <Modal
+          visible={showAddModal}
+          onDismiss={() => {
+            setShowAddModal(false);
+            setErrors({});
+          }}
+          contentContainerStyle={[
+            styles.modalContainer,
+            { backgroundColor: theme.colors.surface }
+          ]}
+        >
+          <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme.colors.text }]}>
+            Add Mock Member
+          </Text>
+          
+          <TextInput
+            label="Member Name"
+            value={newMember}
+            onChangeText={(text) => {
+              setNewMember(text);
+              setErrors(prev => ({ ...prev, name: undefined }));
+            }}
+            style={[styles.input, { backgroundColor: theme.colors.background }]}
+            mode="outlined"
+            error={!!errors.name}
+          />
+          {errors.name && (
+            <Text variant="labelSmall" style={styles.errorText}>
+              {errors.name}
+            </Text>
+          )}
+
+          <TextInput
+            label="Budget Amount"
+            value={String(newMemberBudget || '')}
+            onChangeText={(text) => {
+              setNewMemberBudget(Number(text) || 0);
+              setErrors(prev => ({ ...prev, budget: undefined }));
+            }}
+            keyboardType="numeric"
+            style={[styles.input, { backgroundColor: theme.colors.background }]}
+            mode="outlined"
+            error={!!errors.budget}
+            left={<TextInput.Affix text="$" />}
+          />
+          {errors.budget && (
+            <Text variant="labelSmall" style={styles.errorText}>
+              {errors.budget}
+            </Text>
+          )}
+
+          <View style={styles.modalActions}>
+            <Button 
+              onPress={() => {
+                setShowAddModal(false);
+                setErrors({});
+              }}
+              style={styles.modalButton}
+            >
+              Cancel
+            </Button>
+            <Button 
+              mode="contained" 
+              onPress={handleAdd}
+              style={styles.modalButton}
+            >
+              Add Member
+            </Button>
+          </View>
+        </Modal>
+
+        {/* Claim Modal */}
+        <Modal
+          visible={showClaimModal}
+          onDismiss={() => {
+            setShowClaimModal(false);
+            setSelectedMemberId(null);
+            setClaimCode("");
+            setErrors({});
+          }}
+          contentContainerStyle={[
+            styles.modalContainer,
+            { backgroundColor: theme.colors.surface }
+          ]}
+        >
+          <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme.colors.text }]}>
+            Claim Mock Profile
+          </Text>
+
+          <TextInput
+            label="Claim Code"
+            value={claimCode}
+            onChangeText={(text) => {
+              setClaimCode(text);
+              setErrors(prev => ({ ...prev, claim: undefined }));
+            }}
+            style={[styles.input, { backgroundColor: theme.colors.background }]}
+            mode="outlined"
+            error={!!errors.claim}
+          />
+          {errors.claim && (
+            <Text variant="labelSmall" style={styles.errorText}>
+              {errors.claim}
+            </Text>
+          )}
+
+          <View style={styles.modalActions}>
+            <Button 
+              onPress={() => {
+                setShowClaimModal(false);
+                setSelectedMemberId(null);
+                setClaimCode("");
+                setErrors({});
+              }}
+              style={styles.modalButton}
+            >
+              Cancel
+            </Button>
+            <Button 
+              mode="contained" 
+              onPress={handleClaimAttempt}
+              style={styles.modalButton}
+            >
+              Claim Profile
+            </Button>
+            <Button 
+              mode="contained-tonal"
+              onPress={() => selectedMemberId && handleGenerateClaimCode(selectedMemberId)}
+              style={styles.modalButton}
+            >
+              Generate Code
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
     </View>
-    
-    
   );
 }
 
 const styles = StyleSheet.create({
-  container: { marginTop: 20 },
-  title: { fontSize: 18, fontWeight: "600", marginBottom: 8 },
-  memberRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 4,
+  container: {
+    flex: 1,
+  },
+  memberListContainer: {
+    borderRadius: 12,
+    padding: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIcon: {
+    marginRight: 8,
+  },
+  memberGrid: {
+    gap: 12,
+  },
+  memberCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  memberContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 12,
+  },
+  memberInfo: {
+    flex: 1,
+  },
+  memberName: {
+    fontWeight: '600',
+  },
+  addButton: {
+    marginTop: 16,
+  },
+  modalContainer: {
+    margin: 20,
+    borderRadius: 12,
+    padding: 20,
+  },
+  modalTitle: {
+    marginBottom: 20,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 8,
-    borderRadius: 6,
-    marginVertical: 10,
+    marginBottom: 4,
+  },
+  errorText: {
+    color: '#dc3545',
+    marginBottom: 12,
+    marginLeft: 8,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+    gap: 8,
+  },
+  modalButton: {
+    minWidth: 100,
+  },
+  avatarContainer: {
+    position: 'relative',
+  },
+  rightContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  unverifiedBadge: {
+    backgroundColor: '#FFA500',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
   },
 });

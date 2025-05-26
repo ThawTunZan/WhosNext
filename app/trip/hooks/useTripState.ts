@@ -4,7 +4,7 @@ import { Expense } from '@/src/types/DataTypes';
 
 export function useTripState(tripId: string, currentUserId: string) {
   const [selectedTab, setSelectedTab] = useState<
-    "overview" | "expenses" | "settle" | "activities" | "add" | "receipts" | "invite"
+    "overview" | "expenses" | "settle" | "activities" | "receipts" | "invite"
   >("overview");
   const [addExpenseModalVisible, setAddExpenseModalVisible] = useState(false);
   const [initialExpenseData, setInitialExpenseData] = useState<Partial<Expense> | null>(null);

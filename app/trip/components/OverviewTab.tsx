@@ -22,6 +22,7 @@ type OverviewTabProps = {
   onDeleteTrip: () => void;
   isDeletingTrip: boolean;
   nextPayer: string | null;
+  onClaimMockUser: (mockUserId: string, claimCode: string) => Promise<void>;
 };
 
 export default function OverviewTab({
@@ -37,6 +38,7 @@ export default function OverviewTab({
   onDeleteTrip,
   isDeletingTrip,
   nextPayer,
+  onClaimMockUser,
 }: OverviewTabProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
@@ -56,7 +58,12 @@ export default function OverviewTab({
         <MemberList 
           members={members} 
           onAddMember={onAddMember} 
-          onRemoveMember={onRemoveMember} 
+          onRemoveMember={onRemoveMember}
+          onClaimMockUser={onClaimMockUser}
+          onGenerateClaimCode={async (memberId) => {
+            const member = members[memberId];
+            return member.claimCode || '';
+          }}
         />
       </View>
 

@@ -13,12 +13,31 @@ export default function TripHeader({ destination }: TripHeaderProps) {
   const paperTheme = useTheme();
 
   return (
-    <Surface style={[styles.container, { backgroundColor: paperTheme.colors.primary }]} elevation={4}>
+    <Surface 
+      style={[
+        styles.container, 
+        { 
+          backgroundColor: isDarkMode 
+            ? '#1A2B4D' // Navy blue for dark mode
+            : '#F5F7FA' // Light gray-blue for light mode
+        }
+      ]} 
+      elevation={1}
+    >
       <View style={styles.contentContainer}>
-        <Text variant="headlineMedium" style={styles.emoji}>
+        <Text 
+          variant="headlineMedium" 
+          style={[styles.emoji, { color: isDarkMode ? '#FFFFFF' : theme.colors.text }]}
+        >
           🏝️
         </Text>
-        <Text variant="headlineMedium" style={styles.title}>
+        <Text 
+          variant="headlineMedium" 
+          style={[
+            styles.title, 
+            { color: isDarkMode ? '#FFFFFF' : theme.colors.text }
+          ]}
+        >
           Trip to {destination}
         </Text>
       </View>
@@ -28,20 +47,21 @@ export default function TripHeader({ destination }: TripHeaderProps) {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 8,
+    marginBottom: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
   },
   contentContainer: {
-    paddingVertical: 20,
+    paddingVertical: 24,
     paddingHorizontal: 24,
     alignItems: 'center',
   },
   emoji: {
-    fontSize: 36,
-    marginBottom: 8,
+    fontSize: 40,
+    marginBottom: 12,
   },
   title: {
-    fontWeight: 'bold',
+    fontWeight: '600',
     textAlign: 'center',
-    color: '#fff',
   },
 });

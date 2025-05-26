@@ -4,14 +4,14 @@ import { Text, useTheme } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 
-type TabType = "overview" | "expenses" | "settle" | "activities" | "add" | "receipts" | "invite";
+type TabType = "overview" | "expenses" | "settle" | "activities" | "receipts" | "invite";
 
 type TabBarProps = {
   selectedTab: TabType;
   onTabSelect: (tab: TabType) => void;
 };
 
-const TABS: TabType[] = ["overview", "expenses", "settle", "activities", "add", "receipts", "invite"];
+const TABS: TabType[] = ["overview", "expenses", "settle", "activities", "receipts", "invite"];
 
 export default function TabBar({ selectedTab, onTabSelect }: TabBarProps) {
   const { isDarkMode } = useCustomTheme();
@@ -47,7 +47,7 @@ export default function TabBar({ selectedTab, onTabSelect }: TabBarProps) {
               ]}
               onPress={() => onTabSelect(tab)}
             >
-              {tab === "add" ? "+" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </Text>
           </View>
         ))}
