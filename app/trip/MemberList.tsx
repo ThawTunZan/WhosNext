@@ -1,5 +1,5 @@
 import { View, StyleSheet, Share } from "react-native";
-import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip } from "react-native-paper";
+import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip, List } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Member } from '@/src/types/DataTypes';
@@ -26,6 +26,7 @@ export default function MemberList({
   const [newMember, setNewMember] = useState("");
   const [newMemberBudget, setNewMemberBudget] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showMockMemberModal, setShowMockMemberModal] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [claimCode, setClaimCode] = useState("");
@@ -56,7 +57,7 @@ export default function MemberList({
     setNewMember("");
     setNewMemberBudget(0);
     setErrors({});
-    setShowAddModal(false);
+    setShowMockMemberModal(false);
   };
 
   const handleClaimAttempt = async () => {
@@ -195,16 +196,80 @@ export default function MemberList({
           style={styles.addButton}
           icon="account-plus"
         >
-          Add Mock Member
+          Add Members
         </Button>
       </Surface>
 
-      {/* Add Member Modal */}
+      {/* Main Add Member Modal */}
       <Portal>
         <Modal
           visible={showAddModal}
+          onDismiss={() => setShowAddModal(false)}
+          contentContainerStyle={[
+            styles.modalContainer,
+            { backgroundColor: theme.colors.surface }
+          ]}
+        >
+          <View style={styles.modalHeader}>
+            <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme.colors.text }]}>
+              Add Members
+            </Text>
+            <IconButton
+              icon="close"
+              size={24}
+              onPress={() => setShowAddModal(false)}
+            />
+          </View>
+
+          <List.Section>
+            <List.Item
+              title="Select from Friends"
+              description="Add members from your friend list"
+              left={props => <List.Icon {...props} icon="account-multiple" />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => {
+                // UI only - no implementation yet
+                setShowAddModal(false);
+              }}
+            />
+            <List.Item
+              title="Share Invite Link"
+              description="Share a link to join this trip"
+              left={props => <List.Icon {...props} icon="link" />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => {
+                // UI only - no implementation yet
+                setShowAddModal(false);
+              }}
+            />
+            <List.Item
+              title="Share QR Code"
+              description="Share via QR code"
+              left={props => <List.Icon {...props} icon="qrcode" />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => {
+                // UI only - no implementation yet
+                setShowAddModal(false);
+              }}
+            />
+            <List.Item
+              title="Add Mock Member"
+              description="Create a temporary member"
+              left={props => <List.Icon {...props} icon="account-plus" />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => {
+                setShowAddModal(false);
+                setShowMockMemberModal(true);
+              }}
+            />
+          </List.Section>
+        </Modal>
+
+        {/* Mock Member Modal */}
+        <Modal
+          visible={showMockMemberModal}
           onDismiss={() => {
-            setShowAddModal(false);
+            setShowMockMemberModal(false);
             setErrors({});
           }}
           contentContainerStyle={[
@@ -255,7 +320,7 @@ export default function MemberList({
           <View style={styles.modalActions}>
             <Button 
               onPress={() => {
-                setShowAddModal(false);
+                setShowMockMemberModal(false);
                 setErrors({});
               }}
               style={styles.modalButton}
@@ -424,5 +489,11 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
 });
