@@ -1,5 +1,5 @@
-import { View, StyleSheet, Share } from "react-native";
-import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip, List } from "react-native-paper";
+import { View, StyleSheet, Share, Platform } from "react-native";
+import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip, List, Divider } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Member } from '@/src/types/DataTypes';
@@ -93,11 +93,8 @@ export default function MemberList({
   const memberCount = Object.keys(members).length;
 
   const MemberCard = ({ id, member, profile }: { id: string; member: Member; profile: string }) => (
-    <Surface 
-      style={[styles.memberCard, { backgroundColor: theme.colors.surface }]}
-      elevation={1}
-    >
-      <View style={styles.memberContent}>
+    <Surface style={styles.memberCard} elevation={1}>
+      <View style={[styles.memberContent, { overflow: 'hidden' }]}>
         <View style={styles.avatarContainer}>
           <Avatar.Text
             size={40}
@@ -161,43 +158,45 @@ export default function MemberList({
 
   return (
     <View style={styles.container}>
-      <Surface style={[styles.memberListContainer, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <MaterialCommunityIcons 
-              name="account-group" 
-              size={24} 
-              color={theme.colors.text} 
-              style={styles.headerIcon} 
-            />
-            <Text variant="titleMedium" style={{ color: theme.colors.text }}>
-              Trip Members
+      <Surface style={styles.memberListContainer}>
+        <View style={{ overflow: 'hidden' }}>
+          <View style={styles.header}>
+            <View style={styles.headerContent}>
+              <MaterialCommunityIcons 
+                name="account-group" 
+                size={24} 
+                color={theme.colors.text} 
+                style={styles.headerIcon} 
+              />
+              <Text variant="titleMedium" style={{ color: theme.colors.text }}>
+                Trip Members
+              </Text>
+            </View>
+            <Text variant="labelMedium" style={{ color: theme.colors.subtext }}>
+              {memberCount} {memberCount === 1 ? 'member' : 'members'}
             </Text>
           </View>
-          <Text variant="labelMedium" style={{ color: theme.colors.subtext }}>
-            {memberCount} {memberCount === 1 ? 'member' : 'members'}
-          </Text>
-        </View>
 
-        <View style={styles.memberGrid}>
-          {Object.entries(members).map(([id, member]) => (
-            <MemberCard
-              key={id}
-              id={id}
-              member={member}
-              profile={profiles[id]}
-            />
-          ))}
-        </View>
+          <View style={styles.memberGrid}>
+            {Object.entries(members).map(([id, member]) => (
+              <MemberCard
+                key={id}
+                id={id}
+                member={member}
+                profile={profiles[id]}
+              />
+            ))}
+          </View>
 
-        <Button 
-          mode="contained" 
-          onPress={() => setShowAddModal(true)}
-          style={styles.addButton}
-          icon="account-plus"
-        >
-          Add Members
-        </Button>
+          <Button 
+            mode="contained" 
+            onPress={() => setShowAddModal(true)}
+            style={styles.addButton}
+            icon="account-plus"
+          >
+            Add Members
+          </Button>
+        </View>
       </Surface>
 
       {/* Main Add Member Modal */}
@@ -206,12 +205,17 @@ export default function MemberList({
           visible={showAddModal}
           onDismiss={() => setShowAddModal(false)}
           contentContainerStyle={[
-            styles.modalContainer,
-            { backgroundColor: theme.colors.surface }
+            {
+              backgroundColor: theme.colors.surface,
+              margin: 20,
+              marginTop: Platform.OS === 'ios' ? 60 : 20,
+              borderRadius: 12,
+              padding: 20,
+            }
           ]}
         >
-          <View style={styles.modalHeader}>
-            <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme.colors.text }]}>
+          <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text variant="headlineSmall" style={{ flex: 1, fontSize: 22, fontWeight: '600', color: theme.colors.text }}>
               Add Members
             </Text>
             <IconButton
@@ -221,16 +225,16 @@ export default function MemberList({
             />
           </View>
 
-          <List.Section>
+          <List.Section style={{ marginTop: -8 }}>
             <List.Item
               title="Select from Friends"
               description="Add members from your friend list"
               left={props => <List.Icon {...props} icon="account-multiple" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
-                // UI only - no implementation yet
                 setShowAddModal(false);
               }}
+              style={{ paddingVertical: 12 }}
             />
             <List.Item
               title="Share Invite Link"
@@ -238,9 +242,9 @@ export default function MemberList({
               left={props => <List.Icon {...props} icon="link" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
-                // UI only - no implementation yet
                 setShowAddModal(false);
               }}
+              style={{ paddingVertical: 12 }}
             />
             <List.Item
               title="Share QR Code"
@@ -248,9 +252,9 @@ export default function MemberList({
               left={props => <List.Icon {...props} icon="qrcode" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
-                // UI only - no implementation yet
                 setShowAddModal(false);
               }}
+              style={{ paddingVertical: 12 }}
             />
             <List.Item
               title="Add Mock Member"
@@ -261,6 +265,7 @@ export default function MemberList({
                 setShowAddModal(false);
                 setShowMockMemberModal(true);
               }}
+              style={{ paddingVertical: 12 }}
             />
           </List.Section>
         </Modal>
@@ -273,14 +278,29 @@ export default function MemberList({
             setErrors({});
           }}
           contentContainerStyle={[
-            styles.modalContainer,
-            { backgroundColor: theme.colors.surface }
+            {
+              backgroundColor: theme.colors.surface,
+              margin: 20,
+              marginTop: Platform.OS === 'ios' ? 60 : 20,
+              borderRadius: 12,
+              padding: 20,
+            }
           ]}
         >
-          <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme.colors.text }]}>
-            Add Mock Member
-          </Text>
-          
+          <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text variant="headlineSmall" style={{ flex: 1, fontSize: 22, fontWeight: '600', color: theme.colors.text }}>
+              Add Mock Member
+            </Text>
+            <IconButton
+              icon="close"
+              size={24}
+              onPress={() => {
+                setShowMockMemberModal(false);
+                setErrors({});
+              }}
+            />
+          </View>
+
           <TextInput
             label="Member Name"
             value={newMember}
@@ -347,13 +367,30 @@ export default function MemberList({
             setErrors({});
           }}
           contentContainerStyle={[
-            styles.modalContainer,
-            { backgroundColor: theme.colors.surface }
+            {
+              backgroundColor: theme.colors.surface,
+              margin: 20,
+              marginTop: Platform.OS === 'ios' ? 60 : 20,
+              borderRadius: 12,
+              padding: 20,
+            }
           ]}
         >
-          <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme.colors.text }]}>
-            Claim Mock Profile
-          </Text>
+          <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text variant="headlineSmall" style={{ flex: 1, fontSize: 22, fontWeight: '600', color: theme.colors.text }}>
+              Claim Mock Profile
+            </Text>
+            <IconButton
+              icon="close"
+              size={24}
+              onPress={() => {
+                setShowClaimModal(false);
+                setSelectedMemberId(null);
+                setClaimCode("");
+                setErrors({});
+              }}
+            />
+          </View>
 
           <TextInput
             label="Claim Code"
@@ -431,7 +468,6 @@ const styles = StyleSheet.create({
   },
   memberCard: {
     borderRadius: 12,
-    overflow: 'hidden',
   },
   memberContent: {
     flexDirection: 'row',
@@ -447,16 +483,6 @@ const styles = StyleSheet.create({
   },
   addButton: {
     marginTop: 16,
-  },
-  modalContainer: {
-    margin: 20,
-    borderRadius: 12,
-    padding: 20,
-  },
-  modalTitle: {
-    marginBottom: 20,
-    textAlign: 'center',
-    fontWeight: '600',
   },
   input: {
     marginBottom: 4,
@@ -489,11 +515,5 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
   },
 });
