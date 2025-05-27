@@ -147,27 +147,52 @@ export const sendFriendRequest = async (senderId: string, receiverId: string) =>
 
 export const acceptFriendRequest = async (userId: string, requesterId: string) => {
   try {
+    // Get both users' data to find the request with timestamp
+    const userData = await getUserById(userId);
+    const requesterData = await getUserById(requesterId);
+
+    if (!userData || !requesterData) {
+      throw new Error('Could not find user data');
+    }
+
+    // Find the matching request with its timestamp
+    const incomingRequest = userData?.incomingFriendRequests?.find(
+      (request: any) => request.senderId === requesterId && request.status === 'pending'
+    );
+    
+    const outgoingRequest = requesterData?.outgoingFriendRequests?.find(
+      (request: any) => request.receiverId === userId && request.status === 'pending'
+    );
+
+    if (!incomingRequest || !outgoingRequest) {
+      throw new Error('Could not find matching friend request');
+    }
+
     // Add each user to the other's friends list
     await Promise.all([
       addFriend(userId, requesterId),
       addFriend(requesterId, userId),
     ]);
 
-    // Remove the friend request
+    // Remove the friend request using the timestamp
     const userRef = doc(db, 'users', userId);
     const requesterRef = doc(db, 'users', requesterId);
+    
     await updateDoc(userRef, {
       incomingFriendRequests: arrayRemove({
         senderId: requesterId,
         status: 'pending',
+        timestamp: incomingRequest.timestamp,
       }),
     });
+    
     await updateDoc(requesterRef, {
-        outgoingFriendRequests: arrayRemove({
-          receiverId: userId,
-          status: 'pending',
-        }),
-      });
+      outgoingFriendRequests: arrayRemove({
+        receiverId: userId,
+        status: 'pending',
+        timestamp: outgoingRequest.timestamp,
+      }),
+    });
   } catch (error) {
     console.error('Error accepting friend request:', error);
     throw error;

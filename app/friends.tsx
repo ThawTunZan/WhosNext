@@ -247,7 +247,7 @@ export default function FriendsScreen() {
     try {
       setIsLoading(true);
       await acceptFriendRequest(user.id, requesterId);
-      await loadFriendsData(); // Reload friends list
+      await loadFriendsData(); // Reload friends data after accepting
       Alert.alert('Success', 'Friend request accepted');
     } catch (error) {
       console.error('Error accepting friend request:', error);
