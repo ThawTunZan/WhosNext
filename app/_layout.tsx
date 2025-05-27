@@ -51,6 +51,12 @@ const BottomNav = React.memo(({ path, theme }: { path: string; theme: any }) => 
       color={path === '/create-trip' ? theme.colors.primary : theme.colors.subtext}
     />
     <NavButton
+      icon="people"
+      label="Friends"
+      onPress={() => router.push('/friends')}
+      color={path === '/friends' ? theme.colors.primary : theme.colors.subtext}
+    />
+    <NavButton
       icon="person"
       label="Profile"
       onPress={() => router.push('/profile')}
@@ -92,7 +98,10 @@ function AuthGateAndStack() {
   useFocusEffect(syncUser);
 
   if (!isLoaded) return null;
-  if (!isSignedIn && !path.startsWith("/auth")) {
+  
+  // Only redirect if not signed in and not already on an auth path
+  const isAuthPath = path.startsWith("/auth") || path.startsWith("/(auth)");
+  if (!isSignedIn && !isAuthPath) {
     return <Redirect href="/auth/sign-in" />;
   }
 
@@ -121,18 +130,30 @@ function AuthGateAndStack() {
             }}
           />
           <Stack.Screen 
+            name="friends"
+            options={{
+              animation: 'none'
+            }}
+          />
+          <Stack.Screen 
             name="profile"
             options={{
               animation: 'none'
             }}
           />
-          <Stack.Screen name="auth" />
+          <Stack.Screen 
+            name="auth"
+            options={{
+              headerShown: false,
+              animation: 'none'
+            }}
+          />
           <Stack.Screen name="trip/[id]" />
           <Stack.Screen name="profile_screens" />
         </Stack>
 
         {/* Bottom Navigation Bar */}
-        {!path.includes('auth') && !path.includes('modal') && (
+        {!isAuthPath && !path.includes('modal') && (
           <BottomNav path={path} theme={theme} />
         )}
       </SafeAreaView>
