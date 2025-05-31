@@ -10,13 +10,13 @@ import {
   deleteTripAndRelatedData,
   updatePersonalBudget,
   claimMockUser,
-} from "@/src/services/TripUtilities";
+} from "@/src/utilities/TripUtilities";
 import {
   addExpenseAndCalculateDebts,
   updateExpenseAndRecalculateDebts,
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
-import type { Expense, ProposedActivity } from "@/src/types/DataTypes";
+import type { Expense, ProposedActivity, AddMemberType } from "@/src/types/DataTypes";
 
 interface UseTripHandlersParams {
   tripId: string;
@@ -45,11 +45,19 @@ export function useTripHandlers({
   const [isDeletingTrip, setIsDeletingTrip] = useState(false);
 
   const handleAddMember = useCallback(
-    async (memberId: string, name: string, budget: number) => {
+    async (memberId: string, name: string, budget: number, addMemberType: AddMemberType) => {
       if (!tripId) return;
       try {
-        await addMemberToTrip(tripId, memberId, name, budget, true);
-        setSnackbarMessage(`${name} added as a mock member!`);
+        await addMemberToTrip(
+          tripId,
+          memberId,
+          {
+            name,
+            budget,
+            addMemberType
+          }
+        );
+        setSnackbarMessage(`${name} ${addMemberType === "mock" ? 'added as a mock member!' : 'added to the trip!'}`);
         setSnackbarVisible(true);
       } catch (err: any) {
         console.error(err);

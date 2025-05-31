@@ -55,8 +55,11 @@ export async function acceptInvite(
   await addMemberToTrip(
     invite.tripId,
     user.id,
-    user.name,
-    0
+    {
+      name: user.name,
+      budget: 0,
+      addMemberType: "invite link"
+    }
   )
   // 2) mark accepted on the invite (optional)
   await updateDoc(doc(db, "invites", inviteId), {

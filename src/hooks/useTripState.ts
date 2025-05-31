@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { updatePersonalBudget } from '@/src/services/TripUtilities';
+import { updatePersonalBudget } from '@/src/utilities/TripUtilities';
 import { Expense } from '@/src/types/DataTypes';
 
 export function useTripState(tripId: string, currentUserId: string) {

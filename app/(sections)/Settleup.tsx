@@ -12,7 +12,7 @@ import {
     GroupedSectionData, 
     ParsedDebt,         
     DebtsMap,               
-} from '@/src/services/SettleUpUtilities'; 
+} from '@/src/utilities/SettleUpUtilities'; 
 import { Member } from '@/src/types/DataTypes';
 import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
 

@@ -23,7 +23,7 @@ import AddExpenseModal from "@/src/components/AddExpenseModal";
 
 import { calculateNextPayer } from "@/src/services/expenseService";
 import { useTripHandlers } from "@/src/utilities/TripHandlers";
-import { useTripState } from "./hooks/useTripState";
+import { useTripState } from "@/src/hooks/useTripState";
 
 export default function TripDetailPage() {
   const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();

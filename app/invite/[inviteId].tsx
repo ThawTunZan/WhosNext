@@ -2,7 +2,7 @@
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
 import { useUser } from "@clerk/clerk-expo";
-import { addMemberToTripIfNotExists } from "@/src/services/TripUtilities";
+import { addMemberToTrip } from "@/src/utilities/TripUtilities";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase";
 import { Alert, View, ActivityIndicator } from "react-native";
@@ -32,7 +32,10 @@ export default function InviteHandler() {
         }
 
         const { tripId } = inviteSnap.data();
-        await addMemberToTripIfNotExists(tripId, user.id);
+        await addMemberToTrip(tripId, user.id, { 
+          skipIfExists: true,
+          sendNotifications: false 
+        });
         router.push(`/trip/${tripId}`);
       } catch (err) {
         console.error("Invite processing error:", err);

@@ -1,15 +1,18 @@
+// Handles the UI for adding of members to the trip
+
 import { View, StyleSheet, Share, Platform } from "react-native";
 import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip, List, Divider } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Member } from '@/src/types/DataTypes';
+import { AddMemberType, Member } from '@/src/types/DataTypes';
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import SelectFriendsModal from './components/SelectFriendsModal';
 
 type MemberListProps = {
   members: { [id: string]: Member };
-  onAddMember: (id: string, name: string, budget: number) => void;
+  onAddMember: (id: string, name: string, budget: number, addMemberType: AddMemberType) => void;
   onRemoveMember: (name: string) => void;
   onGenerateClaimCode?: (memberId: string) => Promise<string>;
   onClaimMockUser?: (memberId: string, claimCode: string) => Promise<void>;
@@ -28,9 +31,11 @@ export default function MemberList({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMockMemberModal, setShowMockMemberModal] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
+  const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [claimCode, setClaimCode] = useState("");
   const [errors, setErrors] = useState<{ name?: string; budget?: string; claim?: string }>({});
+  const [addMemberType, setAddMemberType] = useState<AddMemberType>("mock");
 
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
@@ -53,7 +58,8 @@ export default function MemberList({
     }
 
     const memberId = `${trimmedName}-${Date.now()}`;
-    onAddMember(memberId, trimmedName, newMemberBudget);
+
+    onAddMember(memberId, trimmedName, newMemberBudget, addMemberType);
     setNewMember("");
     setNewMemberBudget(0);
     setErrors({});
@@ -232,7 +238,9 @@ export default function MemberList({
               left={props => <List.Icon {...props} icon="account-multiple" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
+                setAddMemberType("friends");
                 setShowAddModal(false);
+                setShowFriendsModal(true);
               }}
               style={{ paddingVertical: 12 }}
             />
@@ -242,6 +250,7 @@ export default function MemberList({
               left={props => <List.Icon {...props} icon="link" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
+                setAddMemberType("invite link");
                 setShowAddModal(false);
               }}
               style={{ paddingVertical: 12 }}
@@ -252,6 +261,7 @@ export default function MemberList({
               left={props => <List.Icon {...props} icon="qrcode" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
+                setAddMemberType("qr code");
                 setShowAddModal(false);
               }}
               style={{ paddingVertical: 12 }}
@@ -349,7 +359,10 @@ export default function MemberList({
             </Button>
             <Button 
               mode="contained" 
-              onPress={handleAdd}
+              onPress={() => {
+                setAddMemberType("mock");
+                handleAdd();
+              }}
               style={styles.modalButton}
             >
               Add Member
@@ -437,6 +450,15 @@ export default function MemberList({
             </Button>
           </View>
         </Modal>
+
+        <SelectFriendsModal
+          visible={showFriendsModal}
+          onDismiss={() => setShowFriendsModal(false)}
+          onSelectFriend={(friendId, friendName, budget) => {
+            onAddMember(friendId, friendName, budget, "friends");
+            setShowFriendsModal(false);
+          }}
+        />
       </Portal>
     </View>
   );
