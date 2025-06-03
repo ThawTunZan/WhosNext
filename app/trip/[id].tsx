@@ -170,7 +170,7 @@ export default function TripDetailPage() {
 
             <AddExpenseModal
               visible={addExpenseModalVisible}
-              onClose={closeAddExpenseModal}
+              onDismiss={closeAddExpenseModal}
               onSubmit={handleAddOrUpdateExpenseSubmit}
               members={trip.members}
               tripId={tripId!}

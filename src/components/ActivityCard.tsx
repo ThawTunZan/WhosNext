@@ -9,6 +9,17 @@ const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense,
 
   const profiles = useMemberProfiles();
 
+  // Helper function to format currency
+  const formatCurrency = (amount: number, currency: string) => {
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return formatter.format(amount);
+  };
+
   return (
     <Card style={styles.card}>
       <Card.Title
@@ -32,9 +43,7 @@ const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense,
         {activity.description && <Text style={styles.description}>{activity.description}</Text>}
         {activity.estCost != null && (
         <Caption>
-          Est. Cost: {activity.currency || '$'}
-          {/* Now it's safe to call .toFixed() because estCost cannot be null here */}
-          {activity.estCost.toFixed(2)}
+          Est. Cost: {formatCurrency(activity.estCost, activity.currency)}
         </Caption>
       )}
         <Divider style={styles.divider} />

@@ -179,7 +179,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
 
       <AddExpenseModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        onDismiss={() => setModalVisible(false)}
         onSubmit={handleAddExpenseSubmit}
         members={members}
         tripId={tripId}

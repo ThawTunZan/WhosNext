@@ -1,12 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Modal, Portal, Text, TextInput, Button, SegmentedButtons, List } from 'react-native-paper';
+import { Modal, Portal, Text, TextInput, Button, SegmentedButtons, List, Dialog } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Platform } from 'react-native';
 import { Payment } from '../services/FirebaseServices';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
+import { Currency } from '../types/DataTypes';
+import CurrencyModal from '@/app/trip/components/CurrencyModal';
+
+const CURRENCIES: Currency[] = [
+  'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'CNY', 'JPY', 'INR',
+  'BRL', 'MXN', 'RUB', 'ZAR', 'HKD', 'SGD', 'NOK', 'SEK', 'NZD'
+] as Currency[];
 
 type RecordPaymentModalProps = {
   visible: boolean;
@@ -16,6 +23,7 @@ type RecordPaymentModalProps = {
   debts: Record<string, number>;
   currentUserId: string;
   tripId: string;
+  defaultCurrency?: Currency;
 };
 
 export default function RecordPaymentModal({
@@ -25,13 +33,15 @@ export default function RecordPaymentModal({
   profiles,
   debts,
   currentUserId,
-  tripId
+  tripId,
+  defaultCurrency = 'USD'
 }: RecordPaymentModalProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
 
   const [showPayerDropdown, setShowPayerDropdown] = useState(false);
   const [showPayeeDropdown, setShowPayeeDropdown] = useState(false);
+  const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
   const [method, setMethod] = useState<'cash' | 'transfer' | 'other'>('cash');
   const [date, setDate] = useState(new Date());
   const [note, setNote] = useState('');
@@ -39,6 +49,18 @@ export default function RecordPaymentModal({
   const [selectedPayer, setSelectedPayer] = useState(currentUserId);
   const [selectedPayee, setSelectedPayee] = useState('');
   const [amount, setAmount] = useState('');
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>(defaultCurrency);
+
+  // Format currency helper
+  const formatCurrency = (amount: number, currency: string) => {
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return formatter.format(amount);
+  };
 
   // Get list of all members who can be payers or payees
   const members = useMemo(() => {
@@ -65,6 +87,7 @@ export default function RecordPaymentModal({
       fromUserId: selectedPayer,
       toUserId: selectedPayee,
       amount: parseFloat(amount),
+      currency: selectedCurrency,
       method,
       paymentDate: date,
       note,
@@ -79,6 +102,7 @@ export default function RecordPaymentModal({
     setNote('');
     setSelectedPayee('');
     setSelectedPayer(currentUserId);
+    setSelectedCurrency(defaultCurrency);
     onDismiss();
   };
 
@@ -138,7 +162,7 @@ export default function RecordPaymentModal({
                     key={member.id}
                     title={member.name}
                     description={debts[`${selectedPayer}#${member.id}`] > 0 ? 
-                      `Owed $${debts[`${selectedPayer}#${member.id}`].toFixed(2)}` : 
+                      `Owed ${formatCurrency(debts[`${selectedPayer}#${member.id}`], selectedCurrency)}` : 
                       undefined}
                     onPress={() => {
                       setSelectedPayee(member.id);
@@ -149,17 +173,26 @@ export default function RecordPaymentModal({
             </List.Accordion>
           </View>
 
-          {/* Amount Input */}
+          {/* Amount and Currency Input */}
           <View style={styles.inputContainer}>
             <Text style={[styles.label, { color: theme.colors.text }]}>Amount</Text>
-            <TextInput
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="decimal-pad"
-              mode="outlined"
-              placeholder="Enter amount"
-              style={styles.input}
-            />
+            <View style={styles.amountContainer}>
+              <TextInput
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="decimal-pad"
+                mode="outlined"
+                placeholder="Enter amount"
+                style={styles.amountInput}
+              />
+              <Button
+                mode="outlined"
+                onPress={() => setShowCurrencyDialog(true)}
+                style={styles.currencyButton}
+              >
+                {selectedCurrency}
+              </Button>
+            </View>
           </View>
 
           {/* Payment Method */}
@@ -214,38 +247,36 @@ export default function RecordPaymentModal({
 
           {/* Note Input */}
           <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>Note</Text>
+            <Text style={[styles.label, { color: theme.colors.text }]}>Note (Optional)</Text>
             <TextInput
               value={note}
               onChangeText={setNote}
               mode="outlined"
               placeholder="Add a note"
               multiline
+              numberOfLines={3}
               style={styles.input}
-              maxLength={100}
             />
           </View>
 
-          {/* Action Buttons */}
-          <View style={styles.buttonContainer}>
-            <Button
-              mode="outlined"
-              onPress={onDismiss}
-              style={styles.button}
-            >
-              Cancel
-            </Button>
-            <Button
-              mode="contained"
-              onPress={handleSubmit}
-              style={styles.button}
-              disabled={!selectedPayer || !selectedPayee || !amount}
-            >
-              Record Payment
-            </Button>
-          </View>
+          {/* Submit Button */}
+          <Button
+            mode="contained"
+            onPress={handleSubmit}
+            style={styles.submitButton}
+            disabled={!selectedPayer || !selectedPayee || !amount}
+          >
+            Record Payment
+          </Button>
         </ScrollView>
       </Modal>
+
+      <CurrencyModal
+        visible={showCurrencyDialog}
+        onDismiss={() => setShowCurrencyDialog(false)}
+        selectedCurrency={selectedCurrency}
+        onSelectCurrency={setSelectedCurrency}
+      />
     </Portal>
   );
 }
@@ -259,32 +290,38 @@ const styles = StyleSheet.create({
   },
   title: {
     marginBottom: 20,
-    textAlign: 'center',
+    fontWeight: 'bold',
   },
   inputContainer: {
     marginBottom: 16,
   },
   label: {
     marginBottom: 8,
-    fontSize: 16,
+    fontWeight: '500',
   },
   input: {
     marginBottom: 8,
   },
-  buttonContainer: {
+  amountContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
+    alignItems: 'center',
+    gap: 10,
   },
-  button: {
+  amountInput: {
+    flex: 2,
+  },
+  currencyButton: {
     flex: 1,
-    marginHorizontal: 5,
-  },
-  datePicker: {
-    width: '100%',
+    height: 50,
+    justifyContent: 'center',
   },
   dropdown: {
-    borderWidth: 1,
-    borderRadius: 4,
+    marginTop: 4,
+  },
+  datePicker: {
+    marginTop: 4,
+  },
+  submitButton: {
+    marginTop: 16,
   },
 }); 

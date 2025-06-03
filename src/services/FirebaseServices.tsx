@@ -20,6 +20,7 @@ import {
   Timestamp,
   FieldValue,
 } from 'firebase/firestore';
+import { Currency } from '../types/DataTypes';
 
 // User-related operations
 export const getUserById = async (userId: string) => {
@@ -311,6 +312,7 @@ export interface Payment {
   fromUserId: string;
   toUserId: string;
   amount: number;
+  currency: Currency;
   method: 'cash' | 'transfer' | 'other';
   paymentDate: Date | Timestamp;
   note?: string;

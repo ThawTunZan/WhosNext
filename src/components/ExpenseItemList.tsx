@@ -7,27 +7,26 @@ import { ExpenseListItemProps } from '../types/DataTypes';
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 const ExpenseItemList = React.memo(({ item, isExpanded, onToggleExpand, onDelete, onEdit }: ExpenseListItemProps) => {
-  // Memoize the sharedWith string calculation
-
   const profiles = useMemberProfiles();
+  
   const sharedWithString = React.useMemo(() => {
     return item.sharedWith.map((p) => profiles[p.payeeID]).join(', ');
   }, [item.sharedWith]);
 
-  const showDeleteConfirmation = () => {
+  // Format currency helper
+  const formatCurrency = (amount: number, currency: string) => {
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return formatter.format(amount);
+  };
 
-    /*
-    Alert.alert(
-        "Delete Expense?",
-        `Are you sure you want to delete "${item.activityName}"? This cannot be undone.`,
-        [
-            { text: "Cancel", style: "cancel" },
-            { text: "Delete", style: "destructive", onPress: () => onDelete(item.id) }
-        ]
-    );
-    */
-    onDelete(item.id)
-};
+  const showDeleteConfirmation = () => {
+    onDelete(item.id);
+  };
 
   return (
     <TouchableOpacity onPress={() => onToggleExpand(item.id)} activeOpacity={0.7}>
@@ -37,10 +36,9 @@ const ExpenseItemList = React.memo(({ item, isExpanded, onToggleExpand, onDelete
           subtitle={`Paid by ${profiles[item.paidById]}`}
           right={() => (
             <Text style={styles.amount}>
-              ${item.paidAmt.toFixed(2)} {/* Format currency */}
+              {formatCurrency(item.paidAmt, item.currency)}
             </Text>
           )}
-          // Add rightStyle for padding if needed with react-native-paper
           rightStyle={styles.amountContainer}
         />
         {isExpanded && (

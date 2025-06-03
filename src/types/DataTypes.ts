@@ -12,8 +12,11 @@ export type Member = {
   amtLeft: number;
   owesTotal?: number;
   isMockUser: boolean;
-  claimCode?: string; // Optional claim code for mock users
+  claimCode?: string;
+  premiumUser: boolean;
 };
+
+export type Currency = 'USD' | 'EUR' | 'GBP' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'JPY' | 'INR' | 'BRL' | 'MXN' | 'RUB' | 'ZAR' | 'HKD' | 'SGD' | 'NOK' | 'SEK' | 'NZD' | 'RMB' | 'TRY' | 'BGN' | 'RON' | 'PLN' | 'PHP' | 'AED' | 'ARS' | 'CLP' | 'COP' | 'EGP' | 'HKD' | 'ILS' | 'KRW' | 'MXN' | 'MYR' | 'PEN' | 'QAR' | 'SAR' | 'TND' | 'ZAR' | 'AED' | 'ARS' | 'BRL' | 'CLP' | 'COP' | 'EGP' | 'HKD' | 'ILS' | 'KRW' | 'MXN' | 'MYR' | 'PEN' | 'QAR' | 'SAR' | 'TND' | 'ZAR'
   
 export type Expenses = {[id:string]: {expense: Expense}}
   
@@ -31,6 +34,7 @@ export type Expense = {
   paidAmt: number;
   sharedWith: SharedWith[];
   createdAt?: string; // Firestore Timestamp type for consistency
+  currency: Currency;
 };
 
 // Props for the main ExpensesSection component
@@ -54,16 +58,16 @@ export type ExpenseListItemProps = {
 };
 
 // Props for the AddExpenseModal component
-export type AddExpenseModalProps = {
+export interface AddExpenseModalProps {
   visible: boolean;
-  onClose: () => void;
-  onSubmit: (data: Expense, editingExpenseId: string | null) => Promise<void>;
+  onDismiss: () => void;
+  onSubmit: (expenseData: Expense, editingExpenseId?: string) => Promise<void>;
   members: Record<string, Member>;
-  tripId: string; // Needed for debt calculation within the modal or its handler
-  initialData?: Partial<Expense> | null;
-  suggestedPayerId: string | null;
-  editingExpenseId: string | null;
-};
+  tripId: string;
+  initialData?: Partial<Expense>;
+  editingExpenseId?: string;
+  suggestedPayerId?: string;
+}
 
 // Props for the ActivityVotingSection component
 export type ActivityVotingSectionProps = {
@@ -91,7 +95,7 @@ export type ProposedActivity = {
   description?: string | null;
   suggestedByID: string | null;
   estCost?: number | null;
-  currency?: string | null;
+  currency: Currency;
   createdAt: Timestamp; // Firestore Timestamp
   votes: {
       [userId: string]: VoteType; // Map of UserID -> 'up' or 'down'
@@ -126,5 +130,6 @@ export interface TripData {
   debts?: Record<string, number>; // Keep simple debts map for now
   // expenses field seems unused in state, data comes from hook/listener
   userId: string;
+  currency: Currency;
 }
 

@@ -183,6 +183,7 @@ export const subscribeToExpenses = (
 				sharedWith: raw.sharedWith,
 				// Handle potential Timestamp conversion if you store dates as Timestamps
 				createdAt: raw.createdAt?.toDate ? raw.createdAt.toDate().toLocaleDateString() : 'N/A',
+				currency: raw.currency,
 			};
 		});
 		callback(data);
@@ -254,9 +255,6 @@ export const addExpenseAndCalculateDebts = async (
 
 // Function to delete an expense
 // IMPORTANT: Deleting an expense requires recalculating/reversing the debt updates.
-// This can be complex. A simpler approach might be to "soft delete" (mark as deleted)
-// or to implement a recalculation logic triggered on deletion.
-// The example below just deletes the expense doc, but DOES NOT reverse debt changes.
 export const deleteExpense = async (tripId: string, expenseId: string, members: Record<string, Member>, profiles: Record<string, string>): Promise<void> => {
 	const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
 	try {
