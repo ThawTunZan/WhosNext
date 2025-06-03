@@ -7,7 +7,7 @@ import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 import { useExpenses } from '../../src/hooks/useExpenses';
 import { addExpenseAndCalculateDebts, deleteExpense } from '../../src/services/expenseService';
-import ExpenseItemList from '../../src/components/ExpenseItemList';
+import ExpenseCard from '../../app/trip/components/ExpenseCard';
 import AddExpenseModal from '../../src/components/AddExpenseModal'; 
 import { ExpensesSectionProps, Expense } from '../../src/types/DataTypes'; 
 import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
@@ -92,14 +92,14 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
 
 
   const renderExpenseItem = useCallback(({ item }: { item: Expense }) => (
-    <ExpenseItemList
-      item={item}
+    <ExpenseCard
+      expense={item}
       isExpanded={item.id === expandedId}
       onToggleExpand={toggleExpand}
       onDelete={handleDeleteExpense}
       onEdit={handleEditExpenseLocal}
     />
-  ), [expandedId, toggleExpand, handleDeleteExpense, handleEditExpenseLocal]); // Dependencies for useCallback
+  ), [expandedId, toggleExpand, handleDeleteExpense, handleEditExpenseLocal]);
 
   const keyExtractor = useCallback((item: Expense) => item.id, []);
 
