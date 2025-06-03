@@ -431,3 +431,16 @@ export const firebaseDeletePayment = async (tripId: string, payment: Payment): P
     throw error;
   }
 };
+
+// Expense-related helpers
+export const getExpenseCollectionRefs = (tripId: string, expenseId?: string) => {
+  const tripRef = doc(db, 'trips', tripId);
+  const expensesColRef = collection(db, 'trips', tripId, 'expenses');
+  const expenseDocRef = expenseId ? doc(db, 'trips', tripId, 'expenses', expenseId) : null;
+  return { tripRef, expensesColRef, expenseDocRef };
+};
+
+export const updateExpenseCollection = async (expenseDocRef: any, data: any) => {
+  if (!expenseDocRef) throw new Error('Expense document reference is required');
+  await updateDoc(expenseDocRef, data);
+};

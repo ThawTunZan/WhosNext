@@ -13,7 +13,7 @@ import {
 } from "@/src/utilities/TripUtilities";
 import {
   addExpenseAndCalculateDebts,
-  updateExpenseAndRecalculateDebts,
+  editExpense,
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
 import type { Expense, ProposedActivity, AddMemberType } from "@/src/types/DataTypes";
@@ -131,7 +131,7 @@ export function useTripHandlers({
 
       try {
         if (editingExpenseId) {
-          await updateExpenseAndRecalculateDebts(
+          await editExpense(
             tripId,
             editingExpenseId,
             expenseData,
