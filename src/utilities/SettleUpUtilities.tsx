@@ -30,6 +30,29 @@ function groupToSections(
 }
 
 /**
+ * Normalizes the debts map so that all values are positive and the key is always debtor#creditor (debtor owes creditor).
+ * If a debt chain goes negative, the original is deleted and a reverse chain is created with a positive value.
+ */
+export function normalizeDebtsMap(debts: DebtsMap): DebtsMap {
+    const normalized: DebtsMap = {};
+    const epsilon = 0.001;
+    for (const [key, value] of Object.entries(debts)) {
+        const numericValue = Number(value);
+        if (isNaN(numericValue) || Math.abs(numericValue) < epsilon) continue;
+        const [fromId, toId] = key.split('#');
+        if (!fromId || !toId) continue;
+        if (numericValue > 0) {
+            // Debtor owes creditor
+            normalized[`${fromId}#${toId}`] = numericValue;
+        } else if (numericValue < 0) {
+            // Reverse: creditor owes debtor
+            normalized[`${toId}#${fromId}`] = Math.abs(numericValue);
+        }
+    }
+    return normalized;
+}
+
+/**
  * Converts the raw debts map into a sectioned list format for display.
  * Filters out zero-amount debts and empty sections.
  * @param debts Raw debts map (e.g., { "userB#userA": 50 })
@@ -42,10 +65,10 @@ export function parseAndGroupDebts(
 ): GroupedSectionData[] {
     const grouped: Record<string, ParsedDebt[]> = {};
     const epsilon = 0.001; // Small value for float comparison
+    const normalizedDebts = normalizeDebtsMap(debts);
 
-    Object.entries(debts).forEach(([key, amount]) => {
+    Object.entries(normalizedDebts).forEach(([key, amount]) => {
         const numericAmount = Number(amount);
-        // Filter 1: Only process debts where the amount is meaningfully positive
         if (!isNaN(numericAmount) && numericAmount > epsilon) {
             const [fromId, toId] = key.split('#');
             // Basic validation
@@ -84,16 +107,16 @@ export function calculateSimplifiedDebts(
     const balances: Record<string, number> = {};
     const grouped: Record<string, ParsedDebt[]> = {};
     const epsilon = 0.001; // Small value for float comparison
-
+    const normalizedDebts = normalizeDebtsMap(debts);
 
     // Calculate net balances for each member
-    for (const [key, amount] of Object.entries(debts)) {
+    for (const [key, amount] of Object.entries(normalizedDebts)) {
         const numericAmount = Number(amount);
-        if (!isNaN(numericAmount) && numericAmount > epsilon) { // Process only valid, positive debts
+        if (!isNaN(numericAmount) && numericAmount > epsilon) {
             const [debtor, creditor] = key.split('#');
-             if (!debtor || !creditor) {
-                 console.warn(`Skipping invalid debt key during balance calculation: ${key}`);
-                 continue;
+            if (!debtor || !creditor) {
+                console.warn(`Skipping invalid debt key during balance calculation: ${key}`);
+                continue;
             }
             balances[debtor] = (balances[debtor] || 0) - numericAmount;
             balances[creditor] = (balances[creditor] || 0) + numericAmount;
