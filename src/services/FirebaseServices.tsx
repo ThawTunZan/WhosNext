@@ -241,20 +241,6 @@ export const searchUsers = async (searchTerm: string, currentUserId: string) => 
   }
 };
 
-// User status operations
-export const updateUserStatus = async (userId: string, status: 'online' | 'offline') => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, {
-      status,
-      lastSeen: serverTimestamp(),
-    });
-  } catch (error) {
-    console.error('Error updating user status:', error);
-    throw error;
-  }
-};
-
 // Block user operations
 export const blockUser = async (userId: string, blockedUserId: string) => {
   try {

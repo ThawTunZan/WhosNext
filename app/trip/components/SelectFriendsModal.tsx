@@ -9,7 +9,6 @@ import { useUser } from '@clerk/clerk-expo';
 type Friend = {
   id: string;
   username: string;
-  status?: 'online' | 'offline' | 'pending';
 };
 
 type SelectFriendsModalProps = {
@@ -48,8 +47,7 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
           
           return {
             id: friendId,
-            username: friendData.username || 'Unknown',
-            status: friendData.status || 'offline'
+            username: friendData.username || 'Unknown'
           };
         })
       );
@@ -127,7 +125,7 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
         <View style={styles.header}>
           <Text variant="headlineSmall" style={[styles.title, { color: theme.colors.text }]}>
             Select Friend
-          </Text>
+          </Text>   
           <IconButton icon="close" size={24} onPress={onDismiss} />
         </View>
 

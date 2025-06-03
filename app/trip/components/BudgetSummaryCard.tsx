@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Card, Text, ProgressBar, useTheme } from 'react-native-paper';
+import { Card, Text, ProgressBar, useTheme, ActivityIndicator } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { Member } from '@/src/types/DataTypes';
@@ -29,6 +29,12 @@ export default function BudgetSummaryCard({
     return theme.colors.error;
   };
 
+  const getMemberName = (uid: string) => {
+    if (!profiles) return 'Loading...';
+    if (!(uid in profiles)) return `Member ${uid.slice(0, 4)}...`;
+    return profiles[uid];
+  };
+
   return (
     <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
       <Card.Content>
@@ -55,11 +61,12 @@ export default function BudgetSummaryCard({
           </Text>
           {Object.entries(members).map(([uid, m]) => {
             const progress = m.budget > 0 ? m.amtLeft / m.budget : 0;
+            const memberName = getMemberName(uid);
             return (
               <View key={uid} style={styles.memberBar}>
                 <View style={styles.memberHeader}>
                   <Text style={[styles.memberName, { color: theme.colors.text }]}>
-                    {profiles[uid]}
+                    {memberName}
                   </Text>
                   <Text style={[styles.memberAmount, { color: theme.colors.subtext }]}>
                     ${m.amtLeft.toFixed(2)} / ${m.budget.toFixed(2)}

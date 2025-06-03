@@ -46,8 +46,6 @@ type Friend = {
   id: string;
   name: string;
   email: string;
-  status: 'online' | 'offline';
-  //avatar?: string;
 };
 
 type FirebaseUser = {
@@ -55,8 +53,6 @@ type FirebaseUser = {
   name?: string;
   username?: string;
   email?: string;
-  status?: 'online' | 'offline';
-  //avatar?: string;
 };
 
 export default function FriendsScreen() {
@@ -99,7 +95,6 @@ export default function FriendsScreen() {
             id: friendId,
             name: friendData.username || 'Unknown',
             email: friendData.email || '',
-            status: friendData.status || 'offline',
           } : null;
         })
       );
@@ -125,7 +120,6 @@ export default function FriendsScreen() {
                 id: request.senderId,
                 name: requesterData.username || 'Unknown',
                 email: requesterData.email || '',
-                status: requesterData.status || 'offline',
                 timestamp: request.timestamp,
               } : null;
             } catch (error) {
@@ -152,7 +146,6 @@ export default function FriendsScreen() {
                 id: request.receiverId,
                 name: recipientData.username || 'Unknown',
                 email: recipientData.email || '',
-                status: recipientData.status || 'offline',
                 timestamp: request.timestamp,
               } : null;
             } catch (error) {
@@ -185,8 +178,6 @@ export default function FriendsScreen() {
         id: result.id,
         name: result.username || 'Unknown',
         email: result.email || '',
-        status: result.status || 'offline',
-        //avatar: result.avatar,
       })));
     } catch (error) {
       console.error('Error searching users:', error);
@@ -332,10 +323,6 @@ export default function FriendsScreen() {
           </View>
         </View>
         <View style={styles.friendActions}>
-          <View style={[
-            styles.statusDot,
-            { backgroundColor: friend.status === 'online' ? theme.colors.success : theme.colors.subtext }
-          ]} />
           <View ref={setButtonRef(friend.id)}>
             <IconButton 
               icon="dots-vertical" 

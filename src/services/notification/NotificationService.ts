@@ -6,38 +6,42 @@ import { NotificationSettings, DEFAULT_SETTINGS } from './types';
 import { STORAGE_KEYS } from './constants';
 
 // Configure default notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true
-  })
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true
+    })
+  });
+}
 
 export class NotificationService {
   static async requestPermissions() {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+    if (Platform.OS === 'web') {
+      return true; // Web doesn't need explicit permissions
     }
 
-    if (finalStatus !== 'granted') {
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status === 'granted') {
+        if (Platform.OS === 'android') {
+          await this.setupAndroidChannel();
+        }
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error requesting notification permissions:', error);
       return false;
     }
-
-    if (Platform.OS === 'android') {
-      await this.setupAndroidChannel();
-    }
-
-    return true;
   }
 
   private static async setupAndroidChannel() {
+    if (Platform.OS !== 'android') return;
+
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Default',
       importance: Notifications.AndroidImportance.MAX,
@@ -69,28 +73,30 @@ export class NotificationService {
 
   static async getSettings(): Promise<NotificationSettings> {
     try {
-      const settings = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATION_SETTINGS);
-      return settings ? JSON.parse(settings) : DEFAULT_SETTINGS;
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATION_SETTINGS);
+      return stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
     } catch (error) {
       console.error('Error getting notification settings:', error);
       return DEFAULT_SETTINGS;
     }
   }
 
-  static async updateSettings(settings: Partial<NotificationSettings>): Promise<NotificationSettings> {
+  static async updateSettings(settings: Partial<NotificationSettings>): Promise<void> {
     try {
-      const currentSettings = await this.getSettings();
-      const newSettings = { ...currentSettings, ...settings };
-      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATION_SETTINGS, JSON.stringify(newSettings));
-      return newSettings;
+      const current = await this.getSettings();
+      const updated = { ...current, ...settings };
+      await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATION_SETTINGS, JSON.stringify(updated));
     } catch (error) {
       console.error('Error updating notification settings:', error);
-      throw error;
     }
   }
 
   // Specific notification senders
   static async sendTripUpdate(title: string, body: string, data?: Record<string, any>) {
+    if (Platform.OS === 'web') {
+      console.log('Trip Update Notification (Web):', { title, body, data });
+      return;
+    }
     const settings = await this.getSettings();
     if (settings.tripUpdates) {
       await this.sendNotification(title, body, 'trips', data);
@@ -98,6 +104,10 @@ export class NotificationService {
   }
 
   static async sendExpenseAlert(title: string, body: string, data?: Record<string, any>) {
+    if (Platform.OS === 'web') {
+      console.log('Expense Alert Notification (Web):', { title, body, data });
+      return;
+    }
     const settings = await this.getSettings();
     if (settings.expenseAlerts) {
       await this.sendNotification(title, body, 'expenses', data);
@@ -105,6 +115,10 @@ export class NotificationService {
   }
 
   static async sendFriendRequest(title: string, body: string, data?: Record<string, any>) {
+    if (Platform.OS === 'web') {
+      console.log('Friend Request Notification (Web):', { title, body, data });
+      return;
+    }
     const settings = await this.getSettings();
     if (settings.friendRequests) {
       await this.sendNotification(title, body, 'social', data);
@@ -112,6 +126,10 @@ export class NotificationService {
   }
 
   static async sendTripReminder(title: string, body: string, data?: Record<string, any>) {
+    if (Platform.OS === 'web') {
+      console.log('Trip Reminder Notification (Web):', { title, body, data });
+      return;
+    }
     const settings = await this.getSettings();
     if (settings.tripReminders) {
       await this.sendNotification(title, body, 'trips', data);
@@ -124,6 +142,11 @@ export class NotificationService {
     channel: string = 'default',
     data?: Record<string, any>
   ) {
+    if (Platform.OS === 'web') {
+      console.log('Notification (Web):', { title, body, channel, data });
+      return;
+    }
+
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
