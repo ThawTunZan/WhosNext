@@ -86,12 +86,11 @@ function mergeIncrements(
 }
 
 function formatToFirebase (updates: { [key: string]: number }) {
-
-  const newUpdates:{ [key: string]: any } = {}
-  for (const key in updates) {
-    newUpdates[key] = increment(updates[key])
+  const out: { [key: string]: any } = {};
+  for (const [k, v] of Object.entries(updates)) {
+    out[k] = increment(v);
   }
-  return newUpdates
+  return out;
 }
 
 //-----------------------------------------------------------------------------------------------------------
@@ -300,7 +299,7 @@ export const generateExpenseImpactUpdate = (
   expenseId?: string,
 ): { [key: string]: any } => {
 
-  const { sharedWith, paidById } = expenseData;
+  const { sharedWith, paidById, paidAmt } = expenseData;
 
   if (!paidById) {
     throw new Error(`Payer ID is missing from expense data ${expenseId ? `for expense ${expenseId}` : ''}`);
@@ -316,15 +315,17 @@ export const generateExpenseImpactUpdate = (
   for (const member of sharedWith) {
     const share = Number(member.amount) * multiplier;
     const payeeID = member.payeeID;
-    console.log("share is " + share)
     if (payeeID !== paidById) {
-      updates[`members.${payeeID}.amtLeft`] = share;
       updates[`members.${payeeID}.owesTotal`] = -share;
       updates[`debts.${payeeID}#${paidById}`] = -share;
-    } else {
-      updates[`members.${payeeID}.amtLeft`] = share;
     }
   }
+
+  // Only the payer's amtLeft is reduced by the full paidAmt
+  updates[`members.${paidById}.amtLeft`] = multiplier * paidAmt;
+
+  // Use increment for totalAmtLeft
+  updates[`totalAmtLeft`] = multiplier * paidAmt;
 
   return updates;
 };

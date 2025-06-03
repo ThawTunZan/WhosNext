@@ -199,10 +199,21 @@ export const castVote = async (
                 if (voteType === 'up') {
                     votesUpIncrement -= 1;
                 } else if (voteType === 'down') {
-                    votesDownIncrement -= 1; // Add new downvote
+                    votesDownIncrement -= 1;
                 }
                 delete updatedVotes[userId];
-                console.log(`User ${userId} already voted ${voteType} on ${activityId}. No change.`);
+                // Prepare update payload for unvote
+                const updatePayload: { votes: any; votesUp?: any; votesDown?: any } = {
+                    votes: updatedVotes,
+                };
+                if (votesUpIncrement !== 0) {
+                    updatePayload.votesUp = increment(votesUpIncrement);
+                }
+                if (votesDownIncrement !== 0) {
+                    updatePayload.votesDown = increment(votesDownIncrement);
+                }
+                transaction.update(activityDocRef, updatePayload);
+                console.log(`User ${userId} unvoted ${voteType} on ${activityId}.`);
                 return;
             }
 

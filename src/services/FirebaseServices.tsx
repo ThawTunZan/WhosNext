@@ -344,12 +344,8 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
     // Decrease the debt by the payment amount
     batch.update(tripRef, {
       [debtKey]: increment(-payment.amount),
-      /*
-      // Uncomment this when the budget update is based on payee only losing amount left
-      // instead of the payer losing amount left
       [`members.${payment.fromUserId}.amtLeft`]: increment(payment.amount),
-      [`members.${payment.fromUserId}.owesTotal`]: increment(-payment.amount)
-      */
+      [`members.${payment.fromUserId}.owesTotal`]: increment(-payment.amount),
     });
 
     await batch.commit();
