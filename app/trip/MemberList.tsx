@@ -1,15 +1,18 @@
-import { View, StyleSheet, Share } from "react-native";
-import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip } from "react-native-paper";
+// Handles the UI for adding of members to the trip
+
+import { View, StyleSheet, Share, Platform } from "react-native";
+import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip, List, Divider } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Member } from '@/src/types/DataTypes';
+import { AddMemberType, Member } from '@/src/types/DataTypes';
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import SelectFriendsModal from './components/SelectFriendsModal';
 
 type MemberListProps = {
   members: { [id: string]: Member };
-  onAddMember: (id: string, name: string, budget: number) => void;
+  onAddMember: (id: string, name: string, budget: number, addMemberType: AddMemberType) => void;
   onRemoveMember: (name: string) => void;
   onGenerateClaimCode?: (memberId: string) => Promise<string>;
   onClaimMockUser?: (memberId: string, claimCode: string) => Promise<void>;
@@ -26,10 +29,13 @@ export default function MemberList({
   const [newMember, setNewMember] = useState("");
   const [newMemberBudget, setNewMemberBudget] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showMockMemberModal, setShowMockMemberModal] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
+  const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [claimCode, setClaimCode] = useState("");
   const [errors, setErrors] = useState<{ name?: string; budget?: string; claim?: string }>({});
+  const [addMemberType, setAddMemberType] = useState<AddMemberType>("mock");
 
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
@@ -52,11 +58,12 @@ export default function MemberList({
     }
 
     const memberId = `${trimmedName}-${Date.now()}`;
-    onAddMember(memberId, trimmedName, newMemberBudget);
+
+    onAddMember(memberId, trimmedName, newMemberBudget, addMemberType);
     setNewMember("");
     setNewMemberBudget(0);
     setErrors({});
-    setShowAddModal(false);
+    setShowMockMemberModal(false);
   };
 
   const handleClaimAttempt = async () => {
@@ -92,11 +99,8 @@ export default function MemberList({
   const memberCount = Object.keys(members).length;
 
   const MemberCard = ({ id, member, profile }: { id: string; member: Member; profile: string }) => (
-    <Surface 
-      style={[styles.memberCard, { backgroundColor: theme.colors.surface }]}
-      elevation={1}
-    >
-      <View style={styles.memberContent}>
+    <Surface style={styles.memberCard} elevation={1}>
+      <View style={[styles.memberContent, { overflow: 'hidden' }]}>
         <View style={styles.avatarContainer}>
           <Avatar.Text
             size={40}
@@ -160,62 +164,153 @@ export default function MemberList({
 
   return (
     <View style={styles.container}>
-      <Surface style={[styles.memberListContainer, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <MaterialCommunityIcons 
-              name="account-group" 
-              size={24} 
-              color={theme.colors.text} 
-              style={styles.headerIcon} 
-            />
-            <Text variant="titleMedium" style={{ color: theme.colors.text }}>
-              Trip Members
+      <Surface style={styles.memberListContainer}>
+        <View style={{ overflow: 'hidden' }}>
+          <View style={styles.header}>
+            <View style={styles.headerContent}>
+              <MaterialCommunityIcons 
+                name="account-group" 
+                size={24} 
+                color={theme.colors.text} 
+                style={styles.headerIcon} 
+              />
+              <Text variant="titleMedium" style={{ color: theme.colors.text }}>
+                Trip Members
+              </Text>
+            </View>
+            <Text variant="labelMedium" style={{ color: theme.colors.subtext }}>
+              {memberCount} {memberCount === 1 ? 'member' : 'members'}
             </Text>
           </View>
-          <Text variant="labelMedium" style={{ color: theme.colors.subtext }}>
-            {memberCount} {memberCount === 1 ? 'member' : 'members'}
-          </Text>
-        </View>
 
-        <View style={styles.memberGrid}>
-          {Object.entries(members).map(([id, member]) => (
-            <MemberCard
-              key={id}
-              id={id}
-              member={member}
-              profile={profiles[id]}
-            />
-          ))}
-        </View>
+          <View style={styles.memberGrid}>
+            {Object.entries(members).map(([id, member]) => (
+              <MemberCard
+                key={id}
+                id={id}
+                member={member}
+                profile={profiles[id]}
+              />
+            ))}
+          </View>
 
-        <Button 
-          mode="contained" 
-          onPress={() => setShowAddModal(true)}
-          style={styles.addButton}
-          icon="account-plus"
-        >
-          Add Mock Member
-        </Button>
+          <Button 
+            mode="contained" 
+            onPress={() => setShowAddModal(true)}
+            style={styles.addButton}
+            icon="account-plus"
+          >
+            Add Members
+          </Button>
+        </View>
       </Surface>
 
-      {/* Add Member Modal */}
+      {/* Main Add Member Modal */}
       <Portal>
         <Modal
           visible={showAddModal}
+          onDismiss={() => setShowAddModal(false)}
+          contentContainerStyle={[
+            {
+              backgroundColor: theme.colors.surface,
+              margin: 20,
+              marginTop: Platform.OS === 'ios' ? 60 : 20,
+              borderRadius: 12,
+              padding: 20,
+            }
+          ]}
+        >
+          <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text variant="headlineSmall" style={{ flex: 1, fontSize: 22, fontWeight: '600', color: theme.colors.text }}>
+              Add Members
+            </Text>
+            <IconButton
+              icon="close"
+              size={24}
+              onPress={() => setShowAddModal(false)}
+            />
+          </View>
+
+          <List.Section style={{ marginTop: -8 }}>
+            <List.Item
+              title="Select from Friends"
+              description="Add members from your friend list"
+              left={props => <List.Icon {...props} icon="account-multiple" />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => {
+                setAddMemberType("friends");
+                setShowAddModal(false);
+                setShowFriendsModal(true);
+              }}
+              style={{ paddingVertical: 12 }}
+            />
+            <List.Item
+              title="Share Invite Link"
+              description="Share a link to join this trip"
+              left={props => <List.Icon {...props} icon="link" />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => {
+                setAddMemberType("invite link");
+                setShowAddModal(false);
+              }}
+              style={{ paddingVertical: 12 }}
+            />
+            <List.Item
+              title="Share QR Code"
+              description="Share via QR code"
+              left={props => <List.Icon {...props} icon="qrcode" />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => {
+                setAddMemberType("qr code");
+                setShowAddModal(false);
+              }}
+              style={{ paddingVertical: 12 }}
+            />
+            <List.Item
+              title="Add Mock Member"
+              description="Create a temporary member"
+              left={props => <List.Icon {...props} icon="account-plus" />}
+              right={props => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => {
+                setShowAddModal(false);
+                setShowMockMemberModal(true);
+              }}
+              style={{ paddingVertical: 12 }}
+            />
+          </List.Section>
+        </Modal>
+
+        {/* Mock Member Modal */}
+        <Modal
+          visible={showMockMemberModal}
           onDismiss={() => {
-            setShowAddModal(false);
+            setShowMockMemberModal(false);
             setErrors({});
           }}
           contentContainerStyle={[
-            styles.modalContainer,
-            { backgroundColor: theme.colors.surface }
+            {
+              backgroundColor: theme.colors.surface,
+              margin: 20,
+              marginTop: Platform.OS === 'ios' ? 60 : 20,
+              borderRadius: 12,
+              padding: 20,
+            }
           ]}
         >
-          <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme.colors.text }]}>
-            Add Mock Member
-          </Text>
-          
+          <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text variant="headlineSmall" style={{ flex: 1, fontSize: 22, fontWeight: '600', color: theme.colors.text }}>
+              Add Mock Member
+            </Text>
+            <IconButton
+              icon="close"
+              size={24}
+              onPress={() => {
+                setShowMockMemberModal(false);
+                setErrors({});
+              }}
+            />
+          </View>
+
           <TextInput
             label="Member Name"
             value={newMember}
@@ -255,7 +350,7 @@ export default function MemberList({
           <View style={styles.modalActions}>
             <Button 
               onPress={() => {
-                setShowAddModal(false);
+                setShowMockMemberModal(false);
                 setErrors({});
               }}
               style={styles.modalButton}
@@ -264,7 +359,10 @@ export default function MemberList({
             </Button>
             <Button 
               mode="contained" 
-              onPress={handleAdd}
+              onPress={() => {
+                setAddMemberType("mock");
+                handleAdd();
+              }}
               style={styles.modalButton}
             >
               Add Member
@@ -282,13 +380,30 @@ export default function MemberList({
             setErrors({});
           }}
           contentContainerStyle={[
-            styles.modalContainer,
-            { backgroundColor: theme.colors.surface }
+            {
+              backgroundColor: theme.colors.surface,
+              margin: 20,
+              marginTop: Platform.OS === 'ios' ? 60 : 20,
+              borderRadius: 12,
+              padding: 20,
+            }
           ]}
         >
-          <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme.colors.text }]}>
-            Claim Mock Profile
-          </Text>
+          <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text variant="headlineSmall" style={{ flex: 1, fontSize: 22, fontWeight: '600', color: theme.colors.text }}>
+              Claim Mock Profile
+            </Text>
+            <IconButton
+              icon="close"
+              size={24}
+              onPress={() => {
+                setShowClaimModal(false);
+                setSelectedMemberId(null);
+                setClaimCode("");
+                setErrors({});
+              }}
+            />
+          </View>
 
           <TextInput
             label="Claim Code"
@@ -335,6 +450,15 @@ export default function MemberList({
             </Button>
           </View>
         </Modal>
+
+        <SelectFriendsModal
+          visible={showFriendsModal}
+          onDismiss={() => setShowFriendsModal(false)}
+          onSelectFriend={(friendId, friendName, budget) => {
+            onAddMember(friendId, friendName, budget, "friends");
+            setShowFriendsModal(false);
+          }}
+        />
       </Portal>
     </View>
   );
@@ -366,7 +490,6 @@ const styles = StyleSheet.create({
   },
   memberCard: {
     borderRadius: 12,
-    overflow: 'hidden',
   },
   memberContent: {
     flexDirection: 'row',
@@ -382,16 +505,6 @@ const styles = StyleSheet.create({
   },
   addButton: {
     marginTop: 16,
-  },
-  modalContainer: {
-    margin: 20,
-    borderRadius: 12,
-    padding: 20,
-  },
-  modalTitle: {
-    marginBottom: 20,
-    textAlign: 'center',
-    fontWeight: '600',
   },
   input: {
     marginBottom: 4,

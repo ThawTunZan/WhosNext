@@ -4,7 +4,7 @@ import { Timestamp } from "firebase/firestore";
 
 export type MemberInfo = { name: string }; // Basic info for components needing just name
 
-
+export type AddMemberType = "friends" | "invite link" | "qr code" | "mock";
 // Individual member data
 export type Member = {
   id: string;

@@ -5,7 +5,7 @@ import { Button, Text, Snackbar } from 'react-native-paper'
 import * as Linking from 'expo-linking'
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
-import { createInvite } from '@/src/services/InviteUtilities'
+import { createInvite } from '@/src/utilities/InviteUtilities'
 import QRCode from 'react-native-qrcode-svg';
 import { ScrollView } from 'react-native';
 

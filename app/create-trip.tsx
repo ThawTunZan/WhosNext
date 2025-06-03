@@ -36,6 +36,7 @@ export default function CreateTripScreen() {
 
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />;
+  const Wrapper = Platform.OS === 'web' ? React.Fragment : TouchableWithoutFeedback;
 
   const handleCreateTrip = async () => {
     if (!destination) {
@@ -73,7 +74,7 @@ export default function CreateTripScreen() {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+    <Wrapper {...(Platform.OS !== 'web' ? { onPress: Keyboard.dismiss } : {})}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1, backgroundColor: theme.colors.background }}
@@ -108,7 +109,7 @@ export default function CreateTripScreen() {
                 placeholder="Where are you going?"
                 value={destination}
                 onChangeText={setDestination}
-                style={[styles.input, { backgroundColor: 'transparent' }]}
+                style={[styles.input]}
                 theme={{ 
                   colors: { 
                     primary: theme.colors.primary,
@@ -124,7 +125,7 @@ export default function CreateTripScreen() {
                 value={totalBudget}
                 onChangeText={setTotalBudget}
                 keyboardType="numeric"
-                style={[styles.input, { backgroundColor: 'transparent' }]}
+                style={[styles.input]}
                 left={<TextInput.Affix text="$" textStyle={{ color: theme.colors.text }} />}
                 theme={{ 
                   colors: { 
@@ -154,7 +155,7 @@ export default function CreateTripScreen() {
           </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
+    </Wrapper>
   );
 }
 

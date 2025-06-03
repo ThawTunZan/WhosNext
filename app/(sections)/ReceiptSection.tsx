@@ -36,7 +36,7 @@ import {
   Timestamp,
 } from "firebase/firestore"
 import { pickAndUploadReceipt } from "@/src/services/FirebaseStorageService"
-import { deleteReceipt } from "@/src/services/receiptService"
+import { deleteReceipt } from "@/src/utilities/ReceiptUtilities"
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"
 
 // Types

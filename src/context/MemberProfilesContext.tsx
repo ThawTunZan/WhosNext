@@ -1,6 +1,6 @@
 // MemberProfilesContext.tsx
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import {db} from "@/firebase"
 const Users = collection(db, "users");
 
@@ -16,21 +16,33 @@ export function MemberProfilesProvider({
   const [profiles, setProfiles] = useState<Record<string,string>>({});
 
   useEffect(() => {
-    // Listen to ALL users, or you can build a query just for memberUids
-    const unsub = onSnapshot(Users, (snapshot) => {
+    if (!memberUids.length) {
+      setProfiles({});
+      return;
+    }
+
+    // Create a query for just the member UIDs we need
+    const q = query(Users, where('__name__', 'in', memberUids));
+    
+    const unsub = onSnapshot(q, (snapshot) => {
       const map: Record<string,string> = {};
       snapshot.docs.forEach((doc) => {
         const data = doc.data();
-        // only keep the ones in memberUids
-        if (memberUids.includes(doc.id)) {
-          map[doc.id] =
-            typeof data.name === "string"
-              ? data.name
-              : typeof data.username === "string"
-              ? data.username
-              : doc.id;
+        map[doc.id] =
+          typeof data.name === "string"
+            ? data.name
+            : typeof data.username === "string"
+            ? data.username
+            : doc.id;
+      });
+
+      // Add any missing memberUids with their ID as fallback
+      memberUids.forEach(uid => {
+        if (!map[uid]) {
+          map[uid] = uid;
         }
       });
+
       setProfiles(map);
     });
 

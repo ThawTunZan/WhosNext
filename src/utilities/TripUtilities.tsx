@@ -5,7 +5,7 @@ import { collection, getDocs, doc, updateDoc, increment, deleteField, deleteDoc,
   getDoc, } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Member } from '../types/DataTypes';
-import { NotificationService, NOTIFICATION_TYPES } from './notification';
+import { NotificationService, NOTIFICATION_TYPES } from '../services/notification';
 
 /**
  * Generates a random string of specified length
@@ -19,30 +19,6 @@ function generateRandomString(length: number): string {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
-}
-
-export async function addMemberToTripIfNotExists(tripId: string, userId: string, isMockUser: boolean = false) {
-  const tripRef = doc(db, "trips", tripId);
-  const tripSnap = await getDoc(tripRef);
-
-  if (!tripSnap.exists()) throw new Error("Trip does not exist");
-
-  const tripData = tripSnap.data();
-  const members = tripData.members || {};
-
-  if (!members[userId]) {
-    members[userId] = {
-      budget: 0,
-      amtLeft: 0,
-      owesTotal: 0,
-      isMockUser,
-      claimCode: isMockUser ? generateRandomString(8) : undefined,
-    };
-
-    await updateDoc(tripRef, {
-      [`members.${userId}`]: members[userId],
-    });
-  }
 }
 
 /**
@@ -94,77 +70,109 @@ export async function updatePersonalBudget(
 }
 
 /**
- * Adds a new member to a trip in Firestore.
- * @param tripId The ID of the trip.
- * @param memberId The ID for the new member.
- * @param name The name of the new member.
- * @param budget The budget for the new member.
+ * Adds a member to a trip or ensures they exist in the trip.
+ * @param tripId The ID of the trip
+ * @param memberId The ID for the member
+ * @param options Configuration options for adding the member
+ * @param options.name The name of the member (optional for existing members)
+ * @param options.budget The budget for the member (defaults to 0)
+ * @param options.isMockUser Whether this is a mock user (defaults to false)
+ * @param options.skipIfExists Whether to skip adding if member exists (defaults to false)
+ * @param options.sendNotifications Whether to send notifications (defaults to true)
  */
 export const addMemberToTrip = async (
     tripId: string,
     memberId: string,
-    name: string,
-    budget: number,
-    isMockUser: boolean = false
+    options: {
+        name?: string,
+        budget?: number,
+        addMemberType?: string,
+        skipIfExists?: boolean,
+        sendNotifications?: boolean
+    } = {}
 ): Promise<void> => {
-    if (!tripId || !memberId || !name.trim()) {
-      throw new Error("Trip ID, Member ID, and Name are required to add a member.");
+    if (!tripId || !memberId) {
+        throw new Error("Trip ID and Member ID are required.");
     }
 
-    const trimmedName = name.trim();
-    const budgetNum = Number(budget) || 0;
+    const {
+        name,
+        budget,
+        addMemberType = "mock",
+        skipIfExists = false,
+        sendNotifications = false
+    } = options;
 
     const tripRef = doc(db, "trips", tripId);
-    const userRef = doc(db, "users", memberId);
+    const tripSnap = await getDoc(tripRef);
+
+    if (!tripSnap.exists()) {
+        throw new Error("Trip does not exist");
+    }
+
+    const tripData = tripSnap.data();
+    const members = tripData.members || {};
+
+    // Check if member exists and handle accordingly
+    if (members[memberId]) {
+        if (skipIfExists) {
+            return; // Exit early if member exists and we're told to skip
+        }
+        // Could throw error here if desired:
+        // throw new Error("Member already exists in trip");
+    }
 
     const newMemberData = {
-      budget: budgetNum,
-      amtLeft: budgetNum,
-      owesTotal: 0,
-      isMockUser,
-      claimCode: isMockUser ? generateRandomString(8) : undefined,
+        budget: budget,
+        amtLeft: budget,
+        owesTotal: 0,
+        ...(addMemberType === "mock" ? { claimCode: generateRandomString(8) } : {}),
+        addMemberType: addMemberType,
     };
 
     try {
-      // 1) Update the trip's members map and totals
-      await updateDoc(tripRef, {
-        [`members.${memberId}`]: newMemberData,
-        totalBudget: increment(newMemberData.budget),
-        totalAmtLeft: increment(newMemberData.amtLeft),
-      });
-      console.log(`Member ${trimmedName} added to trip ${tripId}`);
+        // 1) Update the trip's members map and totals
+        await updateDoc(tripRef, {
+            [`members.${memberId}`]: newMemberData,
+            totalBudget: increment(newMemberData.budget),
+            totalAmtLeft: increment(newMemberData.amtLeft),
+        });
+        console.log(`Member ${name || memberId} added to trip ${tripId}`);
 
-      // 2) Ensure the users collection has this user's profile
-      await setDoc(
-        userRef,
-        { username: trimmedName },
-        { merge: true }
-      );
-      console.log(`User profile for ${memberId} upserted in users collection`);
-
-      // Only send notifications for non-mock users
-      if (!isMockUser) {
-        const tripSnapshot = await getDoc(tripRef);
-        const tripData = tripSnapshot.data();
-        if (tripData && tripData.members) {
-          Object.keys(tripData.members).forEach(async (existingMemberId) => {
-            if (existingMemberId !== memberId) {
-              await NotificationService.sendTripUpdate(
-                "New Member Joined",
-                `${trimmedName} has joined the trip!`,
-                {
-                  type: NOTIFICATION_TYPES.TRIP_UPDATE,
-                  tripId: tripId,
-                  memberId: memberId
-                }
-              );
-            }
-          });
+        // 2) Update user profile if name is provided
+        if (name) {
+            const userRef = doc(db, "users", memberId);
+            await setDoc(
+                userRef,
+                { username: name.trim() },
+                { merge: true }
+            );
+            console.log(`User profile for ${memberId} upserted in users collection`);
         }
-      }
+
+        // 3) Send notifications if enabled and not a mock user
+        if (sendNotifications && addMemberType !== "mock" && name) {
+            const updatedTripSnap = await getDoc(tripRef);
+            const updatedTripData = updatedTripSnap.data();
+            if (updatedTripData && updatedTripData.members) {
+                Object.keys(updatedTripData.members).forEach(async (existingMemberId) => {
+                    if (existingMemberId !== memberId) {
+                        await NotificationService.sendTripUpdate(
+                            "New Member Joined",
+                            `${name.trim()} has joined the trip!`,
+                            {
+                                type: NOTIFICATION_TYPES.TRIP_UPDATE,
+                                tripId: tripId,
+                                memberId: memberId
+                            }
+                        );
+                    }
+                });
+            }
+        }
     } catch (error) {
-      console.error("Error adding member to trip and/or users:", error);
-      throw error;
+        console.error("Error adding member to trip and/or users:", error);
+        throw error;
     }
 };
 
@@ -189,7 +197,7 @@ export const claimMockUser = async (
       throw new Error("Mock user not found");
     }
 
-    if (!mockMember.isMockUser) {
+    if (mockMember.addMemberType !== "mock") {
       throw new Error("This member is not a mock user");
     }
 
@@ -198,7 +206,7 @@ export const claimMockUser = async (
     }
 
     // Create new member data without mock-specific fields
-    const { isMockUser, claimCode: _, ...memberData } = mockMember;
+    const { addMemberType, claimCode: _, ...memberData } = mockMember;
 
     // Update trip document to replace mock user with real user
     await updateDoc(tripRef, {
