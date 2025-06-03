@@ -15,6 +15,10 @@ import {
   DocumentReference,
   QuerySnapshot,
   DocumentSnapshot,
+  increment,
+  writeBatch,
+  Timestamp,
+  FieldValue,
 } from 'firebase/firestore';
 
 // User-related operations
@@ -296,6 +300,138 @@ export const checkIfBlocked = async (userId: string, targetUserId: string) => {
     return userData.blockedUsers?.includes(targetUserId) || false;
   } catch (error) {
     console.error('Error checking if blocked:', error);
+    throw error;
+  }
+};
+
+// Payment-related types
+export interface Payment {
+  id?: string;
+  tripId: string;
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+  method: 'cash' | 'transfer' | 'other';
+  paymentDate: Date;
+  note?: string;
+  createdTime: Timestamp | FieldValue;
+  createdDate: Timestamp | FieldValue;
+}
+
+// Function to record a new payment
+export const firebaseRecordPayment = async (payment: Payment): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  try {
+    // 1. Add the payment record
+    const paymentsRef = collection(db, 'trips', payment.tripId, 'payments');
+    const paymentDocRef = doc(paymentsRef);
+    
+    const paymentData = {
+      ...payment,
+    };
+    paymentData.createdTime = serverTimestamp();
+    paymentData.createdDate = Timestamp.now();
+    
+    batch.set(paymentDocRef, paymentData);
+
+    // 2. Update the debt in the trip document
+    const tripRef = doc(db, 'trips', payment.tripId);
+    
+    // Construct the debt key (fromUserId#toUserId)
+    const debtKey = `debts.${payment.fromUserId}#${payment.toUserId}`;
+    
+    // Decrease the debt by the payment amount
+    batch.update(tripRef, {
+      [debtKey]: increment(-payment.amount),
+      /*
+      // Uncomment this when the budget update is based on payee only losing amount left
+      // instead of the payer losing amount left
+      [`members.${payment.fromUserId}.amtLeft`]: increment(payment.amount),
+      [`members.${payment.fromUserId}.owesTotal`]: increment(-payment.amount)
+      */
+    });
+
+    await batch.commit();
+    console.log('Payment recorded successfully');
+  } catch (error) {
+    console.error('Error recording payment:', error);
+    throw error;
+  }
+};
+
+// Function to get all payments for a trip
+export const firebaseGetTripPayments = async (tripId: string): Promise<Payment[]> => {
+  try {
+    const paymentsRef = collection(db, 'trips', tripId, 'payments');
+    const q = query(paymentsRef, where('tripId', '==', tripId));
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Payment[];
+  } catch (error) {
+    console.error('Error getting trip payments:', error);
+    throw error;
+  }
+};
+
+// Function to get payments between two users in a trip
+export const firebaseGetUserPayments = async (
+  tripId: string,
+  userId1: string,
+  userId2: string
+): Promise<Payment[]> => {
+  try {
+    const paymentsRef = collection(db, 'trips', tripId, 'payments');
+    const q = query(
+      paymentsRef,
+      where('tripId', '==', tripId),
+      where('fromUserId', 'in', [userId1, userId2])
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const payments = querySnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Payment[];
+    
+    // Filter to only include payments between these two users
+    return payments.filter(payment => 
+      (payment.fromUserId === userId1 && payment.toUserId === userId2) ||
+      (payment.fromUserId === userId2 && payment.toUserId === userId1)
+    );
+  } catch (error) {
+    console.error('Error getting user payments:', error);
+    throw error;
+  }
+};
+
+// Function to delete a payment (and reverse its effects)
+export const firebaseDeletePayment = async (tripId: string, payment: Payment): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  try {
+    // 1. Delete the payment document
+    const paymentRef = doc(db, 'trips', tripId, 'payments', payment.id!);
+    batch.delete(paymentRef);
+
+    // 2. Reverse the debt changes
+    const tripRef = doc(db, 'trips', tripId);
+    const debtKey = `debts.${payment.fromUserId}#${payment.toUserId}`;
+    
+    batch.update(tripRef, {
+      [debtKey]: increment(payment.amount),
+      [`members.${payment.fromUserId}.amtLeft`]: increment(-payment.amount),
+      [`members.${payment.fromUserId}.owesTotal`]: increment(payment.amount)
+    });
+
+    await batch.commit();
+    console.log('Payment deleted successfully');
+  } catch (error) {
+    console.error('Error deleting payment:', error);
     throw error;
   }
 };

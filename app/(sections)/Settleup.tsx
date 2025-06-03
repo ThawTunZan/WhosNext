@@ -2,9 +2,10 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, SectionList } from 'react-native';
-import { Card, Text, Divider, Button, useTheme } from 'react-native-paper';
+import { Card, Text, Divider, Button, useTheme, FAB } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import { useUser } from '@clerk/clerk-expo';
 
 import {
     parseAndGroupDebts,
@@ -15,20 +16,25 @@ import {
 } from '@/src/utilities/SettleUpUtilities'; 
 import { Member } from '@/src/types/DataTypes';
 import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
+import RecordPaymentModal from '@/src/components/RecordPaymentModal';
+import { firebaseRecordPayment, Payment } from '@/src/services/FirebaseServices';
 
 // Props type specific to this component
 type SettleUpProps = {
   debts: DebtsMap;
   members: Record<string, Member>;  
+  tripId: string;
 };
 
-export default function SettleUpSection({ debts }: SettleUpProps) {
+export default function SettleUpSection({ debts, members, tripId }: SettleUpProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
+  const { user } = useUser();
 
   const profiles = useMemberProfiles();
   const [isSimplified, setIsSimplified] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const parsedDebts = useMemo(() => parseAndGroupDebts(debts, profiles), [debts, profiles]);
   const simplifiedDebts = useMemo(() => calculateSimplifiedDebts(debts, profiles), [debts, profiles]);
@@ -38,6 +44,20 @@ export default function SettleUpSection({ debts }: SettleUpProps) {
   const toggleSimplify = useCallback(() => {
       setIsSimplified(prev => !prev);
   }, []);
+
+  const handlePaymentSubmit = async (paymentData: Payment) => {
+    // TODO: Implement the payment recording logic
+
+    //Update backend
+    await firebaseRecordPayment(paymentData);
+
+    //Handle budget
+
+    //Make payment data
+
+    //Add payment to the database
+    console.log('Payment recorded:', paymentData);
+  };
 
   // Render function for each debt item
   const renderItem = useCallback(({ item }: { item: ParsedDebt }) => (
@@ -76,13 +96,13 @@ export default function SettleUpSection({ debts }: SettleUpProps) {
   // Render Footer for the SectionList
   const renderListFooter = () => (
     <Button
-        mode="contained"
-        onPress={toggleSimplify}
-        style={styles.button}
-        icon={isSimplified ? "playlist-remove" : "playlist-check"}
-      >
-        {isSimplified ? 'Show All Debts' : 'Simplify Debts'}
-      </Button>
+      mode="contained"
+      onPress={toggleSimplify}
+      style={styles.button}
+      icon={isSimplified ? "playlist-remove" : "playlist-check"}
+    >
+      {isSimplified ? 'Show All Debts' : 'Simplify Debts'}
+    </Button>
   );
 
   return (
@@ -101,6 +121,23 @@ export default function SettleUpSection({ debts }: SettleUpProps) {
         }
         stickySectionHeadersEnabled={false}
         contentContainerStyle={styles.listContentContainer}
+      />
+
+      <FAB
+        icon="cash-plus"
+        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        onPress={() => setShowPaymentModal(true)}
+        label="Record Payment"
+      />
+
+      <RecordPaymentModal
+        visible={showPaymentModal}
+        onDismiss={() => setShowPaymentModal(false)}
+        onSubmit={handlePaymentSubmit}
+        profiles={profiles}
+        debts={debts}
+        currentUserId={user?.id || ''}
+        tripId={tripId || ''}
       />
     </View>
   );
@@ -152,5 +189,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 20,
     marginHorizontal: 10,
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
   },
 });
