@@ -1,11 +1,13 @@
 // src/components/SettleUpSection.tsx (or wherever it resides)
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, StyleSheet, SectionList } from 'react-native';
-import { Card, Text, Divider, Button, useTheme, FAB } from 'react-native-paper';
+import { Card, Text, Divider, Button, useTheme, FAB, List, Avatar } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { useUser } from '@clerk/clerk-expo';
+import { format } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
 
 import {
     parseAndGroupDebts,
@@ -17,7 +19,7 @@ import {
 import { Member } from '@/src/types/DataTypes';
 import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
 import RecordPaymentModal from '@/src/components/RecordPaymentModal';
-import { firebaseRecordPayment, Payment } from '@/src/services/FirebaseServices';
+import { firebaseRecordPayment, firebaseGetTripPayments, Payment } from '@/src/services/FirebaseServices';
 
 // Props type specific to this component
 type SettleUpProps = {
@@ -31,10 +33,22 @@ export default function SettleUpSection({ debts, members, tripId }: SettleUpProp
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
   const { user } = useUser();
-
   const profiles = useMemberProfiles();
+
   const [isSimplified, setIsSimplified] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [payments, setPayments] = useState<Payment[]>([]);
+
+  // Fetch payments when component mounts or tripId changes
+  useEffect(() => {
+    const fetchPayments = async () => {
+      if (tripId) {
+        const fetchedPayments = await firebaseGetTripPayments(tripId);
+        setPayments(fetchedPayments);
+      }
+    };
+    fetchPayments();
+  }, [tripId]);
 
   const parsedDebts = useMemo(() => parseAndGroupDebts(debts, profiles), [debts, profiles]);
   const simplifiedDebts = useMemo(() => calculateSimplifiedDebts(debts, profiles), [debts, profiles]);
@@ -42,21 +56,17 @@ export default function SettleUpSection({ debts, members, tripId }: SettleUpProp
   const shownDebts: GroupedSectionData[] = isSimplified ? simplifiedDebts : parsedDebts;
 
   const toggleSimplify = useCallback(() => {
-      setIsSimplified(prev => !prev);
+    setIsSimplified(prev => !prev);
   }, []);
 
   const handlePaymentSubmit = async (paymentData: Payment) => {
-    // TODO: Implement the payment recording logic
-
-    //Update backend
+    // Update backend
     await firebaseRecordPayment(paymentData);
 
-    //Handle budget
+    // Update UI
+    setPayments(prevPayments => [...prevPayments, paymentData]);
 
-    //Make payment data
-
-    //Add payment to the database
-    console.log('Payment recorded:', paymentData);
+    setShowPaymentModal(false);
   };
 
   // Render function for each debt item
@@ -73,18 +83,47 @@ export default function SettleUpSection({ debts, members, tripId }: SettleUpProp
         rightStyle={styles.amountContainer}
       />
     </Card>
-  ), [theme.colors]); 
-
-  // Render function for section headers
-  const renderSectionHeader = useCallback(({ section }: { section: GroupedSectionData }) => (
-    <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>
-      {section.title}
-    </Text> 
   ), [theme.colors]);
 
-  const keyExtractor = useCallback((item: ParsedDebt, index: number) =>
-     `${item.fromId}-${item.toId}-${index}`, 
-  []);
+  // Render payment item
+  const renderPaymentItem = (payment: Payment) => {
+    const fromUser = profiles[payment.fromUserId] || payment.fromUserId;
+    const toUser = profiles[payment.toUserId] || payment.toUserId;
+    
+    // Handle different date formats
+    let paymentDate: Date;
+    if (payment.paymentDate instanceof Date) {
+      paymentDate = payment.paymentDate;
+    } else if (payment.paymentDate instanceof Timestamp) {
+      // Handle Firestore Timestamp
+      paymentDate = payment.paymentDate.toDate();
+    } else {
+      // Fallback to current date if invalid
+      paymentDate = new Date();
+      console.warn('Invalid payment date format:', payment.paymentDate);
+    }
+
+    return (
+      <List.Item
+        title={`${fromUser} → ${toUser}`}
+        description={`${format(paymentDate, 'MMM d, yyyy')} • ${payment.method}`}
+        left={props => (
+          <Avatar.Icon 
+            {...props} 
+            icon={payment.method === 'cash' ? 'cash' : payment.method === 'transfer' ? 'bank-transfer' : 'note'} 
+            size={40}
+            style={{ backgroundColor: theme.colors.primary }}
+          />
+        )}
+        right={props => (
+          <Text {...props} style={[styles.paymentAmount, { color: theme.colors.text }]}>
+            ${payment.amount.toFixed(2)}
+          </Text>
+        )}
+        style={[styles.paymentItem, { backgroundColor: theme.colors.surface }]}
+      />
+    );
+  };
 
   const renderListHeader = () => (
     <>
@@ -93,16 +132,42 @@ export default function SettleUpSection({ debts, members, tripId }: SettleUpProp
     </>
   );
 
-  // Render Footer for the SectionList
-  const renderListFooter = () => (
-    <Button
-      mode="contained"
-      onPress={toggleSimplify}
-      style={styles.button}
-      icon={isSimplified ? "playlist-remove" : "playlist-check"}
-    >
-      {isSimplified ? 'Show All Debts' : 'Simplify Debts'}
-    </Button>
+  // Render function for section headers
+  const renderSectionHeader = useCallback(({ section }: { section: GroupedSectionData }) => (
+    <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>
+      {section.title}
+    </Text>
+  ), [theme.colors]);
+
+  const keyExtractor = useCallback((item: ParsedDebt, index: number) =>
+    `${item.fromId}-${item.toId}-${index}`,
+  []);
+
+  const renderPaymentsSection = () => (
+    <View style={styles.paymentsSection}>
+      <Text style={[styles.header, { color: theme.colors.text }]}>📝 Payment History</Text>
+      <Divider style={[styles.divider, { backgroundColor: theme.colors.divider }]} />
+      {payments.length === 0 ? (
+        <Text style={[styles.noPaymentsText, { color: theme.colors.subtext }]}>
+          No payments recorded yet
+        </Text>
+      ) : (
+        payments
+          .sort((a, b) => {
+            const dateA = a.paymentDate instanceof Date ? a.paymentDate : a.paymentDate.toDate();
+            const dateB = b.paymentDate instanceof Date ? b.paymentDate : b.paymentDate.toDate();
+            return dateB.getTime() - dateA.getTime();
+          })
+          .map((payment, index) => (
+            <React.Fragment key={payment.id || index}>
+              {renderPaymentItem(payment)}
+              {index < payments.length - 1 && (
+                <Divider style={{ backgroundColor: theme.colors.divider }} />
+              )}
+            </React.Fragment>
+          ))
+      )}
+    </View>
   );
 
   return (
@@ -113,7 +178,19 @@ export default function SettleUpSection({ debts, members, tripId }: SettleUpProp
         renderItem={renderItem}
         renderSectionHeader={renderSectionHeader}
         ListHeaderComponent={renderListHeader}
-        ListFooterComponent={renderListFooter}
+        ListFooterComponent={
+          <>
+            <Button
+              mode="contained"
+              onPress={toggleSimplify}
+              style={styles.button}
+              icon={isSimplified ? "playlist-remove" : "playlist-check"}
+            >
+              {isSimplified ? 'Show All Debts' : 'Simplify Debts'}
+            </Button>
+            {renderPaymentsSection()}
+          </>
+        }
         ListEmptyComponent={
           <Text style={[styles.noDebtText, { color: theme.colors.subtext }]}>
             No debts to settle 🎉
@@ -137,7 +214,7 @@ export default function SettleUpSection({ debts, members, tripId }: SettleUpProp
         profiles={profiles}
         debts={debts}
         currentUserId={user?.id || ''}
-        tripId={tripId || ''}
+        tripId={tripId}
       />
     </View>
   );
@@ -195,5 +272,25 @@ const styles = StyleSheet.create({
     margin: 16,
     right: 0,
     bottom: 0,
+  },
+  paymentsSection: {
+    marginTop: 20,
+    paddingTop: 10,
+  },
+  paymentItem: {
+    marginVertical: 2,
+    borderRadius: 8,
+  },
+  paymentAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    alignSelf: 'center',
+    marginRight: 16,
+  },
+  noPaymentsText: {
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 20,
+    marginBottom: 10,
   },
 });

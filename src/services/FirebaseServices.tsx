@@ -312,7 +312,7 @@ export interface Payment {
   toUserId: string;
   amount: number;
   method: 'cash' | 'transfer' | 'other';
-  paymentDate: Date;
+  paymentDate: Date | Timestamp;
   note?: string;
   createdTime: Timestamp | FieldValue;
   createdDate: Timestamp | FieldValue;

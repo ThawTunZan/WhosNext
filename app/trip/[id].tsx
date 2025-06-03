@@ -138,7 +138,11 @@ export default function TripDetailPage() {
             )}
 
             {selectedTab === "settle" && (
-              <SettleUpSection debts={trip.debts} members={trip.members} />
+              <SettleUpSection 
+                debts={trip.debts} 
+                members={trip.members} 
+                tripId={tripId!} 
+              />
             )}
 
             {selectedTab === "activities" && (
