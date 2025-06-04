@@ -134,7 +134,14 @@ export const addMemberToTrip = async (
 		budget: budget || 0,
 		amtLeft: budget || 0,
 		currency: currency,
-		owesTotalArray: [],
+		owesTotalMap: {
+			USD: 0,
+			EUR: 0,
+			GBP: 0,
+			JPY: 0,
+			CNY: 0,
+			SGD: 0
+		},
 		premiumUser: isPremiumUser,
 		...(addMemberType === AddMemberType.MOCK ? { claimCode: generateRandomString(8) } : {}),
 		addMemberType: addMemberType,
@@ -252,12 +259,13 @@ export const leaveTripIfEligible = async (
 	userId: string,
 	member: Member,
 ): Promise<void> => {
-
 	if (!tripId || !userId || !member) {
 		throw new Error("Missing trip or user data.");
 	}
 
-	const myDebt = member?.owesTotalArray?.reduce((sum, debt) => sum + debt.owesTotal, 0) || 0;
+	const myDebt = member.owesTotalMap ? 
+		Object.values(member.owesTotalMap).reduce((sum, amount) => sum + amount, 0) : 0;
+		
 	if (myDebt > 0) {
 		throw new Error("You still have outstanding debts.");
 	}

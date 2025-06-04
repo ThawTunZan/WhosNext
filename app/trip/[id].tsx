@@ -35,10 +35,27 @@ export default function TripDetailPage() {
   const { trip, loading, error: dataError } = useTripData(tripId);
   const profiles = useMemberProfiles();
 
-  const nextPayer = React.useMemo(
-    () => calculateNextPayer(trip?.members || null, profiles),
-    [trip?.members, profiles]
-  );
+  const [nextPayer, setNextPayer] = React.useState<string | null>(null);
+
+  const nextPayerParams = React.useMemo(() => ({
+    members: trip?.members || null,
+    profiles,
+    currency: trip?.currency || 'USD'
+  }), [trip?.members, profiles, trip?.currency]);
+
+  React.useEffect(() => {
+    const updateNextPayer = async () => {
+      if (nextPayerParams.members && nextPayerParams.profiles) {
+        const nextPayerId = await calculateNextPayer(
+          nextPayerParams.members,
+          nextPayerParams.profiles,
+          nextPayerParams.currency
+        );
+        setNextPayer(nextPayerId);
+      }
+    };
+    updateNextPayer();
+  }, [nextPayerParams]);
 
   const {
     selectedTab,

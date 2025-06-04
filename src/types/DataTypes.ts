@@ -11,20 +11,18 @@ export enum AddMemberType {
   MOCK = "mock"
 }
 
-export type owesTotal = {
-  owesTotal: number;
-  owesTotalCurrency: Currency;
-}
+export type OwesTotalMap = Record<Currency, number>;
+
 // Individual member data
 export type Member = {
   id: string;
   budget: number;
   amtLeft: number;
   currency: Currency;
-  owesTotalArray: owesTotal[];
   claimCode?: string;
   premiumUser: boolean;
   addMemberType: AddMemberType;
+  owesTotalMap: OwesTotalMap;
 };
 
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CNY' | 'SGD'; 

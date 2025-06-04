@@ -18,19 +18,21 @@ import {
 } from 'react-native-paper';
 import { Redirect, useRouter } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
-import { db } from '@/firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { db } from '@/firebase';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import { Currency, AddMemberType } from '@/src/types/DataTypes';
 
 const { width } = Dimensions.get('window');
 
 export default function CreateTripScreen() {
   const [destination, setDestination] = useState('');
   const [totalBudget, setTotalBudget] = useState('');
-  const router = useRouter();
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
   const { isLoaded, isSignedIn, user } = useUser();
+  const router = useRouter();
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
 
@@ -49,9 +51,20 @@ export default function CreateTripScreen() {
 
     const initialMembers = {
       [userId]: {
+        id: userId,
         budget: parsedBudget,
         amtLeft: parsedBudget,
-        owesTotal: 0,
+        currency: selectedCurrency,
+        premiumUser: false,
+        addMemberType: AddMemberType.FRIENDS,
+        owesTotalMap: {
+          USD: 0,
+          EUR: 0,
+          GBP: 0,
+          JPY: 0,
+          CNY: 0,
+          SGD: 0
+        }
       }
     };
 

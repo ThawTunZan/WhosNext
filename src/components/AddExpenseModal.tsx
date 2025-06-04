@@ -200,6 +200,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 						payeeID: id,
 						payeeName: profiles[id] || 'Unknown',
 						amount: currentShare,
+						currency: selectedCurrency,
 					};
 				});
 
@@ -207,7 +208,8 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 				parsedSharedWith = sharedWithIds.map(id => ({
 					payeeID: id,
 					payeeName: profiles[id] || 'Unknown',
-					amount: parseFloat(customAmounts[id] || '0'), // Already validated
+					amount: parseFloat(customAmounts[id] || '0'),
+					currency: selectedCurrency,
 				}));
 			}
 			const newExpenseRef = doc(

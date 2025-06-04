@@ -11,8 +11,9 @@ import {
 	getDoc,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Expense, Member } from '../types/DataTypes';
+import { Expense, Member, Currency } from '../types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from './notification';
+import { convertCurrency } from './CurrencyService';
 
 const TRIPS_COLLECTION = 'trips';
 const EXPENSES_SUBCOLLECTION = 'expenses';
@@ -126,29 +127,33 @@ function formatToFirebase(updates: { [key: string]: number }) {
  * @param members - The members map containing budget and amtLeft info.
  * @returns Object with id and name of the next payer, or { id: null, name: null }.
  */
-export function calculateNextPayer(members: Record<string, Member> | null | undefined, profiles: Record<string, string>): string {
-
+export async function calculateNextPayer(members: Record<string, Member> | null | undefined, profiles: Record<string, string>, tripCurrency: string): Promise<string> {
 	if (!members || Object.keys(members).length === 0) {
-		return
-		''
-			;
+		return '';
 	}
 
 	let nextPayerId: string | null = null;
-	let maxAmountOwe = -9999
+	let maxAmountOwe = -9999;
 
 	const memberEntries = Object.entries(members);
 
 	// Filter out members with non-positive budget unless ALL members have non-positive budget
-	memberEntries.forEach(([id, member]) => {
-		// This line correctly handles undefined owesTotal before comparison
-		const currentOwesTotal = Number(member.owesTotal) || 0;
+	for (const [id, member] of memberEntries) {
+		// Calculate total owed across all currencies
+		if (member.owesTotalMap) {
+			let totalOwed = 0;
+			for (const [currency, amount] of Object.entries(member.owesTotalMap)) {
+				// Convert each currency amount to trip's currency before adding
+				const convertedAmount = await convertCurrency(amount, currency as Currency, tripCurrency as Currency);
+				totalOwed += convertedAmount;
+			}
 
-		if (currentOwesTotal > maxAmountOwe) {
-			maxAmountOwe = currentOwesTotal;
-			nextPayerId = id;
+			if (totalOwed > maxAmountOwe) {
+				maxAmountOwe = totalOwed;
+				nextPayerId = id;
+			}
 		}
-	});
+	}
 
 	if (nextPayerId && members[nextPayerId]) {
 		return nextPayerId;
@@ -158,11 +163,8 @@ export function calculateNextPayer(members: Record<string, Member> | null | unde
 		console.log("calculateNextPayer: No one owes money currently, suggesting first member as fallback.");
 		return fallbackId;
 	}
-	else {
-		return null;
-	}
 
-	return null; // Should ideally not be reached
+	return null;
 }
 
 // To get real-time updates on expenses
@@ -218,9 +220,12 @@ export const addExpenseAndCalculateDebts = async (
 	const newExpenseRef = doc(collection(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION));
 	batch.set(newExpenseRef, expenseDocData);
 	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
+	const tripSnap = await getDoc(tripDocRef);
+	const tripData = tripSnap.data();
 	let updatesRaw: { [key: string]: number } = {};
-	updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false, profiles);
-	updatesRaw['totalAmtLeft'] = -expenseData.paidAmt;
+	const convertedPaidAmt = await convertCurrency(expenseData.paidAmt, expenseData.currency, tripData.currency);
+	updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false, profiles, expenseData.id, convertedPaidAmt);
+	updatesRaw['totalAmtLeft'] = -convertedPaidAmt;
 	let updates = formatToFirebase(updatesRaw);
 
 	batch.update(tripDocRef, updates);
@@ -318,9 +323,10 @@ export const generateExpenseImpactUpdate = (
 	reverse: boolean,
 	profiles: Record<string, string>,
 	expenseId?: string,
+	convertedPaidAmt?: number
 ): { [key: string]: any } => {
 
-	const { sharedWith, paidById, paidAmt } = expenseData;
+	const { sharedWith, paidById, paidAmt, currency } = expenseData;
 
 	if (!paidById) {
 		throw new Error(`Payer ID is missing from expense data ${expenseId ? `for expense ${expenseId}` : ''}`);
@@ -337,8 +343,8 @@ export const generateExpenseImpactUpdate = (
 		const share = Number(member.amount) * multiplier;
 		const payeeID = member.payeeID;
 		if (payeeID !== paidById) {
-			updates[`members.${payeeID}.owesTotal`] = -share;
-			updates[`debts.${payeeID}#${paidById}`] = -share;
+			updates[`members.${payeeID}.owesTotalMap.${currency}`] = share;
+			updates[`debts.${payeeID}#${paidById}`] = share;
 		}
 	}
 
