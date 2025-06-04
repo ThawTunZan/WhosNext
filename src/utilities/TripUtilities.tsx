@@ -1,11 +1,14 @@
 // src/utils/tripUtils.ts
-import { collection, getDocs, doc, updateDoc, increment, deleteField, deleteDoc, query, where, runTransaction,
-  Timestamp,
-  setDoc,
-  getDoc, } from 'firebase/firestore';
+import {
+	collection, getDocs, doc, updateDoc, increment, deleteField, deleteDoc, query, where, runTransaction,
+	Timestamp,
+	setDoc,
+	getDoc,
+} from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Member } from '../types/DataTypes';
+import { Currency, Member, AddMemberType } from '../types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from '../services/notification';
+import { convertCurrency } from '../services/CurrencyService';
 
 /**
  * Generates a random string of specified length
@@ -13,12 +16,12 @@ import { NotificationService, NOTIFICATION_TYPES } from '../services/notificatio
  * @returns Random string
  */
 function generateRandomString(length: number): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+	const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+	let result = '';
+	for (let i = 0; i < length; i++) {
+		result += chars.charAt(Math.floor(Math.random() * chars.length));
+	}
+	return result;
 }
 
 /**
@@ -26,47 +29,47 @@ function generateRandomString(length: number): string {
  * Throws if trip or member not found.
  */
 export async function updatePersonalBudget(
-  tripId: string,
-  userId: string,
-  newBudget: number
+	tripId: string,
+	userId: string,
+	newBudget: number
 ): Promise<void> {
-  if (!tripId || !userId) {
-    throw new Error("Trip ID and User ID are required.")
-  }
+	if (!tripId || !userId) {
+		throw new Error("Trip ID and User ID are required.")
+	}
 
-  const tripRef = doc(db, "trips", tripId)
+	const tripRef = doc(db, "trips", tripId)
 
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(tripRef)
-    if (!snap.exists()) {
-      throw new Error("Trip not found.")
-    }
-    const data = snap.data()
-    const members = data.members || {}
-    const userData = members[userId]
-    if (!userData) {
-      throw new Error("User not a member of this trip.")
-    }
+	await runTransaction(db, async (tx) => {
+		const snap = await tx.get(tripRef)
+		if (!snap.exists()) {
+			throw new Error("Trip not found.")
+		}
+		const data = snap.data()
+		const members = data.members || {}
+		const userData = members[userId]
+		if (!userData) {
+			throw new Error("User not a member of this trip.")
+		}
 
-    const oldBudget = userData.budget as number
-    const oldAmtLeft = userData.amtLeft as number
-    const spent = oldBudget - oldAmtLeft
-    const diff = oldBudget - newBudget
+		const oldBudget = userData.budget as number
+		const oldAmtLeft = userData.amtLeft as number
+		const spent = oldBudget - oldAmtLeft
+		const diff = oldBudget - newBudget
 
-    const updatedAmtLeft = newBudget - spent
+		const updatedAmtLeft = newBudget - spent
 
-    const updatedMember = {
-        ...userData,
-        budget: newBudget,
-        amtLeft: updatedAmtLeft,
-    }
+		const updatedMember = {
+			...userData,
+			budget: newBudget,
+			amtLeft: updatedAmtLeft,
+		}
 
-    tx.update(tripRef, {
-        [`members.${userId}`]: updatedMember,
-        totalBudget: increment(-diff),
-        totalAmtLeft: increment(-diff)
-    })
-  })
+		tx.update(tripRef, {
+			[`members.${userId}`]: updatedMember,
+			totalBudget: increment(-diff),
+			totalAmtLeft: increment(-diff)
+		})
+	})
 }
 
 /**
@@ -81,153 +84,162 @@ export async function updatePersonalBudget(
  * @param options.sendNotifications Whether to send notifications (defaults to true)
  */
 export const addMemberToTrip = async (
-    tripId: string,
-    memberId: string,
-    options: {
-        name?: string,
-        budget?: number,
-        addMemberType?: string,
-        skipIfExists?: boolean,
-        sendNotifications?: boolean
-    } = {}
+	tripId: string,
+	memberId: string,
+	options: {
+		name?: string,
+		budget?: number,
+		addMemberType?: AddMemberType,
+		currency?: Currency,
+		skipIfExists?: boolean,
+		sendNotifications?: boolean,
+		isPremiumUser?: boolean
+	} = {}
 ): Promise<void> => {
-    if (!tripId || !memberId) {
-        throw new Error("Trip ID and Member ID are required.");
-    }
+	if (!tripId || !memberId) {
+		throw new Error("Trip ID and Member ID are required.");
+	}
 
-    const {
-        name,
-        budget,
-        addMemberType = "mock",
-        skipIfExists = false,
-        sendNotifications = false
-    } = options;
+	const {
+		name,
+		budget,
+		addMemberType = AddMemberType.MOCK,
+		currency = "USD",
+		skipIfExists = false,
+		sendNotifications = false,
+		isPremiumUser = false
+	} = options;
 
-    const tripRef = doc(db, "trips", tripId);
-    const tripSnap = await getDoc(tripRef);
+	const tripRef = doc(db, "trips", tripId);
+	const tripSnap = await getDoc(tripRef);
 
-    if (!tripSnap.exists()) {
-        throw new Error("Trip does not exist");
-    }
+	if (!tripSnap.exists()) {
+		throw new Error("Trip does not exist");
+	}
 
-    const tripData = tripSnap.data();
-    const members = tripData.members || {};
+	const tripData = tripSnap.data();
+	const members = tripData.members || {};
 
-    // Check if member exists and handle accordingly
-    if (members[memberId]) {
-        if (skipIfExists) {
-            return; // Exit early if member exists and we're told to skip
-        }
-        // Could throw error here if desired:
-        // throw new Error("Member already exists in trip");
-    }
+	// Check if member exists and handle accordingly
+	if (members[memberId]) {
+		if (skipIfExists) {
+			return; // Exit early if member exists and we're told to skip
+		}
+		// Could throw error here if desired:
+		// throw new Error("Member already exists in trip");
+	}
 
-    const newMemberData = {
-        budget: budget,
-        amtLeft: budget,
-        owesTotal: 0,
-        ...(addMemberType === "mock" ? { claimCode: generateRandomString(8) } : {}),
-        addMemberType: addMemberType,
-    };
+	const newMemberData: Member = {
+		id: memberId,
+		budget: budget || 0,
+		amtLeft: budget || 0,
+		currency: currency,
+		owesTotalArray: [],
+		premiumUser: isPremiumUser,
+		...(addMemberType === AddMemberType.MOCK ? { claimCode: generateRandomString(8) } : {}),
+		addMemberType: addMemberType,
+	};
 
-    try {
-        // 1) Update the trip's members map and totals
-        await updateDoc(tripRef, {
-            [`members.${memberId}`]: newMemberData,
-            totalBudget: increment(newMemberData.budget),
-            totalAmtLeft: increment(newMemberData.amtLeft),
-        });
-        console.log(`Member ${name || memberId} added to trip ${tripId}`);
+	const newMemberDefaultCurrencyBudget = await convertCurrency(newMemberData.budget, newMemberData.currency, tripData.currency);
 
-        // 2) Update user profile if name is provided
-        if (name) {
-            const userRef = doc(db, "users", memberId);
-            await setDoc(
-                userRef,
-                { username: name.trim() },
-                { merge: true }
-            );
-            console.log(`User profile for ${memberId} upserted in users collection`);
-        }
+	try {
+		// 1) Update the trip's members map and totals
+		await updateDoc(tripRef, {
+			[`members.${memberId}`]: newMemberData,
+			totalBudget: increment(newMemberDefaultCurrencyBudget),
+			totalAmtLeft: increment(newMemberDefaultCurrencyBudget),
+		});
+		console.log(`Member ${name || memberId} added to trip ${tripId}`);
 
-        // 3) Send notifications if enabled and not a mock user
-        if (sendNotifications && addMemberType !== "mock" && name) {
-            const updatedTripSnap = await getDoc(tripRef);
-            const updatedTripData = updatedTripSnap.data();
-            if (updatedTripData && updatedTripData.members) {
-                Object.keys(updatedTripData.members).forEach(async (existingMemberId) => {
-                    if (existingMemberId !== memberId) {
-                        await NotificationService.sendTripUpdate(
-                            "New Member Joined",
-                            `${name.trim()} has joined the trip!`,
-                            {
-                                type: NOTIFICATION_TYPES.TRIP_UPDATE,
-                                tripId: tripId,
-                                memberId: memberId
-                            }
-                        );
-                    }
-                });
-            }
-        }
-    } catch (error) {
-        console.error("Error adding member to trip and/or users:", error);
-        throw error;
-    }
+		// 2) Update user profile if name is provided
+		if (name) {
+			const userRef = doc(db, "users", memberId);
+			await setDoc(
+				userRef,
+				{ username: name.trim() },
+				{ merge: true }
+			);
+			console.log(`User profile for ${memberId} upserted in users collection`);
+		}
+
+		// 3) Send notifications if enabled and not a mock user
+		if (sendNotifications && addMemberType !== AddMemberType.MOCK && name) {
+			const updatedTripSnap = await getDoc(tripRef);
+			const updatedTripData = updatedTripSnap.data();
+			if (updatedTripData && updatedTripData.members) {
+				Object.keys(updatedTripData.members).forEach(async (existingMemberId) => {
+					if (existingMemberId !== memberId) {
+						await NotificationService.sendTripUpdate(
+							"New Member Joined",
+							`${name.trim()} has joined the trip!`,
+							{
+								type: NOTIFICATION_TYPES.TRIP_UPDATE,
+								tripId: tripId,
+								memberId: memberId
+							}
+						);
+					}
+				});
+			}
+		}
+	} catch (error) {
+		console.error("Error adding member to trip and/or users:", error);
+		throw error;
+	}
 };
 
 export const claimMockUser = async (
-  tripId: string,
-  mockUserId: string,
-  claimCode: string,
-  newUserId: string
+	tripId: string,
+	mockUserId: string,
+	claimCode: string,
+	newUserId: string
 ): Promise<void> => {
-  const tripRef = doc(db, "trips", tripId);
-  
-  try {
-    const tripSnap = await getDoc(tripRef);
-    if (!tripSnap.exists()) {
-      throw new Error("Trip not found");
-    }
+	const tripRef = doc(db, "trips", tripId);
 
-    const tripData = tripSnap.data();
-    const mockMember = tripData.members[mockUserId];
+	try {
+		const tripSnap = await getDoc(tripRef);
+		if (!tripSnap.exists()) {
+			throw new Error("Trip not found");
+		}
 
-    if (!mockMember) {
-      throw new Error("Mock user not found");
-    }
+		const tripData = tripSnap.data();
+		const mockMember = tripData.members[mockUserId];
 
-    if (mockMember.addMemberType !== "mock") {
-      throw new Error("This member is not a mock user");
-    }
+		if (!mockMember) {
+			throw new Error("Mock user not found");
+		}
 
-    if (mockMember.claimCode !== claimCode) {
-      throw new Error("Invalid claim code");
-    }
+		if (mockMember.addMemberType !== "mock") {
+			throw new Error("This member is not a mock user");
+		}
 
-    // Create new member data without mock-specific fields
-    const { addMemberType, claimCode: _, ...memberData } = mockMember;
+		if (mockMember.claimCode !== claimCode) {
+			throw new Error("Invalid claim code");
+		}
 
-    // Update trip document to replace mock user with real user
-    await updateDoc(tripRef, {
-      [`members.${mockUserId}`]: deleteField(),
-      [`members.${newUserId}`]: memberData
-    });
+		// Create new member data without mock-specific fields
+		const { addMemberType, claimCode: _, ...memberData } = mockMember;
 
-    // Transfer the username to the new user's profile
-    const mockUserRef = doc(db, "users", mockUserId);
-    const mockUserSnap = await getDoc(mockUserRef);
-    if (mockUserSnap.exists()) {
-      const { username } = mockUserSnap.data();
-      await setDoc(doc(db, "users", newUserId), { username }, { merge: true });
-      await deleteDoc(mockUserRef);
-    }
+		// Update trip document to replace mock user with real user
+		await updateDoc(tripRef, {
+			[`members.${mockUserId}`]: deleteField(),
+			[`members.${newUserId}`]: memberData
+		});
 
-    console.log(`Mock user ${mockUserId} successfully claimed by ${newUserId}`);
-  } catch (error) {
-    console.error("Error claiming mock user:", error);
-    throw error;
-  }
+		// Transfer the username to the new user's profile
+		const mockUserRef = doc(db, "users", mockUserId);
+		const mockUserSnap = await getDoc(mockUserRef);
+		if (mockUserSnap.exists()) {
+			const { username } = mockUserSnap.data();
+			await setDoc(doc(db, "users", newUserId), { username }, { merge: true });
+			await deleteDoc(mockUserRef);
+		}
+
+		console.log(`Mock user ${mockUserId} successfully claimed by ${newUserId}`);
+	} catch (error) {
+		console.error("Error claiming mock user:", error);
+		throw error;
+	}
 };
 
 /**
@@ -236,41 +248,41 @@ export const claimMockUser = async (
  * @throws Error with reason if the user is not allowed to leave.
  */
 export const leaveTripIfEligible = async (
-    tripId: string,
-    userId: string,
-    member: Member,
+	tripId: string,
+	userId: string,
+	member: Member,
 ): Promise<void> => {
 
-    if (!tripId || !userId || !member) {
-      throw new Error("Missing trip or user data.");
-    }
+	if (!tripId || !userId || !member) {
+		throw new Error("Missing trip or user data.");
+	}
 
-    const myDebt = member?.owesTotal || 0;
-    if (myDebt > 0) {
-      throw new Error("You still have outstanding debts.");
-    }
+	const myDebt = member?.owesTotalArray?.reduce((sum, debt) => sum + debt.owesTotal, 0) || 0;
+	if (myDebt > 0) {
+		throw new Error("You still have outstanding debts.");
+	}
 
-    const expensesSnap = await getDocs(collection(db, `trips/${tripId}/expenses`));
-    const involvedInExpenses = expensesSnap.docs.some(doc => {
-      const data = doc.data();
-      return data.paidById === member.id || (data.sharedWith || []).includes(userId);
-    });
+	const expensesSnap = await getDocs(collection(db, `trips/${tripId}/expenses`));
+	const involvedInExpenses = expensesSnap.docs.some(doc => {
+		const data = doc.data();
+		return data.paidById === member.id || (data.sharedWith || []).includes(userId);
+	});
 
-    if (involvedInExpenses) {
-      throw new Error("You are still involved in one or more expenses.");
-    }
+	if (involvedInExpenses) {
+		throw new Error("You are still involved in one or more expenses.");
+	}
 
-    const activitiesSnap = await getDocs(collection(db, `trips/${tripId}/proposed_activities`));
-    const hasProposed = activitiesSnap.docs.some(doc => {
-      const data = doc.data();
-      return data.suggestedByID === userId;
-    });
+	const activitiesSnap = await getDocs(collection(db, `trips/${tripId}/proposed_activities`));
+	const hasProposed = activitiesSnap.docs.some(doc => {
+		const data = doc.data();
+		return data.suggestedByID === userId;
+	});
 
-    if (hasProposed) {
-      throw new Error("You have proposed activities. Remove them first.");
-    }
+	if (hasProposed) {
+		throw new Error("You have proposed activities. Remove them first.");
+	}
 
-    await removeMemberFromTrip(tripId, userId, member);
+	await removeMemberFromTrip(tripId, userId, member);
 };
 
 /**
@@ -282,86 +294,86 @@ export const leaveTripIfEligible = async (
  * @param memberToRemoveData
  */
 export const removeMemberFromTrip = async (
-    tripId: string,
-    memberIdToRemove: string,
-    memberToRemoveData: Member
+	tripId: string,
+	memberIdToRemove: string,
+	memberToRemoveData: Member
 ): Promise<void> => {
-    if (!tripId || !memberIdToRemove) {
-        throw new Error("Trip ID and Member ID are required to remove a member.");
-    }
-    const docRef = doc(db, "trips", tripId);
+	if (!tripId || !memberIdToRemove) {
+		throw new Error("Trip ID and Member ID are required to remove a member.");
+	}
+	const docRef = doc(db, "trips", tripId);
 
-    try {
-        // Get member name before removing
-        const userRef = doc(db, "users", memberIdToRemove);
-        const userSnap = await getDoc(userRef);
-        const userName = userSnap.exists() ? userSnap.data().username : 'A member';
+	try {
+		// Get member name before removing
+		const userRef = doc(db, "users", memberIdToRemove);
+		const userSnap = await getDoc(userRef);
+		const userName = userSnap.exists() ? userSnap.data().username : 'A member';
 
-        await updateDoc(docRef, {
-            totalBudget: increment(-(memberToRemoveData.budget || 0)),
-            totalAmtLeft: increment(-(memberToRemoveData.amtLeft || 0)),
-            [`members.${memberIdToRemove}`]: deleteField(),
-        });
-        console.log(`Member ${memberIdToRemove} removed from trip ${tripId}`);
+		await updateDoc(docRef, {
+			totalBudget: increment(-(memberToRemoveData.budget || 0)),
+			totalAmtLeft: increment(-(memberToRemoveData.amtLeft || 0)),
+			[`members.${memberIdToRemove}`]: deleteField(),
+		});
+		console.log(`Member ${memberIdToRemove} removed from trip ${tripId}`);
 
-        // Get remaining members and notify them
-        const tripSnap = await getDoc(docRef);
-        const tripData = tripSnap.data();
-        if (tripData && tripData.members) {
-            Object.keys(tripData.members).forEach(async (memberId) => {
-                await NotificationService.sendTripUpdate(
-                    "Member Left Trip",
-                    `${userName} has left the trip.`,
-                    {
-                        type: NOTIFICATION_TYPES.TRIP_UPDATE,
-                        tripId: tripId,
-                        memberId: memberIdToRemove
-                    }
-                );
-            });
-        }
-    } catch (error) {
-        console.error("Error removing member from trip:", error);
-        throw error;
-    }
+		// Get remaining members and notify them
+		const tripSnap = await getDoc(docRef);
+		const tripData = tripSnap.data();
+		if (tripData && tripData.members) {
+			Object.keys(tripData.members).forEach(async (memberId) => {
+				await NotificationService.sendTripUpdate(
+					"Member Left Trip",
+					`${userName} has left the trip.`,
+					{
+						type: NOTIFICATION_TYPES.TRIP_UPDATE,
+						tripId: tripId,
+						memberId: memberIdToRemove
+					}
+				);
+			});
+		}
+	} catch (error) {
+		console.error("Error removing member from trip:", error);
+		throw error;
+	}
 };
 
 export const deleteTripAndRelatedData = async (tripId: string): Promise<void> => {
-    if (!tripId) throw new Error("Trip ID is required.");
+	if (!tripId) throw new Error("Trip ID is required.");
 
-    // TBD deleted related receipt pictures
-    console.log("TRIP BUTTON IS PRESSED")
+	// TBD deleted related receipt pictures
+	console.log("TRIP BUTTON IS PRESSED")
 
-    // 1. Delete receipts
-    const receiptsQ = query(collection(db, "receipts"), where("tripId", "==", tripId));
-    const receiptDocs = await getDocs(receiptsQ);
-    const receiptDeletions = receiptDocs.docs.map(docSnap => deleteDoc(doc(db, "receipts", docSnap.id)));
+	// 1. Delete receipts
+	const receiptsQ = query(collection(db, "receipts"), where("tripId", "==", tripId));
+	const receiptDocs = await getDocs(receiptsQ);
+	const receiptDeletions = receiptDocs.docs.map(docSnap => deleteDoc(doc(db, "receipts", docSnap.id)));
 
-    // 2. Delete expenses
-    const expensesSnap = await getDocs(collection(db, `trips/${tripId}/expenses`));
-    const expenseDeletions = expensesSnap.docs.map(docSnap =>
-        deleteDoc(doc(db, `trips/${tripId}/expenses`, docSnap.id))
-    );
-
-
-    // 3. Delete activities (from subcollection)
-    const activitiesQ = await getDocs(collection(db, `trips/${tripId}/proposed_activities`));
-    const activityDeletions = activitiesQ.docs.map(docSnap =>
-      deleteDoc(doc(db, `trips/${tripId}/proposed_activities`, docSnap.id))
-    );
+	// 2. Delete expenses
+	const expensesSnap = await getDocs(collection(db, `trips/${tripId}/expenses`));
+	const expenseDeletions = expensesSnap.docs.map(docSnap =>
+		deleteDoc(doc(db, `trips/${tripId}/expenses`, docSnap.id))
+	);
 
 
-    // 4. Delete the trip document
-    const tripDeletion = deleteDoc(doc(db, "trips", tripId));
+	// 3. Delete activities (from subcollection)
+	const activitiesQ = await getDocs(collection(db, `trips/${tripId}/proposed_activities`));
+	const activityDeletions = activitiesQ.docs.map(docSnap =>
+		deleteDoc(doc(db, `trips/${tripId}/proposed_activities`, docSnap.id))
+	);
 
 
-    // Run all deletions in parallel
-    await Promise.all([
-      ...receiptDeletions,
-      ...expenseDeletions,
-      ...activityDeletions,
-      tripDeletion,
-    ]);
+	// 4. Delete the trip document
+	const tripDeletion = deleteDoc(doc(db, "trips", tripId));
 
-    console.log(`Trip ${tripId} and all related data deleted.`);
+
+	// Run all deletions in parallel
+	await Promise.all([
+		...receiptDeletions,
+		...expenseDeletions,
+		...activityDeletions,
+		tripDeletion,
+	]);
+
+	console.log(`Trip ${tripId} and all related data deleted.`);
 };

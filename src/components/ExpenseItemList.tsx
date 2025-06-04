@@ -5,6 +5,7 @@ import { TouchableOpacity, StyleSheet, View, Alert } from 'react-native';
 import { Card, Text, Divider, Button } from 'react-native-paper';
 import { ExpenseListItemProps } from '../types/DataTypes';
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
+import { formatCurrency } from '../utilities/CurrencyUtilities';
 
 const ExpenseItemList = React.memo(({ item, isExpanded, onToggleExpand, onDelete, onEdit }: ExpenseListItemProps) => {
   const profiles = useMemberProfiles();
@@ -12,17 +13,6 @@ const ExpenseItemList = React.memo(({ item, isExpanded, onToggleExpand, onDelete
   const sharedWithString = React.useMemo(() => {
     return item.sharedWith.map((p) => profiles[p.payeeID]).join(', ');
   }, [item.sharedWith]);
-
-  // Format currency helper
-  const formatCurrency = (amount: number, currency: string) => {
-    const formatter = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    return formatter.format(amount);
-  };
 
   const showDeleteConfirmation = () => {
     onDelete(item.id);

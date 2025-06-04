@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, useTheme, Text } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Member, AddMemberType } from '@/src/types/DataTypes';
+import { Member, AddMemberType, Currency } from '@/src/types/DataTypes';
 import BudgetSummaryCard from './BudgetSummaryCard';
 import PersonalBudgetCard from './PersonalBudgetCard';
 import MemberList from '../MemberList';
@@ -15,7 +15,7 @@ type OverviewTabProps = {
   totalBudget: number;
   totalAmtLeft: number;
   currentUserId: string;
-  onAddMember: (memberId: string, name: string, budget: number, addMemberType: AddMemberType) => void;
+  onAddMember: (memberId: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
   onRemoveMember: (memberId: string) => void;
   onEditBudget: () => void;
   onLeaveTrip: () => void;

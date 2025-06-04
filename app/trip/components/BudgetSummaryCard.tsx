@@ -8,6 +8,7 @@ import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
 
 type BudgetSummaryCardProps = {
   members: Record<string, Member>;
+  profiles: Record<string, string>;
   totalBudget: number;
   totalAmtLeft: number;
 };

@@ -4,7 +4,7 @@ import { View, StyleSheet, Share, Platform } from "react-native";
 import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip, List, Divider } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState } from "react";
-import { AddMemberType, Member } from '@/src/types/DataTypes';
+import { AddMemberType, Currency, Member } from '@/src/types/DataTypes';
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
@@ -12,7 +12,7 @@ import SelectFriendsModal from './components/SelectFriendsModal';
 
 type MemberListProps = {
   members: { [id: string]: Member };
-  onAddMember: (id: string, name: string, budget: number, addMemberType: AddMemberType) => void;
+  onAddMember: (id: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
   onRemoveMember: (name: string) => void;
   onGenerateClaimCode?: (memberId: string) => Promise<string>;
   onClaimMockUser?: (memberId: string, claimCode: string) => Promise<void>;
@@ -28,6 +28,7 @@ export default function MemberList({
   const profiles = useMemberProfiles();
   const [newMember, setNewMember] = useState("");
   const [newMemberBudget, setNewMemberBudget] = useState(0);
+  const [newMemberCurrency, setNewMemberCurrency] = useState<Currency>("USD");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMockMemberModal, setShowMockMemberModal] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
@@ -35,7 +36,7 @@ export default function MemberList({
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [claimCode, setClaimCode] = useState("");
   const [errors, setErrors] = useState<{ name?: string; budget?: string; claim?: string }>({});
-  const [addMemberType, setAddMemberType] = useState<AddMemberType>("mock");
+  const [addMemberType, setAddMemberType] = useState<AddMemberType>(AddMemberType.MOCK);
 
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
@@ -59,9 +60,10 @@ export default function MemberList({
 
     const memberId = `${trimmedName}-${Date.now()}`;
 
-    onAddMember(memberId, trimmedName, newMemberBudget, addMemberType);
+    onAddMember(memberId, trimmedName, newMemberBudget, newMemberCurrency, addMemberType);
     setNewMember("");
     setNewMemberBudget(0);
+    setNewMemberCurrency("USD");
     setErrors({});
     setShowMockMemberModal(false);
   };
@@ -96,6 +98,10 @@ export default function MemberList({
     }
   };
 
+  const handleFriendSelect = (friendId: string, friendName: string, budget: number) => {
+    onAddMember(friendId, friendName, budget, "USD", AddMemberType.FRIENDS);
+  };
+
   const memberCount = Object.keys(members).length;
 
   const MemberCard = ({ id, member, profile }: { id: string; member: Member; profile: string }) => (
@@ -106,7 +112,7 @@ export default function MemberList({
             size={40}
             label={profile?.substring(0, 2).toUpperCase() || "??"}
             style={[
-              { backgroundColor: member.isMockUser ? 
+              { backgroundColor: member.addMemberType === AddMemberType.MOCK ? 
                 theme.colors.placeholder : 
                 paperTheme.colors.primary 
               }
@@ -124,7 +130,7 @@ export default function MemberList({
         </View>
 
         <View style={styles.rightContent}>
-          {member.isMockUser && (
+          {member.addMemberType === AddMemberType.MOCK && onGenerateClaimCode && (
             <Chip 
               style={styles.unverifiedBadge}
               textStyle={{ fontSize: 10 }}
@@ -135,7 +141,7 @@ export default function MemberList({
           )}
 
           <View style={styles.actionButtons}>
-            {member.isMockUser && onGenerateClaimCode && (
+            {member.addMemberType === AddMemberType.MOCK && onGenerateClaimCode && (
               <IconButton
                 icon="link-variant"
                 size={20}
@@ -238,7 +244,7 @@ export default function MemberList({
               left={props => <List.Icon {...props} icon="account-multiple" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
-                setAddMemberType("friends");
+                setAddMemberType(AddMemberType.FRIENDS);
                 setShowAddModal(false);
                 setShowFriendsModal(true);
               }}
@@ -250,7 +256,7 @@ export default function MemberList({
               left={props => <List.Icon {...props} icon="link" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
-                setAddMemberType("invite link");
+                setAddMemberType(AddMemberType.INVITE_LINK);
                 setShowAddModal(false);
               }}
               style={{ paddingVertical: 12 }}
@@ -261,7 +267,7 @@ export default function MemberList({
               left={props => <List.Icon {...props} icon="qrcode" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
-                setAddMemberType("qr code");
+                setAddMemberType(AddMemberType.QR_CODE);
                 setShowAddModal(false);
               }}
               style={{ paddingVertical: 12 }}
@@ -360,7 +366,7 @@ export default function MemberList({
             <Button 
               mode="contained" 
               onPress={() => {
-                setAddMemberType("mock");
+                setAddMemberType(AddMemberType.MOCK);
                 handleAdd();
               }}
               style={styles.modalButton}
@@ -454,10 +460,7 @@ export default function MemberList({
         <SelectFriendsModal
           visible={showFriendsModal}
           onDismiss={() => setShowFriendsModal(false)}
-          onSelectFriend={(friendId, friendName, budget) => {
-            onAddMember(friendId, friendName, budget, "friends");
-            setShowFriendsModal(false);
-          }}
+          onSelectFriend={handleFriendSelect}
         />
       </Portal>
     </View>

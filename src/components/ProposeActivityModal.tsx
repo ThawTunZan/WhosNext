@@ -16,11 +16,7 @@ import {
     Currency,
 } from '../types/DataTypes';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
-
-const CURRENCIES: Currency[] = [
-    'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'CNY', 'JPY', 'INR',
-    'BRL', 'MXN', 'RUB', 'ZAR', 'HKD', 'SGD', 'NOK', 'SEK', 'NZD'
-] as Currency[];
+import { SUPPORTED_CURRENCIES } from '../utilities/CurrencyUtilities';
 
 const ProposeActivityModal = ({
     visible,

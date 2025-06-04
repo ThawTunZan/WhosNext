@@ -4,21 +4,11 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Button, IconButton, Divider, Caption } from 'react-native-paper';
 import { ActivityCardProps } from '../types/DataTypes'; // Adjust path if using activities.ts
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
+import { formatCurrency } from '../utilities/CurrencyUtilities';
 
 const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense, onDelete, onEdit }: ActivityCardProps) => {
 
   const profiles = useMemberProfiles();
-
-  // Helper function to format currency
-  const formatCurrency = (amount: number, currency: string) => {
-    const formatter = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    return formatter.format(amount);
-  };
 
   return (
     <Card style={styles.card}>

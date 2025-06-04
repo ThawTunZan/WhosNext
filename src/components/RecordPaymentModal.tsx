@@ -9,6 +9,7 @@ import { Payment } from '../services/FirebaseServices';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import { Currency } from '../types/DataTypes';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
+import { formatCurrency, SUPPORTED_CURRENCIES } from '../utilities/CurrencyUtilities';
 
 const CURRENCIES: Currency[] = [
   'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'CNY', 'JPY', 'INR',
@@ -50,17 +51,6 @@ export default function RecordPaymentModal({
   const [selectedPayee, setSelectedPayee] = useState('');
   const [amount, setAmount] = useState('');
   const [selectedCurrency, setSelectedCurrency] = useState<Currency>(defaultCurrency);
-
-  // Format currency helper
-  const formatCurrency = (amount: number, currency: string) => {
-    const formatter = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    return formatter.format(amount);
-  };
 
   // Get list of all members who can be payers or payees
   const members = useMemo(() => {

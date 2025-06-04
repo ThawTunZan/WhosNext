@@ -4,19 +4,30 @@ import { Timestamp } from "firebase/firestore";
 
 export type MemberInfo = { name: string }; // Basic info for components needing just name
 
-export type AddMemberType = "friends" | "invite link" | "qr code" | "mock";
+export enum AddMemberType {
+  FRIENDS = "friends",
+  INVITE_LINK = "invite link",
+  QR_CODE = "qr code",
+  MOCK = "mock"
+}
+
+export type owesTotal = {
+  owesTotal: number;
+  owesTotalCurrency: Currency;
+}
 // Individual member data
 export type Member = {
   id: string;
   budget: number;
   amtLeft: number;
-  owesTotal?: number;
-  isMockUser: boolean;
+  currency: Currency;
+  owesTotalArray: owesTotal[];
   claimCode?: string;
   premiumUser: boolean;
+  addMemberType: AddMemberType;
 };
 
-export type Currency = 'USD' | 'EUR' | 'GBP' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'JPY' | 'INR' | 'BRL' | 'MXN' | 'RUB' | 'ZAR' | 'HKD' | 'SGD' | 'NOK' | 'SEK' | 'NZD' | 'RMB' | 'TRY' | 'BGN' | 'RON' | 'PLN' | 'PHP' | 'AED' | 'ARS' | 'CLP' | 'COP' | 'EGP' | 'HKD' | 'ILS' | 'KRW' | 'MXN' | 'MYR' | 'PEN' | 'QAR' | 'SAR' | 'TND' | 'ZAR' | 'AED' | 'ARS' | 'BRL' | 'CLP' | 'COP' | 'EGP' | 'HKD' | 'ILS' | 'KRW' | 'MXN' | 'MYR' | 'PEN' | 'QAR' | 'SAR' | 'TND' | 'ZAR'
+export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CNY' | 'SGD'; 
   
 export type Expenses = {[id:string]: {expense: Expense}}
   

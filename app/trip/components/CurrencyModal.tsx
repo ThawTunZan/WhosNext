@@ -3,11 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { Dialog, List, Searchbar, IconButton } from 'react-native-paper';
 import { Currency } from '@/src/types/DataTypes';
 import { StyleSheet } from 'react-native';
-
-const CURRENCIES: Currency[] = [
-    'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'CNY', 'JPY', 'INR',
-    'BRL', 'MXN', 'RUB', 'ZAR', 'HKD', 'SGD', 'NOK', 'SEK', 'NZD'
-] as Currency[];
+import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
 
 interface CurrencyModalProps {
     visible: boolean;
@@ -25,7 +21,7 @@ const CurrencyModal: React.FC<CurrencyModalProps> = ({
     const [searchQuery, setSearchQuery] = useState('');
 
     // Filter currencies based on search
-    const filteredCurrencies = CURRENCIES.filter(currency =>
+    const filteredCurrencies = SUPPORTED_CURRENCIES.filter(currency =>
         currency.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
