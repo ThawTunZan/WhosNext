@@ -309,6 +309,11 @@ export const removeMemberFromTrip = async (
 		const userSnap = await getDoc(userRef);
 		const userName = userSnap.exists() ? userSnap.data().username : 'A member';
 
+		const tripSnap = await getDoc(docRef);
+		const tripData = tripSnap.data();
+		const memberConvertedAmtLeft = await convertCurrency(memberToRemoveData.amtLeft, memberToRemoveData.currency, tripData.currency);
+		const memberConvertedBudget = await convertCurrency(memberToRemoveData.budget, memberToRemoveData.currency, tripData.currency);
+
 		await updateDoc(docRef, {
 			totalBudget: increment(-(memberToRemoveData.budget || 0)),
 			totalAmtLeft: increment(-(memberToRemoveData.amtLeft || 0)),
@@ -317,8 +322,6 @@ export const removeMemberFromTrip = async (
 		console.log(`Member ${memberIdToRemove} removed from trip ${tripId}`);
 
 		// Get remaining members and notify them
-		const tripSnap = await getDoc(docRef);
-		const tripData = tripSnap.data();
 		if (tripData && tripData.members) {
 			Object.keys(tripData.members).forEach(async (memberId) => {
 				await NotificationService.sendTripUpdate(
