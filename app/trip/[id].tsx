@@ -159,6 +159,7 @@ export default function TripDetailPage() {
                 debts={trip.debts} 
                 members={trip.members} 
                 tripId={tripId!} 
+                tripCurrency={trip.currency}
               />
             )}
 

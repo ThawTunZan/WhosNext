@@ -20,7 +20,7 @@ import {
   Timestamp,
   FieldValue,
 } from 'firebase/firestore';
-import { Currency } from '../types/DataTypes';
+import { Currency, Debt } from '../types/DataTypes';
 import { convertCurrency } from './CurrencyService';
 
 // User-related operations
@@ -344,17 +344,38 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
     const tripData = tripSnap.data();
     const tripCurrency = tripData?.currency;
     
-    // Construct the debt key (fromUserId#toUserId)
-    const debtKey = `debts.${payment.fromUserId}#${payment.toUserId}`;
+    // Convert payment amount to trip currency
     const convertedAmount = await convertCurrency(payment.amount, payment.currency, tripCurrency);
     
-    // Decrease the debt by the payment amount
+    // Update the debts array
+    const debts = tripData?.debts || [];
+    const updatedDebtsPromises = debts.map(async (debt: Debt) => {
+      if (debt.fromUserId === payment.fromUserId && debt.toUserId === payment.toUserId) {
+        // Convert debt amount to trip currency for comparison
+        const convertedDebtAmount = await convertCurrency(debt.amount, debt.currency, tripCurrency);
+        const remainingAmount = convertedDebtAmount - convertedAmount;
+        if (remainingAmount > 0) {
+          // Update the debt with the remaining amount
+          return {
+            ...debt,
+            amount: remainingAmount,
+            currency: tripCurrency
+          };
+        }
+        return null; // Remove this debt if it's fully paid
+      }
+      return debt;
+    });
+
+    const updatedDebts = (await Promise.all(updatedDebtsPromises)).filter(Boolean);
+
+    // Update member balances
     batch.update(tripRef, {
-      [debtKey]: increment(-convertedAmount),
+      debts: updatedDebts,
       [`members.${payment.fromUserId}.amtLeft`]: increment(-convertedAmount),
       [`members.${payment.toUserId}.amtLeft`]: increment(convertedAmount),
-      [`members.${payment.fromUserId}.owesTotalMap.${payment.currency}`]: increment(-convertedAmount),
-      [`members.${payment.toUserId}.owesTotalMap.${payment.currency}`]: increment(convertedAmount),
+      [`members.${payment.fromUserId}.owesTotalMap.${payment.currency}`]: increment(-payment.amount),
+      [`members.${payment.toUserId}.owesTotalMap.${payment.currency}`]: increment(payment.amount),
     });
 
     await batch.commit();
@@ -428,15 +449,43 @@ export const firebaseDeletePayment = async (tripId: string, payment: Payment): P
     const tripSnap = await getDoc(tripRef);
     const tripData = tripSnap.data();
     const tripCurrency = tripData?.currency;
-    const convertedAmount = await convertCurrency(payment.amount, payment.currency, tripCurrency);
-    const debtKey = `debts.${payment.fromUserId}#${payment.toUserId}`;
     
+    // Convert payment amount to trip currency
+    const convertedAmount = await convertCurrency(payment.amount, payment.currency, tripCurrency);
+
+    // Update the debts array
+    const debts = tripData?.debts || [];
+    let debtExists = false;
+
+    const updatedDebts = debts.map((debt: Debt) => {
+      if (debt.fromUserId === payment.fromUserId && debt.toUserId === payment.toUserId) {
+        debtExists = true;
+        return {
+          ...debt,
+          amount: debt.amount + convertedAmount,
+          currency: tripCurrency
+        };
+      }
+      return debt;
+    });
+
+    // If the debt doesn't exist, create a new one
+    if (!debtExists) {
+      updatedDebts.push({
+        fromUserId: payment.fromUserId,
+        toUserId: payment.toUserId,
+        amount: convertedAmount,
+        currency: tripCurrency
+      });
+    }
+
+    // Update member balances
     batch.update(tripRef, {
-      [debtKey]: increment(convertedAmount),
+      debts: updatedDebts,
       [`members.${payment.fromUserId}.amtLeft`]: increment(convertedAmount),
       [`members.${payment.toUserId}.amtLeft`]: increment(-convertedAmount),
-      [`members.${payment.fromUserId}.owesTotalMap.${payment.currency}`]: increment(convertedAmount),
-      [`members.${payment.toUserId}.owesTotalMap.${payment.currency}`]: increment(-convertedAmount),
+      [`members.${payment.fromUserId}.owesTotalMap.${payment.currency}`]: increment(payment.amount),
+      [`members.${payment.toUserId}.owesTotalMap.${payment.currency}`]: increment(-payment.amount),
     });
 
     await batch.commit();

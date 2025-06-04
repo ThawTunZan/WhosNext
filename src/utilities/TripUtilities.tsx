@@ -263,10 +263,11 @@ export const leaveTripIfEligible = async (
 		throw new Error("Missing trip or user data.");
 	}
 
-	const myDebt = member.owesTotalMap ? 
-		Object.values(member.owesTotalMap).reduce((sum, amount) => sum + amount, 0) : 0;
+	// Check if member has any debts in any currency
+	const hasDebts = member.owesTotalMap ? 
+		Object.values(member.owesTotalMap).some(amount => amount > 0) : false;
 		
-	if (myDebt > 0) {
+	if (hasDebts) {
 		throw new Error("You still have outstanding debts.");
 	}
 

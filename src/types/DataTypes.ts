@@ -131,13 +131,19 @@ export type ProposeActivityModalProps = {
   initialData?: Partial<NewProposedActivityData>
 };
 
+export type Debt = {
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+  currency: Currency;
+}
+
 export interface TripData {
   destination: string;
   members?: Record<string, Member>; // Use detailed Member
   totalBudget?: number;
   totalAmtLeft?: number;
-  debts?: Record<string, number>; // Keep simple debts map for now
-  // expenses field seems unused in state, data comes from hook/listener
+  debts?: Debt[];
   userId: string;
   currency: Currency;
 }

@@ -36,6 +36,7 @@ export async function convertCurrency(
     fromCurrency: Currency,
     toCurrency: Currency
 ): Promise<number> {
+    /*
     // If same currency, return original amount
     if (fromCurrency === toCurrency) {
         console.log(`Same currency: ${amount} ${fromCurrency} = ${amount} ${toCurrency}`);
@@ -87,6 +88,8 @@ export async function convertCurrency(
         console.error('Error converting currency:', error);
         throw error;
     }
+        */
+       return amount;
 }
 
 /**

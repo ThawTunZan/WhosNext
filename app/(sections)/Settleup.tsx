@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, StyleSheet, SectionList } from 'react-native';
-import { Card, Text, Divider, Button, useTheme, FAB, List, Avatar } from 'react-native-paper';
+import { Card, Text, Divider, Button, useTheme, FAB, List, Avatar, SegmentedButtons } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { useUser } from '@clerk/clerk-expo';
@@ -10,34 +10,41 @@ import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 
 import {
-    parseAndGroupDebts,
-    calculateSimplifiedDebts,
-    GroupedSectionData, 
+    standardCalculateSimplifiedDebts,
+    calculateSimplifiedDebtsToTripCurrency,
+    calculateSimplifiedDebtsPerCurrency,
     ParsedDebt,         
-    DebtsMap,               
 } from '@/src/utilities/SettleUpUtilities'; 
-import { Member } from '@/src/types/DataTypes';
+import { Member, Debt, Currency } from '@/src/types/DataTypes';
 import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
 import RecordPaymentModal from '@/src/components/RecordPaymentModal';
 import { firebaseRecordPayment, firebaseGetTripPayments, Payment } from '@/src/services/FirebaseServices';
 
 // Props type specific to this component
 type SettleUpProps = {
-  debts: DebtsMap;
+  debts?: Debt[];
   members: Record<string, Member>;  
   tripId: string;
+  tripCurrency: Currency;
 };
 
-export default function SettleUpSection({ debts, members, tripId }: SettleUpProps) {
+// Define section type
+type DebtSection = {
+  data: Debt[];
+  fromName: string;
+};
+
+export default function SettleUpSection({ debts = [], members, tripId, tripCurrency }: SettleUpProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
   const { user } = useUser();
   const profiles = useMemberProfiles();
 
-  const [isSimplified, setIsSimplified] = useState(false);
+  const [value, setValue] = useState('all'); // 'all' | 'simplified' | 'currency'
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [shownDebts, setShownDebts] = useState<DebtSection[]>([]);
 
   // Fetch payments when component mounts or tripId changes
   useEffect(() => {
@@ -50,14 +57,65 @@ export default function SettleUpSection({ debts, members, tripId }: SettleUpProp
     fetchPayments();
   }, [tripId]);
 
-  const parsedDebts = useMemo(() => parseAndGroupDebts(debts, profiles), [debts, profiles]);
-  const simplifiedDebts = useMemo(() => calculateSimplifiedDebts(debts, profiles), [debts, profiles]);
-
-  const shownDebts: GroupedSectionData[] = isSimplified ? simplifiedDebts : parsedDebts;
-
-  const toggleSimplify = useCallback(() => {
-    setIsSimplified(prev => !prev);
+  // Transform debts from DB format to array format
+  const transformDebts = useCallback((rawDebts: any): Debt[] => {
+    if (!rawDebts) return [];
+    
+    const transformedDebts: Debt[] = [];
+    Object.entries(rawDebts).forEach(([currency, debtsByUsers]) => {
+      Object.entries(debtsByUsers as Record<string, number>).forEach(([userPair, amount]) => {
+        const [fromUserId, toUserId] = userPair.split('#');
+        transformedDebts.push({
+          fromUserId,
+          toUserId,
+          amount,
+          currency: currency as Currency
+        });
+      });
+    });
+    return transformedDebts;
   }, []);
+
+  // Group debts by currency
+  const groupDebts = useCallback((debts: Debt[]) => {
+    // Group by currency
+    const grouped = debts.reduce((acc, debt) => {
+      const fromName = profiles[debt.fromUserId] || debt.fromUserId;
+      if (!acc[fromName]) {
+        acc[fromName] = [];
+      }
+      acc[fromName].push(debt);
+      return acc;
+    }, {} as Record<string, Debt[]>);
+
+    // Convert to array format with data property
+    return Object.entries(grouped).map(([fromName, debts]) => ({
+      data: debts,
+      fromName: fromName
+    }));
+  }, []);
+
+  // Calculate parsed and simplified debts
+  useEffect(() => {
+    const calculateDebts = async () => {
+      const validDebts = transformDebts(debts);
+      let processedDebts: Debt[] = [];
+      
+      switch (value) {
+        case 'all':
+          processedDebts = validDebts;
+          break;
+        case 'simplified':
+          processedDebts = await calculateSimplifiedDebtsPerCurrency(validDebts);
+          break;
+        case 'currency':
+          processedDebts = await calculateSimplifiedDebtsToTripCurrency(validDebts, tripCurrency);
+          break;
+      }
+      setShownDebts(groupDebts(processedDebts));
+    };
+    calculateDebts();
+  }, [debts, tripCurrency, value, transformDebts, groupDebts]);
 
   const handlePaymentSubmit = async (paymentData: Payment) => {
     // Update backend
@@ -70,20 +128,20 @@ export default function SettleUpSection({ debts, members, tripId }: SettleUpProp
   };
 
   // Render function for each debt item
-  const renderItem = useCallback(({ item }: { item: ParsedDebt }) => (
+  const renderItem = useCallback(({ item }: { item: Debt }) => (
     <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
       <Card.Title
-        title={`Owes ${item.toName}`}
+        title={`owes ${profiles[item.toUserId]}`}
         titleStyle={{ color: theme.colors.text }}
         right={() => (
           <Text style={[styles.amountText, { color: theme.colors.text }]}>
-            ${item.amount.toFixed(2)}
+            {item.amount.toFixed(2)} {item.currency}
           </Text>
         )}
         rightStyle={styles.amountContainer}
       />
     </Card>
-  ), [theme.colors]);
+  ), [theme.colors, profiles]);
 
   // Render payment item
   const renderPaymentItem = (payment: Payment) => {
@@ -133,14 +191,14 @@ export default function SettleUpSection({ debts, members, tripId }: SettleUpProp
   );
 
   // Render function for section headers
-  const renderSectionHeader = useCallback(({ section }: { section: GroupedSectionData }) => (
+  const renderSectionHeader = useCallback(({ section }: { section: DebtSection }) => (
     <Text style={[styles.sectionHeader, { color: theme.colors.text }]}>
-      {section.title}
+      {section.fromName}
     </Text>
   ), [theme.colors]);
 
-  const keyExtractor = useCallback((item: ParsedDebt, index: number) =>
-    `${item.fromId}-${item.toId}-${index}`,
+  const keyExtractor = useCallback((item: Debt, index: number) =>
+    `${item.fromUserId}-${item.toUserId}-${index}`,
   []);
 
   const renderPaymentsSection = () => (
@@ -180,14 +238,28 @@ export default function SettleUpSection({ debts, members, tripId }: SettleUpProp
         ListHeaderComponent={renderListHeader}
         ListFooterComponent={
           <>
-            <Button
-              mode="contained"
-              onPress={toggleSimplify}
-              style={styles.button}
-              icon={isSimplified ? "playlist-remove" : "playlist-check"}
-            >
-              {isSimplified ? 'Show All Debts' : 'Simplify Debts'}
-            </Button>
+            <SegmentedButtons
+              value={value}
+              onValueChange={setValue}
+              style={styles.segmentedButton}
+              buttons={[
+                {
+                  value: 'all',
+                  label: 'All Debts',
+                  icon: 'format-list-bulleted',
+                },
+                {
+                  value: 'simplified',
+                  label: 'Simplify',
+                  icon: 'playlist-check',
+                },
+                {
+                  value: 'currency',
+                  label: `To ${tripCurrency}`,
+                  icon: 'currency-usd',
+                }
+              ]}
+            />
             {renderPaymentsSection()}
           </>
         }
@@ -215,6 +287,7 @@ export default function SettleUpSection({ debts, members, tripId }: SettleUpProp
         debts={debts}
         currentUserId={user?.id || ''}
         tripId={tripId}
+        defaultCurrency={tripCurrency}
       />
     </View>
   );
@@ -292,5 +365,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     marginBottom: 10,
+  },
+  segmentedButton: {
+    marginHorizontal: 10,
+    marginVertical: 10,
   },
 });

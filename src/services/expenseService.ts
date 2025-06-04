@@ -9,9 +9,11 @@ import {
 	writeBatch,
 	Timestamp,
 	getDoc,
+	arrayUnion,
+	arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Expense, Member, Currency } from '../types/DataTypes';
+import { Expense, Member, Currency, Debt } from '../types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from './notification';
 import { convertCurrency } from './CurrencyService';
 
@@ -109,10 +111,67 @@ function mergeIncrements(
 	return result;
 }
 
-function formatToFirebase(updates: { [key: string]: number }) {
+export const generateExpenseImpactUpdate = (
+	updates: { [key: string]: any },
+	expenseData: Expense,
+	members: Record<string, Member>,
+	reverse: boolean,
+	profiles: Record<string, string>,
+	expenseId?: string,
+	convertedPaidAmt?: number
+): { [key: string]: any } => {
+
+	const { sharedWith, paidById, paidAmt, currency } = expenseData;
+
+	if (!paidById) {
+		throw new Error(`Payer ID is missing from expense data ${expenseId ? `for expense ${expenseId}` : ''}`);
+	}
+
+	// Check if the payer exists in members
+	if (!members[paidById]) {
+		throw new Error(`Payer "${profiles[paidById] || paidById}" not found in members. Failed to ${reverse ? 'reverse' : 'process'} expense ${expenseId || ''}.`);
+	}
+
+	const multiplier = (reverse) ? 1 : -1;
+
+	for (const member of sharedWith) {
+		const share = Number(member.amount) * multiplier;
+		const payeeID = member.payeeID;
+		if (payeeID !== paidById && !isNaN(share)) {  // Add check for NaN
+			// Update owesTotalMap
+			updates[`members.${payeeID}.owesTotalMap.${currency}`] = share;
+
+			// Add to the debts dictionary only if we have valid numbers
+			const debtAmount = Math.abs(share);
+			if (!isNaN(debtAmount) && debtAmount > 0) {  // Ensure we only add valid debts
+				const debtKey = `${payeeID}#${paidById}`;
+				// Use dot notation for the path to ensure proper increment handling
+				updates[`debts.${currency}.${debtKey}`] = debtAmount;
+			}
+		}
+	}
+
+	// Only the payer's amtLeft is reduced by the full paidAmt
+	if (!isNaN(paidAmt)) {  // Add check for NaN
+		updates[`members.${paidById}.amtLeft`] = multiplier * paidAmt;
+		updates[`totalAmtLeft`] = multiplier * paidAmt;
+	}
+
+	return updates;
+};
+
+function formatToFirebase(updates: { [key: string]: any }) {
 	const out: { [key: string]: any } = {};
 	for (const [k, v] of Object.entries(updates)) {
-		out[k] = increment(v);
+		if (typeof v === 'number') {
+			out[k] = increment(v);
+		} else if (k.startsWith('debts.')) {
+			// Handle nested debt updates with dot notation
+			// The key will be in format: debts.USD.user1#user2
+			out[k] = increment(v);
+		} else {
+			out[k] = v;
+		}
 	}
 	return out;
 }
@@ -314,45 +373,4 @@ export const reverseExpensesAndUpdate = async (
 		console.error(`Error deleting expense ${expenseId} and reversing debts: `, error);
 		throw error;
 	}
-};
-
-export const generateExpenseImpactUpdate = (
-	updates: { [key: string]: number },
-	expenseData: Expense,
-	members: Record<string, Member>,
-	reverse: boolean,
-	profiles: Record<string, string>,
-	expenseId?: string,
-	convertedPaidAmt?: number
-): { [key: string]: any } => {
-
-	const { sharedWith, paidById, paidAmt, currency } = expenseData;
-
-	if (!paidById) {
-		throw new Error(`Payer ID is missing from expense data ${expenseId ? `for expense ${expenseId}` : ''}`);
-	}
-
-	// Check if the payer exists in members
-	if (!members[paidById]) {
-		throw new Error(`Payer "${profiles[paidById] || paidById}" not found in members. Failed to ${reverse ? 'reverse' : 'process'} expense ${expenseId || ''}.`);
-	}
-
-	const multiplier = (reverse) ? 1 : -1;
-
-	for (const member of sharedWith) {
-		const share = Number(member.amount) * multiplier;
-		const payeeID = member.payeeID;
-		if (payeeID !== paidById) {
-			updates[`members.${payeeID}.owesTotalMap.${currency}`] = share;
-			updates[`debts.${payeeID}#${paidById}`] = share;
-		}
-	}
-
-	// Only the payer's amtLeft is reduced by the full paidAmt
-	updates[`members.${paidById}.amtLeft`] = multiplier * paidAmt;
-
-	// Use increment for totalAmtLeft
-	updates[`totalAmtLeft`] = multiplier * paidAmt;
-
-	return updates;
 };
