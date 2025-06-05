@@ -25,11 +25,16 @@ export async function standardCalculateSimplifiedDebts(
     const epsilon = 0.001; // Small value for float comparison
 
     for (const debt of debts) {
-        //const convertedAmount = await convertCurrency(debt.amount, debt.currency, tripCurrency);
-
         if (!isNaN(debt.amount) && debt.amount > epsilon) {
+            // Find existing debt with same users and currency
+            const existingDebt = standardSimplifiedDebts.find(
+                simplifiedDebt => 
+                    simplifiedDebt.fromUserId === debt.fromUserId && 
+                    simplifiedDebt.toUserId === debt.toUserId && 
+                    simplifiedDebt.currency === debt.currency
+            );
 
-            if (standardSimplifiedDebts.find(simplifiedDebt => simplifiedDebt.fromUserId === debt.fromUserId && simplifiedDebt.toUserId === debt.toUserId) === undefined) {
+            if (!existingDebt) {
                 standardSimplifiedDebts.push({
                     fromUserId: debt.fromUserId,
                     toUserId: debt.toUserId,
@@ -37,7 +42,7 @@ export async function standardCalculateSimplifiedDebts(
                     currency: debt.currency,
                 });
             } else {
-                standardSimplifiedDebts.find(simplifiedDebt => simplifiedDebt.fromUserId === debt.fromUserId && simplifiedDebt.toUserId === debt.toUserId && simplifiedDebt.currency === debt.currency).amount += debt.amount;
+                existingDebt.amount += debt.amount;
             }
         }
     }
@@ -62,8 +67,8 @@ export async function calculateSimplifiedDebtsToTripCurrency(
     // Convert and sum all debts
     for (const debt of debts) {
         if (!isNaN(debt.amount) && debt.amount > epsilon) {
-            //const convertedAmount = await convertCurrency(debt.amount, debt.currency, tripCurrency);
-            const convertedAmount = debt.amount;
+            const convertedAmount = await convertCurrency(debt.amount, debt.currency, tripCurrency);
+            //  const convertedAmount = debt.amount;
             if (!balances[debt.fromUserId]) balances[debt.fromUserId] = 0;
             if (!balances[debt.toUserId]) balances[debt.toUserId] = 0;
             

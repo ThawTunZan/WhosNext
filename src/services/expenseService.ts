@@ -139,14 +139,14 @@ export const generateExpenseImpactUpdate = (
 		const payeeID = member.payeeID;
 		if (payeeID !== paidById && !isNaN(share)) {  // Add check for NaN
 			// Update owesTotalMap
-			updates[`members.${payeeID}.owesTotalMap.${currency}`] = share;
+			updates[`members.${payeeID}.owesTotalMap.${currency}`] = -share;
 
 			// Add to the debts dictionary only if we have valid numbers
 			const debtAmount = Math.abs(share);
 			if (!isNaN(debtAmount) && debtAmount > 0) {  // Ensure we only add valid debts
 				const debtKey = `${payeeID}#${paidById}`;
 				// Use dot notation for the path to ensure proper increment handling
-				updates[`debts.${currency}.${debtKey}`] = debtAmount;
+				updates[`debts.${currency}.${debtKey}`] = -share;
 			}
 		}
 	}

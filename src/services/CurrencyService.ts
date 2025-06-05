@@ -1,8 +1,8 @@
 import { Currency } from '../types/DataTypes';
 
 // Configuration
-const API_URL = process.env.CUSTOM_API_URL || 'http://localhost:3001';
-const API_KEY = process.env.CUSTOM_API_KEY || '1234567890';
+const API_URL = process.env.EXPO_PUBLIC_CUSTOM_API_URL;
+const API_KEY = process.env.EXPO_PUBLIC_CUSTOM_API_KEY;
 
 // Types for API responses
 interface ConversionResponse {
@@ -24,19 +24,19 @@ const CACHE_DURATION = 1000 * 60 * 60 * 24; // 1 day in milliseconds
 
 /**
  * Converts an amount from one currency to another using local API.
+ * If the API is not available, returns the original amount with a warning.
  * 
  * @param amount The amount to convert
  * @param fromCurrency The currency to convert from
  * @param toCurrency The currency to convert to
  * @returns The converted amount
- * @throws Error if the conversion fails
  */
 export async function convertCurrency(
     amount: number,
     fromCurrency: Currency,
     toCurrency: Currency
 ): Promise<number> {
-    /*
+    
     // If same currency, return original amount
     if (fromCurrency === toCurrency) {
         console.log(`Same currency: ${amount} ${fromCurrency} = ${amount} ${toCurrency}`);
@@ -55,8 +55,8 @@ export async function convertCurrency(
 
         const isAvailable = await checkApiHealth();
         if (!isAvailable) {
-          console.error('Currency API is not available');
-          return;
+            console.warn('Currency API is not available, using 1:1 conversion rate');
+            return amount; // Fallback to 1:1 rate
         }
 
         // Call the local API
@@ -64,14 +64,18 @@ export async function convertCurrency(
             `${API_URL}/convert?from=${fromCurrency}&to=${toCurrency}&amount=${amount}`,
             {
                 headers: {
-                    'X-API-Key': API_KEY 
-                }  
+                    'X-API-Key': API_KEY,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
             }
         );
 
         if (!response.ok) {
-            const errorData: ErrorResponse = await response.json();
-            throw new Error(errorData.message || errorData.error || 'Conversion failed');
+            console.warn('Conversion failed with status:', response.status);
+            const text = await response.text();
+            console.warn('Response:', text);
+            return amount; // Fallback to 1:1 rate
         }
 
         const data: ConversionResponse = await response.json();
@@ -85,11 +89,9 @@ export async function convertCurrency(
 
         return data.convertedAmount;
     } catch (error) {
-        console.error('Error converting currency:', error);
-        throw error;
+        console.warn('Error converting currency, using 1:1 conversion rate:', error);
+        return amount; // Fallback to 1:1 rate
     }
-        */
-       return amount;
 }
 
 /**
@@ -118,11 +120,29 @@ export async function getExchangeRate(fromCurrency: Currency, toCurrency: Curren
  */
 export async function checkApiHealth(): Promise<boolean> {
     try {
-        const response = await fetch(`${API_URL}/health`);
+        console.log('Checking API health at:', API_URL); // Add this for debugging
+        const response = await fetch(`${API_URL}/health`, {
+            headers: {
+                'X-API-Key': API_KEY // Add API key to health check
+            }
+        });
+        
+        if (!response.ok) {
+            console.error('Health check failed with status:', response.status);
+            const text = await response.text();
+            console.error('Response:', text);
+            return false;
+        }
+
         const data = await response.json();
         return data.status === 'ok' && data.ratesAvailable;
     } catch (error) {
         console.error('Error checking API health:', error);
+        // Add more detailed error logging
+        if (error instanceof Error) {
+            console.error('Error name:', error.name);
+            console.error('Error message:', error.message);
+        }
         return false;
     }
-} 
+}

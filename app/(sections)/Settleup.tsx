@@ -101,18 +101,26 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
       const validDebts = transformDebts(debts);
       let processedDebts: Debt[] = [];
       
-      switch (value) {
-        case 'all':
-          processedDebts = validDebts;
-          break;
-        case 'simplified':
-          processedDebts = await calculateSimplifiedDebtsPerCurrency(validDebts);
-          break;
-        case 'currency':
-          processedDebts = await calculateSimplifiedDebtsToTripCurrency(validDebts, tripCurrency);
-          break;
+      try {
+        switch (value) {
+          case 'all':
+            processedDebts = await standardCalculateSimplifiedDebts(validDebts);
+            break;
+          case 'simplified':
+            processedDebts = await calculateSimplifiedDebtsPerCurrency(validDebts);
+            break;
+          case 'currency':
+            processedDebts = await calculateSimplifiedDebtsToTripCurrency(validDebts, tripCurrency);
+            break;
+        }
+        setShownDebts(groupDebts(processedDebts));
+      } catch (error) {
+        console.error('Error calculating debts:', error);
+        // If currency conversion fails, fall back to showing raw debts
+        if (value === 'all') {
+          setShownDebts(groupDebts(validDebts));
+        }
       }
-      setShownDebts(groupDebts(processedDebts));
     };
     calculateDebts();
   }, [debts, tripCurrency, value, transformDebts, groupDebts]);
