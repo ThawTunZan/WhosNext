@@ -75,7 +75,6 @@ export default function BudgetSummaryCard({
           {Object.entries(members).map(([uid, m]) => {
             const progress = m.budget > 0 ? m.amtLeft / m.budget : 0;
             const memberName = getMemberName(uid);
-            const memberCurrencySymbol = m.currency === 'USD' ? '$' : m.currency;
             return (
               <View key={uid} style={styles.memberBar}>
                 <View style={styles.memberHeader}>
@@ -83,7 +82,7 @@ export default function BudgetSummaryCard({
                     {memberName}
                   </Text>
                   <Text style={[styles.memberAmount, { color: theme.colors.subtext }]}>
-                    {memberCurrencySymbol}{m.amtLeft.toFixed(2)} / {memberCurrencySymbol}{m.budget.toFixed(2)}
+                    {m.amtLeft.toFixed(2)} / {m.budget.toFixed(2)}
                   </Text>
                 </View>
                 <ProgressBar 
