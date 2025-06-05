@@ -9,6 +9,7 @@ import {
   Timestamp,
 } from "firebase/firestore"
 import { addMemberToTrip } from "./TripUtilities"
+import { AddMemberType } from "@/src/types/DataTypes"
 
 export interface Invite {
   inviteId: string
@@ -48,22 +49,47 @@ export async function getInvite(inviteId: string): Promise<Invite> {
  */
 export async function acceptInvite(
   inviteId: string,
-  user: { id: string; name: string }
-): Promise<string> {
+  user: { id: string; name: string },
+  mockUserId?: string
+): Promise<{ tripId: string; shouldShowChooseModal: boolean }> {
   const invite = await getInvite(inviteId)
-  // 1) add this user to the trip
-  await addMemberToTrip(
-    invite.tripId,
-    user.id,
-    {
-      name: user.name,
-      budget: 0,
-      addMemberType: "invite link"
+  
+  // If this is a mock user claim, process it directly
+  if (mockUserId) {
+    // Get trip reference to fetch mock user data
+    const tripRef = doc(db, "trips", invite.tripId)
+    const tripSnap = await getDoc(tripRef)
+    const tripData = tripSnap.data()
+    
+    if (tripData?.members?.[mockUserId]) {
+      const mockUser = tripData.members[mockUserId]
+      const initialBudget = mockUser.budget || 0
+      
+      // Remove the mock user from the trip
+      const updatedMembers = { ...tripData.members }
+      delete updatedMembers[mockUserId]
+      await updateDoc(tripRef, { members: updatedMembers })
+
+      // Add the real user
+      await addMemberToTrip(
+        invite.tripId,
+        user.id,
+        {
+          name: user.name,
+          budget: initialBudget,
+          addMemberType: AddMemberType.INVITE_LINK
+        }
+      )
     }
-  )
-  // 2) mark accepted on the invite (optional)
-  await updateDoc(doc(db, "invites", inviteId), {
-    [`acceptedBy.${user.id}`]: Timestamp.now(),
-  })
-  return invite.tripId
+
+    // Mark invite as accepted
+    await updateDoc(doc(db, "invites", inviteId), {
+      [`acceptedBy.${user.id}`]: Timestamp.now(),
+    })
+
+    return { tripId: invite.tripId, shouldShowChooseModal: false }
+  }
+
+  // For regular invites, we'll show the choose modal
+  return { tripId: invite.tripId, shouldShowChooseModal: true }
 }

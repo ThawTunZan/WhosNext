@@ -22,12 +22,14 @@ export default function PersonalBudgetCard({ member, onEditBudget }: PersonalBud
     return theme.colors.error;
   };
 
+  const currencySymbol = member.currency === 'USD' ? '$' : member.currency;
+
   return (
     <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
       <Card.Content>
         <View style={styles.header}>
           <Text variant="titleMedium" style={[styles.title, { color: theme.colors.text }]}>
-            🎯 Personal Budget
+            🎯 Personal Budget ({member.currency})
           </Text>
           <IconButton 
             icon="pencil" 
@@ -38,10 +40,10 @@ export default function PersonalBudgetCard({ member, onEditBudget }: PersonalBud
         
         <View style={styles.budgetInfo}>
           <Text variant="headlineMedium" style={[styles.amount, { color: theme.colors.text }]}>
-            ${member.amtLeft.toFixed(2)}
+            {currencySymbol}{member.amtLeft.toFixed(2)}
           </Text>
           <Text variant="titleSmall" style={[styles.total, { color: theme.colors.subtext }]}>
-            of ${member.budget.toFixed(2)} total
+            of {currencySymbol}{member.budget.toFixed(2)} total
           </Text>
           <ProgressBar 
             progress={Math.min(1, Math.max(0, progress))} 

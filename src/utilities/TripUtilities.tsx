@@ -31,7 +31,8 @@ function generateRandomString(length: number): string {
 export async function updatePersonalBudget(
 	tripId: string,
 	userId: string,
-	newBudget: number
+	newBudget: number,
+	newCurrency: Currency
 ): Promise<void> {
 	if (!tripId || !userId) {
 		throw new Error("Trip ID and User ID are required.")
@@ -54,14 +55,21 @@ export async function updatePersonalBudget(
 		const oldBudget = userData.budget as number
 		const oldAmtLeft = userData.amtLeft as number
 		const spent = oldBudget - oldAmtLeft
-		const diff = oldBudget - newBudget
 
-		const updatedAmtLeft = newBudget - spent
+		// Convert the new budget to trip currency for totals
+		const newBudgetInTripCurrency = await convertCurrency(newBudget, newCurrency, data.currency)
+		const oldBudgetInTripCurrency = await convertCurrency(oldBudget, userData.currency, data.currency)
+		const diff = oldBudgetInTripCurrency - newBudgetInTripCurrency
+
+		// Calculate new amount left in the new currency
+		const spentInNewCurrency = await convertCurrency(spent, userData.currency, newCurrency)
+		const updatedAmtLeft = newBudget - spentInNewCurrency
 
 		const updatedMember = {
 			...userData,
 			budget: newBudget,
 			amtLeft: updatedAmtLeft,
+			currency: newCurrency,
 		}
 
 		tx.update(tripRef, {
@@ -230,17 +238,11 @@ export const claimMockUser = async (
 		// Update trip document to replace mock user with real user
 		await updateDoc(tripRef, {
 			[`members.${mockUserId}`]: deleteField(),
-			[`members.${newUserId}`]: memberData
+			[`members.${newUserId}`]: {
+				...memberData,
+				addMemberType: AddMemberType.INVITE_LINK
+			}
 		});
-
-		// Transfer the username to the new user's profile
-		const mockUserRef = doc(db, "users", mockUserId);
-		const mockUserSnap = await getDoc(mockUserRef);
-		if (mockUserSnap.exists()) {
-			const { username } = mockUserSnap.data();
-			await setDoc(doc(db, "users", newUserId), { username }, { merge: true });
-			await deleteDoc(mockUserRef);
-		}
 
 		console.log(`Mock user ${mockUserId} successfully claimed by ${newUserId}`);
 	} catch (error) {
