@@ -332,7 +332,7 @@ export const deleteExpense = async (tripId: string, expenseId: string, members: 
 		}
 
 		const expenseData = expenseSnap.data() as Expense;
-		const { paidById, sharedWith, currency } = expenseData;
+		const { paidById, sharedWith, currency, paidAmt } = expenseData;
 
 		// Create a batch for atomic operations
 		const batch = writeBatch(db);
@@ -354,7 +354,6 @@ export const deleteExpense = async (tripId: string, expenseId: string, members: 
 
 		// Process each share to update debts
 		const updates: { [key: string]: any } = {};
-		let totalAmtLeft = 0;
 
 		for (const share of sharedWith) {
 			if (share.payeeID === paidById) continue; // Skip if share belongs to payer
@@ -382,15 +381,12 @@ export const deleteExpense = async (tripId: string, expenseId: string, members: 
 				const remainingAmount = shareAmount - currentPayeeToPayer;
 				updates[`debts.${currency}.${payerToPayeeKey}`] = increment(remainingAmount);
 			}
-
-			// Update member balances
-			updates[`members.${share.payeeID}.amtLeft`] = increment(-shareAmount);
-			totalAmtLeft -= shareAmount;
 		}
 
-		// Update payer's balance
-		updates[`members.${paidById}.amtLeft`] = increment(expenseData.paidAmt);
-		updates[`totalAmtLeft`] = increment(totalAmtLeft + expenseData.paidAmt);
+		// Only restore the payer's amtLeft since they were the only one who paid
+		console.log("paidAmt is " + paidAmt)
+		updates[`members.${paidById}.amtLeft`] = increment(paidAmt);
+		updates[`totalAmtLeft`] = increment(paidAmt);
 
 		// Apply all updates
 		batch.update(tripRef, updates);
