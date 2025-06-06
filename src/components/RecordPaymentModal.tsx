@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState, memo } from 'react';
+import { View, StyleSheet, ScrollView, TouchableWithoutFeedback, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
 import { Modal, Portal, TextInput, Button, List, Text } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
@@ -22,6 +22,49 @@ type RecordPaymentModalProps = {
   defaultCurrency: Currency;
   members: Record<string, Member>;
 };
+
+const MemberList = memo(({ 
+  members, 
+  selectedId, 
+  onSelect, 
+  onClose,
+  excludeId,
+  theme
+}: { 
+  members: { id: string; name: string }[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+  excludeId?: string;
+  theme: any;
+}) => {
+  const filteredMembers = excludeId ? members.filter(m => m.id !== excludeId) : members;
+  
+  return (
+    <View style={styles.dropdownOverlay}>
+      <ScrollView 
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
+        style={[styles.dropdownScroll, { backgroundColor: theme.colors.surface }]}
+      >
+        {filteredMembers.map((member) => (
+          <List.Item
+            key={member.id}
+            title={member.name}
+            onPress={() => {
+              onSelect(member.id);
+              onClose();
+            }}
+            style={[
+              styles.dropdownItem,
+              selectedId === member.id && { backgroundColor: theme.colors.primaryContainer }
+            ]}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+});
 
 export default function RecordPaymentModal({
   visible,
@@ -99,168 +142,172 @@ export default function RecordPaymentModal({
         onDismiss={onDismiss}
         contentContainerStyle={[styles.modal, { backgroundColor: theme.colors.surface }]}
       >
-        <Text style={[styles.title, { color: theme.colors.text }]}>Record Payment</Text>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.container}>
+              <ScrollView 
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="none"
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={true}
+              >
+                <Text style={[styles.title, { color: theme.colors.text }]}>Record Payment</Text>
 
-        {/* Payer Selection */}
-        <View style={styles.inputContainer}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Paying From</Text>
-          <List.Accordion
-            title={selectedPayer ? profiles[selectedPayer] || selectedPayer : "Select payer"}
-            expanded={showPayerDropdown}
-            onPress={() => setShowPayerDropdown(!showPayerDropdown)}
-            style={[styles.dropdown, { backgroundColor: theme.colors.surface }]}
-          >
-            {membersList.map((member) => (
-              <List.Item
-                key={member.id}
-                title={member.name}
-                onPress={() => {
-                  setSelectedPayer(member.id);
-                  setShowPayerDropdown(false);
-                }}
-                style={[
-                  styles.dropdownItem,
-                  selectedPayer === member.id && { backgroundColor: theme.colors.primaryContainer }
-                ]}
-              />
-            ))}
-          </List.Accordion>
-        </View>
+                {/* Payer Selection */}
+                <View style={styles.inputContainer}>
+                  <Text style={[styles.label, { color: theme.colors.text }]}>Paying From</Text>
+                  <List.Accordion
+                    title={selectedPayer ? profiles[selectedPayer] || selectedPayer : "Select payer"}
+                    expanded={showPayerDropdown}
+                    onPress={() => setShowPayerDropdown(!showPayerDropdown)}
+                    style={[styles.dropdown, { backgroundColor: theme.colors.surface }]}
+                  >
+                    <MemberList
+                      members={membersList}
+                      selectedId={selectedPayer}
+                      onSelect={setSelectedPayer}
+                      onClose={() => setShowPayerDropdown(false)}
+                      theme={theme}
+                    />
+                  </List.Accordion>
+                </View>
 
-        {/* Payee Selection */}
-        <View style={styles.inputContainer}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Paying To</Text>
-          <List.Accordion
-            title={selectedPayee ? profiles[selectedPayee] || selectedPayee : "Select payee"}
-            expanded={showPayeeDropdown}
-            onPress={() => setShowPayeeDropdown(!showPayeeDropdown)}
-            style={[styles.dropdown, { backgroundColor: theme.colors.surface }]}
-          >
-            {membersList
-              .filter(member => member.id !== selectedPayer)
-              .map((member) => (
-                <List.Item
-                  key={member.id}
-                  title={member.name}
-                  onPress={() => {
-                    setSelectedPayee(member.id);
-                    setShowPayeeDropdown(false);
-                  }}
-                  style={[
-                    styles.dropdownItem,
-                    selectedPayee === member.id && { backgroundColor: theme.colors.primaryContainer }
-                  ]}
-                />
-            ))}
-          </List.Accordion>
-        </View>
+                {/* Payee Selection */}
+                <View style={styles.inputContainer}>
+                  <Text style={[styles.label, { color: theme.colors.text }]}>Paying To</Text>
+                  <List.Accordion
+                    title={selectedPayee ? profiles[selectedPayee] || selectedPayee : "Select payee"}
+                    expanded={showPayeeDropdown}
+                    onPress={() => setShowPayeeDropdown(!showPayeeDropdown)}
+                    style={[styles.dropdown, { backgroundColor: theme.colors.surface }]}
+                  >
+                    <MemberList
+                      members={membersList}
+                      selectedId={selectedPayee}
+                      onSelect={setSelectedPayee}
+                      onClose={() => setShowPayeeDropdown(false)}
+                      excludeId={selectedPayer}
+                      theme={theme}
+                    />
+                  </List.Accordion>
+                </View>
 
-        {/* Amount and Currency Input */}
-        <View style={styles.inputContainer}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Amount</Text>
-          <View style={styles.amountContainer}>
-            <TextInput
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="decimal-pad"
-              mode="outlined"
-              placeholder="Enter amount"
-              style={styles.amountInput}
-            />
-            <Button
-              mode="outlined"
-              onPress={() => setShowCurrencyDialog(true)}
-              style={styles.currencyButton}
-            >
-              {selectedCurrency}
-            </Button>
-          </View>
-        </View>
+                {/* Amount and Currency Input */}
+                <View style={styles.inputContainer}>
+                  <Text style={[styles.label, { color: theme.colors.text }]}>Amount</Text>
+                  <View style={styles.amountContainer}>
+                    <TextInput
+                      value={amount}
+                      onChangeText={setAmount}
+                      keyboardType="decimal-pad"
+                      mode="outlined"
+                      placeholder="Enter amount"
+                      style={styles.amountInput}
+                    />
+                    <Button
+                      mode="outlined"
+                      onPress={() => setShowCurrencyDialog(true)}
+                      style={styles.currencyButton}
+                    >
+                      {selectedCurrency}
+                    </Button>
+                  </View>
+                </View>
 
-        {/* Payment Method */}
-        <View style={styles.inputContainer}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Payment Method</Text>
-          <View style={[styles.methodContainer, { backgroundColor: theme.colors.surface }]}>
-            <Button
-              mode={method === 'cash' ? 'contained' : 'outlined'}
-              onPress={() => setMethod('cash')}
-              style={styles.methodButton}
-              icon="cash"
-            >
-              Cash
-            </Button>
-            <Button
-              mode={method === 'transfer' ? 'contained' : 'outlined'}
-              onPress={() => setMethod('transfer')}
-              style={styles.methodButton}
-              icon="bank-transfer"
-            >
-              Transfer
-            </Button>
-            <Button
-              mode={method === 'other' ? 'contained' : 'outlined'}
-              onPress={() => setMethod('other')}
-              style={styles.methodButton}
-              icon="dots-horizontal"
-            >
-              Other
-            </Button>
-          </View>
-        </View>
+                {/* Payment Method */}
+                <View style={styles.inputContainer}>
+                  <Text style={[styles.label, { color: theme.colors.text }]}>Payment Method</Text>
+                  <View style={[styles.methodContainer, { backgroundColor: theme.colors.surface }]}>
+                    <Button
+                      mode={method === 'cash' ? 'contained' : 'outlined'}
+                      onPress={() => setMethod('cash')}
+                      style={styles.methodButton}
+                      icon="cash"
+                    >
+                      Cash
+                    </Button>
+                    <Button
+                      mode={method === 'transfer' ? 'contained' : 'outlined'}
+                      onPress={() => setMethod('transfer')}
+                      style={styles.methodButton}
+                      icon="bank-transfer"
+                    >
+                      Transfer
+                    </Button>
+                    <Button
+                      mode={method === 'other' ? 'contained' : 'outlined'}
+                      onPress={() => setMethod('other')}
+                      style={styles.methodButton}
+                      icon="dots-horizontal"
+                    >
+                      Other
+                    </Button>
+                  </View>
+                </View>
 
-        {/* Date Selection */}
-        <View style={styles.inputContainer}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Date</Text>
-          <Button
-            mode="outlined"
-            onPress={() => setShowDatePicker(true)}
-            style={styles.dateButton}
-          >
-            {format(date, 'MMM d, yyyy')}
-          </Button>
-          {showDatePicker && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              onChange={(event, selectedDate) => {
-                setShowDatePicker(false);
-                if (selectedDate) {
-                  setDate(selectedDate);
-                }
-              }}
-            />
-          )}
-        </View>
+                {/* Date Selection */}
+                <View style={styles.inputContainer}>
+                  <Text style={[styles.label, { color: theme.colors.text }]}>Date</Text>
+                  <Button
+                    mode="outlined"
+                    onPress={() => setShowDatePicker(true)}
+                    style={styles.dateButton}
+                  >
+                    {format(date, 'MMM d, yyyy')}
+                  </Button>
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={date}
+                      mode="date"
+                      onChange={(event, selectedDate) => {
+                        setShowDatePicker(false);
+                        if (selectedDate) {
+                          setDate(selectedDate);
+                        }
+                      }}
+                    />
+                  )}
+                </View>
 
-        {/* Note Input */}
-        <View style={styles.inputContainer}>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Note (Optional)</Text>
-          <TextInput
-            value={note}
-            onChangeText={setNote}
-            mode="outlined"
-            placeholder="Add a note"
-            multiline
-            style={styles.noteInput}
-          />
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          <Button mode="outlined" onPress={onDismiss} style={styles.button}>
-            Cancel
-          </Button>
-          <Button mode="contained" onPress={handleSubmit} style={styles.button}>
-            Record Payment
-          </Button>
-        </View>
+                {/* Note Input */}
+                <View style={styles.inputContainer}>
+                  <Text style={[styles.label, { color: theme.colors.text }]}>Note (Optional)</Text>
+                  <TextInput
+                    value={note}
+                    onChangeText={setNote}
+                    mode="outlined"
+                    placeholder="Add a note"
+                    multiline
+                    style={styles.noteInput}
+                  />
+                </View>
+              </ScrollView>
+              {/* Action Buttons */}
+              <View style={styles.buttonContainer}>
+                <Button mode="outlined" onPress={onDismiss} style={styles.button}>
+                  Cancel
+                </Button>
+                <Button mode="contained" onPress={handleSubmit} style={styles.button}>
+                  Record Payment
+                </Button>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
 
       <CurrencyModal
         visible={showCurrencyDialog}
         onDismiss={() => setShowCurrencyDialog(false)}
+        onSelectCurrency={(currency) => {
+          setSelectedCurrency(currency);
+          setShowCurrencyDialog(false);
+        }}
         selectedCurrency={selectedCurrency}
-        onSelectCurrency={setSelectedCurrency}
       />
     </Portal>
   );
@@ -269,10 +316,17 @@ export default function RecordPaymentModal({
 const styles = StyleSheet.create({
   modal: {
     margin: 20,
-    padding: 20,
-    borderRadius: 8,
     backgroundColor: 'white',
-    maxHeight: '90%',
+    borderRadius: 8,
+    maxHeight: '100%',
+    flex: 1,
+  },
+  container: {
+    padding: 20,
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   title: {
     fontSize: 24,
@@ -290,6 +344,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 4,
     overflow: 'hidden',
+    position: 'relative',
+    zIndex: 1,
   },
   dropdownItem: {
     paddingVertical: 8,
@@ -329,5 +385,23 @@ const styles = StyleSheet.create({
   },
   button: {
     marginLeft: 8,
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  dropdownScroll: {
+    maxHeight: 200,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ccc',
   },
 }); 

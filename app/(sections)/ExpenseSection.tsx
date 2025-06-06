@@ -7,9 +7,9 @@ import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 import { useExpenses } from '../../src/hooks/useExpenses';
 import { addExpenseAndCalculateDebts, deleteExpense } from '../../src/services/expenseService';
-import ExpenseList from '../../app/trip/components/ExpenseList';
-import AddExpenseModal from '../../src/components/AddExpenseModal'; 
-import { ExpensesSectionProps, Expense } from '../../src/types/DataTypes'; 
+import ExpenseList from '@/app/trip/components/ExpenseList';
+import AddExpenseModal from '@/src/components/AddExpenseModal'; 
+import { ExpensesSectionProps, Expense } from '@/src/types/DataTypes'; 
 import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { SearchBar } from '@/app/trip/components/SearchBar';
 

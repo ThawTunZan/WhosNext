@@ -10,15 +10,15 @@ import {
   ProposedActivity,
   ActivityVotingSectionProps,
   VoteType,
-} from '../../src/types/DataTypes'
-import { useProposedActivities } from '../../src/hooks/useProposedActivities'
+} from '@/src/types/DataTypes'
+import { useProposedActivities } from '@/src/hooks/useProposedActivities'
 import {
   castVote,
   addProposedActivity,
   deleteProposedActivity,
   updateProposedActivity,
-} from '../../src/services/ActivityUtilities'
-import ProposeActivityModal from '../../src/components/ProposeActivityModal'
+} from '@/src/services/ActivityUtilities'
+import ProposeActivityModal from '@/src/components/ProposeActivityModal'
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
 import { SearchBar } from '@/app/trip/components/SearchBar'
