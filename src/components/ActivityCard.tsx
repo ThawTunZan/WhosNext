@@ -4,6 +4,7 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Button, IconButton, Divider, Caption } from 'react-native-paper';
 import { ActivityCardProps } from '../types/DataTypes'; // Adjust path if using activities.ts
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
+import { formatCurrency } from '../utilities/CurrencyUtilities';
 
 const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense, onDelete, onEdit }: ActivityCardProps) => {
 
@@ -32,9 +33,7 @@ const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense,
         {activity.description && <Text style={styles.description}>{activity.description}</Text>}
         {activity.estCost != null && (
         <Caption>
-          Est. Cost: {activity.currency || '$'}
-          {/* Now it's safe to call .toFixed() because estCost cannot be null here */}
-          {activity.estCost.toFixed(2)}
+          Est. Cost: {formatCurrency(activity.estCost, activity.currency)}
         </Caption>
       )}
         <Divider style={styles.divider} />

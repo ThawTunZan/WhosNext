@@ -1,156 +1,206 @@
 // src/services/SettleUpUtilities.tsx
 
 // Define types needed for debt processing
-// These could also live in a central types file (e.g., src/types/debts.ts)
-
-export type DebtsMap = Record<string, number>;
+import { Currency, Debt } from '../types/DataTypes';
+import { convertCurrency } from '../services/CurrencyService';
 
 export type ParsedDebt = {
   fromId: string;
   toId: string;
   amount: number;
+  currency: Currency;
   fromName: string;
   toName: string;
 };
 
-export type GroupedSectionData = {
-  title: string; // Usually the name of the person who owes
-  data: ParsedDebt[];
-};
+/**
+ * Shows the full debts in all currencies
+ * Converts the raw debts array into a sectioned list format for display.
+ * Filters out zero-amount debts and empty sections.
+ */
+export async function standardCalculateSimplifiedDebts(
+    debts: Debt[],
+): Promise<Debt[]> {
+    const standardSimplifiedDebts: Debt[] = [];
+    const epsilon = 0.001; // Small value for float comparison
 
-// Helper function (internal use, might not need export)
-function groupToSections(
-    grouped: Record<string, ParsedDebt[]>,
-    profiles: Record<string, string>,
-): GroupedSectionData[] {
-    return Object.entries(grouped).map(([fromId, debts]) => ({
-        title: profiles[fromId] || `Unknown (${fromId})`, // Provide fallback name
-        data: debts.sort((a, b) => a.toName.localeCompare(b.toName)), // Optional: sort debts within section by name
-    }));
+    for (const debt of debts) {
+        if (!isNaN(debt.amount) && debt.amount > epsilon) {
+            // Find existing debt with same users and currency
+            const existingDebt = standardSimplifiedDebts.find(
+                simplifiedDebt => 
+                    simplifiedDebt.fromUserId === debt.fromUserId && 
+                    simplifiedDebt.toUserId === debt.toUserId && 
+                    simplifiedDebt.currency === debt.currency
+            );
+
+            if (!existingDebt) {
+                standardSimplifiedDebts.push({
+                    fromUserId: debt.fromUserId,
+                    toUserId: debt.toUserId,
+                    amount: debt.amount,
+                    currency: debt.currency,
+                });
+            } else {
+                existingDebt.amount += debt.amount;
+            }
+        }
+    }
+
+    return standardSimplifiedDebts;
 }
 
 /**
- * Converts the raw debts map into a sectioned list format for display.
- * Filters out zero-amount debts and empty sections.
- * @param debts Raw debts map (e.g., { "userB#userA": 50 })
- * @param members Members map for name lookup.
- * @returns Array of sections ready for SectionList.
+ * Calculates the minimum set of transactions required to settle all debts,
+ * converting all amounts to the trip's currency first.
  */
-export function parseAndGroupDebts(
-    debts: DebtsMap,
-    profiles: Record<string, string>,
-): GroupedSectionData[] {
-    const grouped: Record<string, ParsedDebt[]> = {};
-    const epsilon = 0.001; // Small value for float comparison
+export async function calculateSimplifiedDebtsToTripCurrency(
+    debts: Debt[],
+    tripCurrency: Currency
+): Promise<Debt[]> {
+    const simplifiedDebts: Debt[] = [];
+    const epsilon = 0.001;
 
-    Object.entries(debts).forEach(([key, amount]) => {
-        const numericAmount = Number(amount);
-        // Filter 1: Only process debts where the amount is meaningfully positive
-        if (!isNaN(numericAmount) && numericAmount > epsilon) {
-            const [fromId, toId] = key.split('#');
-            // Basic validation
-            if (!fromId || !toId) {
-                 console.warn(`Skipping invalid debt key: ${key}`);
-                 return;
+    // Convert all debts to trip currency and calculate net balances
+    const balances: Record<string, number> = {};
+    
+    // Convert and sum all debts
+    for (const debt of debts) {
+        if (!isNaN(debt.amount) && debt.amount > epsilon) {
+            const convertedAmount = await convertCurrency(debt.amount, debt.currency, tripCurrency);
+            //  const convertedAmount = debt.amount;
+            if (!balances[debt.fromUserId]) balances[debt.fromUserId] = 0;
+            if (!balances[debt.toUserId]) balances[debt.toUserId] = 0;
+            
+            balances[debt.fromUserId] -= convertedAmount;
+            balances[debt.toUserId] += convertedAmount;
+        }
+    }
+
+    // Separate users into debtors and creditors
+    const debtors = Object.entries(balances)
+        .filter(([userId, balance]) => balance < -epsilon)
+        .sort(([, balanceA], [, balanceB]) => balanceA - balanceB);
+    
+    const creditors = Object.entries(balances)
+        .filter(([userId, balance]) => balance > epsilon)
+        .sort(([, balanceA], [, balanceB]) => balanceB - balanceA);
+
+    // Match debtors with creditors
+    let i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+        const [debtorId, debtorBalance] = debtors[i];
+        const [creditorId, creditorBalance] = creditors[j];
+        
+        const amount = Math.min(-debtorBalance, creditorBalance);
+        
+        if (amount > epsilon) {
+            simplifiedDebts.push({
+                fromUserId: debtorId,
+                toUserId: creditorId,
+                amount,
+                currency: tripCurrency
+            });
+        }
+
+        const newDebtorBalance = debtorBalance + amount;
+        const newCreditorBalance = creditorBalance - amount;
+
+        if (Math.abs(newDebtorBalance) < epsilon) i++;
+        if (Math.abs(newCreditorBalance) < epsilon) j++;
+    }
+
+    return simplifiedDebts;
+}
+
+/**
+ * Calculates the minimum set of transactions required to settle all debts,
+ * keeping each currency separate (no conversion).
+ */
+export function calculateSimplifiedDebtsPerCurrency(
+    debts: Debt[],
+): Debt[] {
+    const simplifiedDebts: Debt[] = [];
+    const epsilon = 0.001;
+
+    // Initialize balances structure dynamically based on existing debts
+    const balances: Partial<Record<Currency, Record<string, number>>> = {};
+
+    // Calculate net balances for each member per currency
+    for (const debt of debts) {
+        if (!isNaN(debt.amount) && debt.amount > epsilon) {
+            // Initialize currency balance if it doesn't exist
+            if (!balances[debt.currency]) {
+                balances[debt.currency] = {};
+            }
+            
+            // Initialize balances for both users if they don't exist
+            if (!balances[debt.currency]![debt.fromUserId]) {
+                balances[debt.currency]![debt.fromUserId] = 0;
+            }
+            if (!balances[debt.currency]![debt.toUserId]) {
+                balances[debt.currency]![debt.toUserId] = 0;
             }
 
-            const fromName = profiles[fromId] || `Unknown (${fromId})`;
-            const toName = profiles[toId] || `Unknown (${toId})`;
+            // Update balances
+            balances[debt.currency]![debt.fromUserId] -= debt.amount;
+            balances[debt.currency]![debt.toUserId] += debt.amount;
+        }
+    }
 
-            if (!grouped[fromId]) {
-                 grouped[fromId] = [];
+    // Process each currency independently
+    Object.entries(balances).forEach(([currency, currencyBalances]) => {
+        // Skip if no balances in this currency
+        if (Object.keys(currencyBalances).length === 0) return;
+
+        // Separate members into debtors and creditors for this currency
+        const debtors = Object.keys(currencyBalances)
+            .filter(id => currencyBalances[id] < -epsilon)
+            .sort((a, b) => currencyBalances[a] - currencyBalances[b]);
+
+        const creditors = Object.keys(currencyBalances)
+            .filter(id => currencyBalances[id] > epsilon)
+            .sort((a, b) => currencyBalances[b] - currencyBalances[a]);
+
+        let i = 0;
+        let j = 0;
+
+        // Calculate minimum transfers for this currency
+        while (i < debtors.length && j < creditors.length) {
+            const debtorId = debtors[i];
+            const creditorId = creditors[j];
+            const transferAmount = Math.min(-currencyBalances[debtorId], currencyBalances[creditorId]);
+
+            if (transferAmount > epsilon) {
+                const fromId = debtorId;
+                const toId = creditorId;
+
+                // Find existing debt or create new one
+                const existingDebt = simplifiedDebts.find(
+                    debt => debt.fromUserId === fromId && 
+                           debt.toUserId === toId && 
+                           debt.currency === currency
+                );
+
+                if (!existingDebt) {
+                    simplifiedDebts.push({
+                        fromUserId: fromId,
+                        toUserId: toId,
+                        amount: transferAmount,
+                        currency: currency as Currency,
+                    });
+                } else {
+                    existingDebt.amount += transferAmount;
+                }
+
+                currencyBalances[debtorId] += transferAmount;
+                currencyBalances[creditorId] -= transferAmount;
             }
-            grouped[fromId].push({ fromId, toId, amount: numericAmount, fromName, toName });
+
+            if (Math.abs(currencyBalances[debtorId]) < epsilon) i++;
+            if (Math.abs(currencyBalances[creditorId]) < epsilon) j++;
         }
     });
 
-    // Convert grouped data into sections
-    const sections = groupToSections(grouped, profiles);
-
-    // Filter 2: Remove sections that have no data after filtering zero amounts
-    return sections.filter(section => section.data.length > 0);
-}
-
-
-/**
- * Calculates the minimum set of transactions required to settle all debts.
- * @param debts Raw debts map.
- * @returns Array of simplified transaction sections ready for SectionList.
- */
-export function calculateSimplifiedDebts(
-    debts: DebtsMap,
-    profiles: Record<string, string>,
-): GroupedSectionData[] {
-    const balances: Record<string, number> = {};
-    const grouped: Record<string, ParsedDebt[]> = {};
-    const epsilon = 0.001; // Small value for float comparison
-
-
-    // Calculate net balances for each member
-    for (const [key, amount] of Object.entries(debts)) {
-        const numericAmount = Number(amount);
-        if (!isNaN(numericAmount) && numericAmount > epsilon) { // Process only valid, positive debts
-            const [debtor, creditor] = key.split('#');
-             if (!debtor || !creditor) {
-                 console.warn(`Skipping invalid debt key during balance calculation: ${key}`);
-                 continue;
-            }
-            balances[debtor] = (balances[debtor] || 0) - numericAmount;
-            balances[creditor] = (balances[creditor] || 0) + numericAmount;
-        }
-    }
-
-    // Separate members into debtors (negative balance) and creditors (positive balance)
-    const debtors = Object.keys(balances).filter(id => balances[id] < -epsilon);
-    const creditors = Object.keys(balances).filter(id => balances[id] > epsilon);
-
-    // Sort them to handle largest amounts first (optimization)
-    debtors.sort((a, b) => balances[a] - balances[b]); // Most negative first
-    creditors.sort((a, b) => balances[b] - balances[a]); // Most positive first
-
-    let i = 0; // Pointer for debtors array
-    let j = 0; // Pointer for creditors array
-
-    // Calculate minimum transfers
-    while (i < debtors.length && j < creditors.length) {
-        const debtorId = debtors[i];
-        const creditorId = creditors[j];
-        const transferAmount = Math.min(-balances[debtorId], balances[creditorId]);
-
-        // Create a transaction if the amount is meaningful
-        if (transferAmount > epsilon) {
-            const fromId = debtorId;
-            const toId = creditorId;
-            const fromName = profiles[fromId] || `Unknown (${fromId})`;
-            const toName = profiles[toId] || `Unknown (${toId})`;
-
-            if (!grouped[fromId]) {
-                grouped[fromId] = [];
-            }
-            grouped[fromId].push({ fromId, toId, amount: transferAmount, fromName, toName });
-
-            // Update balances after the transfer
-            balances[debtorId] += transferAmount;
-            balances[creditorId] -= transferAmount;
-        }
-
-        // Move pointers if balances are settled (close to zero)
-        if (Math.abs(balances[debtorId]) < epsilon) {
-            i++;
-        }
-        if (Math.abs(balances[creditorId]) < epsilon) {
-            j++;
-        }
-        // Safety break for edge cases with tiny floats
-        if (transferAmount <= epsilon && (i < debtors.length && j < creditors.length)) {
-            console.warn("Exiting simplifyDebts loop early due to very small transfer amount.", balances);
-            break;
-        }
-    }
-
-    // Convert grouped transactions into sections
-    const sections = groupToSections(grouped, profiles);
-
-    // Filter: Remove sections that might be empty after simplification
-    return sections.filter(section => section.data.length > 0);
+    return simplifiedDebts;
 }

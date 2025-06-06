@@ -1,16 +1,17 @@
 // src/screens/TripDetails/ExpensesSection.tsx
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Button, Text, Snackbar, Chip, useTheme } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 import { useExpenses } from '../../src/hooks/useExpenses';
 import { addExpenseAndCalculateDebts, deleteExpense } from '../../src/services/expenseService';
-import ExpenseItemList from '../../src/components/ExpenseItemList';
-import AddExpenseModal from '../../src/components/AddExpenseModal'; 
-import { ExpensesSectionProps, Expense } from '../../src/types/DataTypes'; 
+import ExpenseList from '@/app/trip/components/ExpenseList';
+import AddExpenseModal from '@/src/components/AddExpenseModal'; 
+import { ExpensesSectionProps, Expense } from '@/src/types/DataTypes'; 
 import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
+import { SearchBar } from '@/app/trip/components/SearchBar';
 
 const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, nextPayerId }: ExpensesSectionProps) => {
   const { isDarkMode } = useCustomTheme();
@@ -22,10 +23,17 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false); // For pull-to-refresh
+  const [searchQuery, setSearchQuery] = useState('');
 
   const profiles = useMemberProfiles();
 
-  
+  const filteredExpenses = expenses.filter(expense => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      expense.activityName.toLowerCase().includes(searchLower) ||
+      profiles[expense.paidById]?.toLowerCase().includes(searchLower)
+    );
+  });
 
   const toggleExpand = useCallback((id: string) => {
     setExpandedId(prev => (prev === id ? null : id));
@@ -90,21 +98,28 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
        setSnackbarVisible(true);
   }, [tripId]);
 
-
-  const renderExpenseItem = useCallback(({ item }: { item: Expense }) => (
-    <ExpenseItemList
-      item={item}
-      isExpanded={item.id === expandedId}
-      onToggleExpand={toggleExpand}
-      onDelete={handleDeleteExpense}
-      onEdit={handleEditExpenseLocal}
-    />
-  ), [expandedId, toggleExpand, handleDeleteExpense, handleEditExpenseLocal]); // Dependencies for useCallback
-
-  const keyExtractor = useCallback((item: Expense) => item.id, []);
+  const renderListHeader = () => (
+    <>
+      <Text style={[styles.header, { color: theme.colors.text }]}>🧾 Expenses</Text>
+      <SearchBar
+        searchQuery={searchQuery}
+        onChangeSearch={setSearchQuery}
+        placeholder="Search expenses..."
+      />
+      {nextPayerId && (
+          <Chip
+              icon="account-arrow-right"
+              style={[styles.nextPayerChip, { backgroundColor: theme.colors.surfaceVariant }]}
+              textStyle={[styles.nextPayerChipText, { color: theme.colors.text }]}
+          >
+              Next Payer: {profiles[nextPayerId]}
+          </Chip>
+       )}
+    </>
+  );
 
   // --- Render Logic ---
-   if (isLoading && expenses.length === 0) { // Show loader only on initial load
+  if (isLoading && expenses.length === 0) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={paperTheme.colors.primary} />
@@ -123,26 +138,27 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
     );
   }
 
-  // ListHeaderComponent for the header
-  const renderListHeader = () => (
-    <>
-      <Text style={[styles.header, { color: theme.colors.text }]}>🧾 Expenses</Text>
-      {/* Conditionally render the Chip/Text if name exists */}
-      {nextPayerId && (
-          <Chip
-              icon="account-arrow-right"
-              style={[styles.nextPayerChip, { backgroundColor: theme.colors.surfaceVariant }]}
-              textStyle={[styles.nextPayerChipText, { color: theme.colors.text }]}
-          >
-              Next Payer: {profiles[nextPayerId]}
-          </Chip>
-       )}
-    </>
-  );
-
-  // ListFooterComponent for the button
-  const renderListFooter = () => (
-     <Button
+  return (
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      keyboardVerticalOffset={100}
+    >
+      {renderListHeader()}
+      
+      <ExpenseList
+        expenses={expenses}
+        searchQuery={searchQuery}
+        profiles={profiles}
+        expandedId={expandedId}
+        isRefreshing={isRefreshing}
+        onRefresh={onRefresh}
+        onToggleExpand={toggleExpand}
+        onDeleteExpense={handleDeleteExpense}
+        onEditExpense={handleEditExpenseLocal}
+        styles={styles}
+      />
+    <Button
         mode="contained"
         icon="plus-circle-outline"
         onPress={onAddExpensePress}
@@ -150,51 +166,24 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
       >
         Add Expense
       </Button>
-  );
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-
-      <FlatList
-        data={expenses}
-        keyExtractor={keyExtractor}
-        renderItem={renderExpenseItem}
-        ListHeaderComponent={renderListHeader}
-        ListFooterComponent={renderListFooter}
-        ListEmptyComponent={
-           <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-               <Text style={{ color: theme.colors.text }}>No expenses added yet.</Text>
-           </View>
-        }
-        refreshControl={
-          <RefreshControl 
-            refreshing={isRefreshing} 
-            onRefresh={onRefresh}
-            tintColor={paperTheme.colors.primary}
-          />
-        }
-        contentContainerStyle={styles.listContentContainer}
-        
-      />
 
       <AddExpenseModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        onDismiss={() => setModalVisible(false)}
         onSubmit={handleAddExpenseSubmit}
         members={members}
         tripId={tripId}
-        suggestedPayerId={nextPayerId} 
-        editingExpenseId={null}      />
+      />
 
-        {/* Snackbar for user feedback */}
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
-        duration={Snackbar.DURATION_SHORT} // Or DURATION_MEDIUM
+        duration={3000}
       >
         {snackbarMessage}
       </Snackbar>
-    </View>
+    </KeyboardAvoidingView>
+    
   );
 };
 
@@ -202,37 +191,38 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  listContentContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 15,
+    paddingBottom: 20,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   header: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  nextPayerChip: {
-    alignSelf: 'flex-start',
-    marginTop: -5,
     marginBottom: 15,
-    marginLeft: 16,
-  },
-  nextPayerChipText: {
-    fontSize: 13,
+    marginLeft: 5,
   },
   errorText: {
     textAlign: 'center',
-    marginHorizontal: 20,
-  },
-  listContentContainer: {
-    flexGrow: 1,
-    paddingBottom: 16,
   },
   addButton: {
     margin: 16,
+  },
+  nextPayerChip: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  nextPayerChipText: {
+    fontSize: 14,
   },
 });
 

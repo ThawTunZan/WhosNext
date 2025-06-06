@@ -15,24 +15,41 @@ import {
   Text,
   TextInput,
   Button,
+  List,
+  Portal,
+  Modal,
 } from 'react-native-paper';
 import { Redirect, useRouter } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
-import { db } from '@/firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { db } from '@/firebase';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import { Currency, AddMemberType } from '@/src/types/DataTypes';
 
 const { width } = Dimensions.get('window');
+
+const CURRENCIES: { code: Currency; symbol: string; name: string }[] = [
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+  { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
+  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
+];
 
 export default function CreateTripScreen() {
   const [destination, setDestination] = useState('');
   const [totalBudget, setTotalBudget] = useState('');
-  const router = useRouter();
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const { isLoaded, isSignedIn, user } = useUser();
+  const router = useRouter();
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
+
+  const selectedCurrencyInfo = CURRENCIES.find(c => c.code === selectedCurrency);
 
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />;
@@ -49,9 +66,20 @@ export default function CreateTripScreen() {
 
     const initialMembers = {
       [userId]: {
+        id: userId,
         budget: parsedBudget,
         amtLeft: parsedBudget,
-        owesTotal: 0,
+        currency: selectedCurrency,
+        premiumUser: false,
+        addMemberType: AddMemberType.FRIENDS,
+        owesTotalMap: {
+          USD: 0,
+          EUR: 0,
+          GBP: 0,
+          JPY: 0,
+          CNY: 0,
+          SGD: 0
+        }
       }
     };
 
@@ -60,9 +88,10 @@ export default function CreateTripScreen() {
         destination: destination.trim(),
         totalBudget: parsedBudget,
         totalAmtLeft: parsedBudget,
+        currency: selectedCurrency,
         userId,
         members: initialMembers,
-        debts: {},
+        debts: [],
         createdAt: Timestamp.now()
       });
 
@@ -119,22 +148,31 @@ export default function CreateTripScreen() {
                 }}
               />
 
-              <TextInput
-                mode="flat"
-                placeholder="What's your budget?"
-                value={totalBudget}
-                onChangeText={setTotalBudget}
-                keyboardType="numeric"
-                style={[styles.input]}
-                left={<TextInput.Affix text="$" textStyle={{ color: theme.colors.text }} />}
-                theme={{ 
-                  colors: { 
-                    primary: theme.colors.primary,
-                    text: theme.colors.text,
-                    placeholder: theme.colors.subtext,
-                  }
-                }}
-              />
+              <View style={styles.budgetContainer}>
+                <TextInput
+                  mode="flat"
+                  placeholder="What's your budget?"
+                  value={totalBudget}
+                  onChangeText={setTotalBudget}
+                  keyboardType="numeric"
+                  style={[styles.budgetInput]}
+                  left={<TextInput.Affix text={selectedCurrencyInfo?.symbol} textStyle={{ color: theme.colors.text }} />}
+                  theme={{ 
+                    colors: { 
+                      primary: theme.colors.primary,
+                      text: theme.colors.text,
+                      placeholder: theme.colors.subtext,
+                    }
+                  }}
+                />
+                <Button
+                  mode="outlined"
+                  onPress={() => setShowCurrencyModal(true)}
+                  style={styles.currencyButton}
+                >
+                  {selectedCurrency}
+                </Button>
+              </View>
 
               <Button 
                 mode="contained" 
@@ -153,6 +191,37 @@ export default function CreateTripScreen() {
               </View>
             </View>
           </ScrollView>
+
+          <Portal>
+            <Modal
+              visible={showCurrencyModal}
+              onDismiss={() => setShowCurrencyModal(false)}
+              contentContainerStyle={[styles.modal, { backgroundColor: theme.colors.surface }]}
+            >
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Select Currency</Text>
+              {CURRENCIES.map((currency) => (
+                <List.Item
+                  key={currency.code}
+                  title={`${currency.code} - ${currency.name}`}
+                  description={`Symbol: ${currency.symbol}`}
+                  onPress={() => {
+                    setSelectedCurrency(currency.code);
+                    setShowCurrencyModal(false);
+                  }}
+                  left={props => (
+                    <List.Icon
+                      {...props}
+                      icon={selectedCurrency === currency.code ? "check" : "currency-usd"}
+                    />
+                  )}
+                  style={[
+                    styles.currencyItem,
+                    selectedCurrency === currency.code && { backgroundColor: theme.colors.surfaceVariant }
+                  ]}
+                />
+              ))}
+            </Modal>
+          </Portal>
         </SafeAreaView>
       </KeyboardAvoidingView>
     </Wrapper>
@@ -204,6 +273,18 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 20,
   },
+  budgetContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 10,
+  },
+  budgetInput: {
+    flex: 1,
+  },
+  currencyButton: {
+    minWidth: 80,
+  },
   button: {
     marginTop: 20,
     borderRadius: 30,
@@ -229,5 +310,19 @@ const styles = StyleSheet.create({
   },
   activeDot: {
     width: 24,
+  },
+  modal: {
+    margin: 20,
+    padding: 20,
+    borderRadius: 8,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  currencyItem: {
+    borderRadius: 8,
+    marginVertical: 2,
   },
 });

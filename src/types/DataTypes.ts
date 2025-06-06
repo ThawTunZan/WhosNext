@@ -1,19 +1,31 @@
 // src/types/expenses.ts
 
-import { Timestamp } from "firebase/firestore";
+import { FieldValue, Timestamp } from "firebase/firestore";
 
 export type MemberInfo = { name: string }; // Basic info for components needing just name
 
-export type AddMemberType = "friends" | "invite link" | "qr code" | "mock";
+export enum AddMemberType {
+  FRIENDS = "friends",
+  INVITE_LINK = "invite link",
+  QR_CODE = "qr code",
+  MOCK = "mock"
+}
+
+export type OwesTotalMap = Record<Currency, number>;
+
 // Individual member data
 export type Member = {
   id: string;
   budget: number;
   amtLeft: number;
-  owesTotal?: number;
-  isMockUser: boolean;
-  claimCode?: string; // Optional claim code for mock users
+  currency: Currency;
+  claimCode?: string;
+  premiumUser: boolean;
+  addMemberType: AddMemberType;
+  owesTotalMap: OwesTotalMap;
 };
+
+export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CNY' | 'SGD'; 
   
 export type Expenses = {[id:string]: {expense: Expense}}
   
@@ -31,6 +43,7 @@ export type Expense = {
   paidAmt: number;
   sharedWith: SharedWith[];
   createdAt?: string; // Firestore Timestamp type for consistency
+  currency: Currency;
 };
 
 // Props for the main ExpensesSection component
@@ -54,16 +67,16 @@ export type ExpenseListItemProps = {
 };
 
 // Props for the AddExpenseModal component
-export type AddExpenseModalProps = {
+export interface AddExpenseModalProps {
   visible: boolean;
-  onClose: () => void;
-  onSubmit: (data: Expense, editingExpenseId: string | null) => Promise<void>;
+  onDismiss: () => void;
+  onSubmit: (expenseData: Expense, editingExpenseId?: string) => Promise<void>;
   members: Record<string, Member>;
-  tripId: string; // Needed for debt calculation within the modal or its handler
-  initialData?: Partial<Expense> | null;
-  suggestedPayerId: string | null;
-  editingExpenseId: string | null;
-};
+  tripId: string;
+  initialData?: Partial<Expense>;
+  editingExpenseId?: string;
+  suggestedPayerId?: string;
+}
 
 // Props for the ActivityVotingSection component
 export type ActivityVotingSectionProps = {
@@ -91,7 +104,7 @@ export type ProposedActivity = {
   description?: string | null;
   suggestedByID: string | null;
   estCost?: number | null;
-  currency?: string | null;
+  currency: Currency;
   createdAt: Timestamp; // Firestore Timestamp
   votes: {
       [userId: string]: VoteType; // Map of UserID -> 'up' or 'down'
@@ -118,13 +131,34 @@ export type ProposeActivityModalProps = {
   initialData?: Partial<NewProposedActivityData>
 };
 
+export type Debt = {
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+  currency: Currency;
+}
+
+export type Payment = {
+  id?: string;
+  tripId: string;
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+  currency: Currency;
+  method: 'cash' | 'transfer' | 'other';
+  paymentDate: Date | Timestamp;
+  note?: string;
+  createdTime: Timestamp | FieldValue;
+  createdDate: Timestamp | FieldValue;
+};
+
 export interface TripData {
   destination: string;
   members?: Record<string, Member>; // Use detailed Member
   totalBudget?: number;
   totalAmtLeft?: number;
-  debts?: Record<string, number>; // Keep simple debts map for now
-  // expenses field seems unused in state, data comes from hook/listener
+  debts?: Debt[];
   userId: string;
+  currency: Currency;
 }
 

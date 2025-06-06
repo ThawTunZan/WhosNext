@@ -1,9 +1,9 @@
 // app/trip/[id].tsx
 
-import React from "react";
+import React, { useState } from "react";
 import { View, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { Redirect, useLocalSearchParams } from "expo-router";
-import { Snackbar, Portal } from "react-native-paper";
+import { Snackbar, Portal, Button } from "react-native-paper";
 
 import { useTripData } from "@/src/hooks/useTripData";
 import { useUser } from "@clerk/clerk-expo";
@@ -20,13 +20,18 @@ import ActivityVotingSection from "../(sections)/ActivityVotingSection";
 import ReceiptSection from "../(sections)/ReceiptSection";
 import InviteSection from "../(sections)/InviteSection";
 import AddExpenseModal from "@/src/components/AddExpenseModal";
+import ChooseExistingOrNew from "./components/ChooseExistingOrNew";
 
 import { calculateNextPayer } from "@/src/services/expenseService";
 import { useTripHandlers } from "@/src/utilities/TripHandlers";
 import { useTripState } from "@/src/hooks/useTripState";
+import { AddMemberType } from "@/src/types/DataTypes";
 
 export default function TripDetailPage() {
-  const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();
+  const { id: routeIdParam, showChooseModal: showChooseModalParam } = useLocalSearchParams<{ 
+    id?: string | string[]; 
+    showChooseModal?: string;
+  }>();
   const tripId = Array.isArray(routeIdParam) ? routeIdParam[0] : routeIdParam;
 
   const { isLoaded, isSignedIn, user } = useUser();
@@ -35,10 +40,28 @@ export default function TripDetailPage() {
   const { trip, loading, error: dataError } = useTripData(tripId);
   const profiles = useMemberProfiles();
 
-  const nextPayer = React.useMemo(
-    () => calculateNextPayer(trip?.members || null, profiles),
-    [trip?.members, profiles]
-  );
+  const [nextPayer, setNextPayer] = React.useState<string | null>(null);
+  const [showChooseModal, setShowChooseModal] = useState(showChooseModalParam === 'true');
+
+  const nextPayerParams = React.useMemo(() => ({
+    members: trip?.members || null,
+    profiles,
+    currency: trip?.currency || 'USD'
+  }), [trip?.members, profiles, trip?.currency]);
+
+  React.useEffect(() => {
+    const updateNextPayer = async () => {
+      if (nextPayerParams.members && nextPayerParams.profiles) {
+        const nextPayerId = await calculateNextPayer(
+          nextPayerParams.members,
+          nextPayerParams.profiles,
+          nextPayerParams.currency
+        );
+        setNextPayer(nextPayerId);
+      }
+    };
+    updateNextPayer();
+  }, [nextPayerParams]);
 
   const {
     selectedTab,
@@ -89,6 +112,42 @@ export default function TripDetailPage() {
     setSnackbarVisible,
   });
 
+  const handleSelectMockMember = async (memberId: string) => {
+    try {
+      const member = trip.members[memberId];
+      if (!member?.claimCode) {
+        throw new Error('No claim code found for this member');
+      }
+      await handleClaimMockUser(memberId, member.claimCode);
+      setShowChooseModal(false);
+      setSnackbarMessage('Successfully claimed mock profile');
+      setSnackbarVisible(true);
+    } catch (error) {
+      console.error('Error claiming mock profile:', error);
+      setSnackbarMessage('Failed to claim mock profile');
+      setSnackbarVisible(true);
+    }
+  };
+
+  const handleJoinAsNew = async () => {
+    try {
+      await handleAddMember(
+        user.id,
+        user.fullName || user.username || user.primaryEmailAddress?.emailAddress || 'Unknown User',
+        0,
+        'USD',
+        AddMemberType.INVITE_LINK
+      );
+      setShowChooseModal(false);
+      setSnackbarMessage('Successfully joined trip');
+      setSnackbarVisible(true);
+    } catch (error) {
+      console.error('Error joining as new member:', error);
+      setSnackbarMessage('Failed to join trip');
+      setSnackbarVisible(true);
+    }
+  };
+
   return (
     <MemberProfilesProvider memberUids={Object.keys(trip?.members || {})}>
       <KeyboardAvoidingView
@@ -106,8 +165,14 @@ export default function TripDetailPage() {
 
         {trip && (
           <>
-            <TripHeader destination={trip.destination} />
-            <TabBar selectedTab={selectedTab} onTabSelect={setSelectedTab} />
+            <TripHeader
+              destination={trip.destination}
+            />
+
+            <TabBar
+              selectedTab={selectedTab}
+              onTabSelect={setSelectedTab}
+            />
 
             {selectedTab === "overview" && (
               <OverviewTab
@@ -115,7 +180,7 @@ export default function TripDetailPage() {
                 profiles={profiles}
                 totalBudget={trip.totalBudget}
                 totalAmtLeft={trip.totalAmtLeft}
-                currentUserId={currentUserId!}
+                currentUserId={currentUserId}
                 onAddMember={handleAddMember}
                 onRemoveMember={handleRemoveMember}
                 onEditBudget={openBudgetDialog}
@@ -124,6 +189,8 @@ export default function TripDetailPage() {
                 isDeletingTrip={isDeletingTrip}
                 nextPayer={nextPayer}
                 onClaimMockUser={handleClaimMockUser}
+                tripId={tripId}
+                tripCurrency={trip.currency}
               />
             )}
 
@@ -138,7 +205,12 @@ export default function TripDetailPage() {
             )}
 
             {selectedTab === "settle" && (
-              <SettleUpSection debts={trip.debts} members={trip.members} />
+              <SettleUpSection
+                debts={trip.debts}
+                members={trip.members}
+                tripId={tripId!}
+                tripCurrency={trip.currency}
+              />
             )}
 
             {selectedTab === "activities" && (
@@ -161,18 +233,27 @@ export default function TripDetailPage() {
                 value={newBudgetInput}
                 onChangeValue={setNewBudgetInput}
                 onSubmit={submitBudgetChange}
+                currency={trip.members[currentUserId]?.currency || 'USD'}
               />
             </Portal>
 
             <AddExpenseModal
               visible={addExpenseModalVisible}
-              onClose={closeAddExpenseModal}
+              onDismiss={closeAddExpenseModal}
               onSubmit={handleAddOrUpdateExpenseSubmit}
               members={trip.members}
               tripId={tripId!}
               initialData={initialExpenseData}
               editingExpenseId={editingExpenseId}
               suggestedPayerId={nextPayer}
+            />
+
+            <ChooseExistingOrNew
+              visible={showChooseModal}
+              onDismiss={() => setShowChooseModal(false)}
+              mockMembers={trip.members || {}}
+              onSelectMockMember={handleSelectMockMember}
+              onJoinAsNew={handleJoinAsNew}
             />
 
             <Snackbar

@@ -2,13 +2,13 @@
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
 import { useUser } from "@clerk/clerk-expo";
-import { addMemberToTrip } from "@/src/utilities/TripUtilities";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/firebase";
+import { acceptInvite } from "@/src/utilities/InviteUtilities";
 import { Alert, View, ActivityIndicator } from "react-native";
 
 export default function InviteHandler() {
-  const { inviteId } = useLocalSearchParams<{ inviteId: string }>();
+  const params = useLocalSearchParams<{ inviteId: string; mockUserId: string }>();
+  const inviteId = params.inviteId;
+  const mockUserId = params.mockUserId; // Get mockUserId from URL if present
   const { isSignedIn, isLoaded, user } = useUser();
   const router = useRouter();
 
@@ -16,36 +16,44 @@ export default function InviteHandler() {
     if (!isLoaded || !inviteId) return;
 
     if (!isSignedIn) {
-      router.push(`/auth/sign-in?redirect_to=/invite/${inviteId}`);
+      // Include mockUserId in redirect if present
+      const redirectPath = mockUserId 
+        ? `/auth/sign-in?redirect_to=/invite/${inviteId}/claim/${mockUserId}`
+        : `/auth/sign-in?redirect_to=/invite/${inviteId}`;
+      router.push(redirectPath);
       return;
     }
 
     const processInvite = async () => {
       try {
-        const inviteRef = doc(db, "invites", inviteId);
-        const inviteSnap = await getDoc(inviteRef);
-
-        if (!inviteSnap.exists()) {
-          Alert.alert("Invalid Invite", "This invite link is no longer valid.");
-          router.push("/"); // Go back to home or show a fallback
-          return;
-        }
-
-        const { tripId } = inviteSnap.data();
-        await addMemberToTrip(tripId, user.id, { 
-          skipIfExists: true,
-          sendNotifications: false 
-        });
-        router.push(`/trip/${tripId}`);
+        const result = await acceptInvite(
+          inviteId,
+          { 
+            id: user.id, 
+            name: user.fullName || user.username || user.primaryEmailAddress?.emailAddress || 'Unknown User'
+          },
+          mockUserId
+        );
+        
+        // Navigate to trip page with a query param to show the choose modal if needed
+        router.push(result.shouldShowChooseModal 
+          ? `/trip/${result.tripId}?showChooseModal=true` 
+          : `/trip/${result.tripId}`
+        );
       } catch (err) {
         console.error("Invite processing error:", err);
-        Alert.alert("Error", "Something went wrong. Please try again.");
+        Alert.alert(
+          "Error", 
+          mockUserId 
+            ? "Failed to claim this profile. The invite might be invalid or the profile has already been claimed."
+            : "Invalid or expired invite link."
+        );
         router.push("/");
       }
     };
 
     processInvite();
-  }, [inviteId, isSignedIn, isLoaded]);
+  }, [inviteId, mockUserId, isSignedIn, isLoaded]);
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>

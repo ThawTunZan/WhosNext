@@ -1,21 +1,27 @@
 // Handles the UI for adding of members to the trip
 
-import { View, StyleSheet, Share, Platform } from "react-native";
+import { View, StyleSheet, Share, Platform, ActivityIndicator } from "react-native";
 import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip, List, Divider } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useState } from "react";
-import { AddMemberType, Member } from '@/src/types/DataTypes';
+import { useState, useEffect, useCallback } from "react";
+import { AddMemberType, Currency, Member } from '@/src/types/DataTypes';
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import SelectFriendsModal from './components/SelectFriendsModal';
+import CurrencyModal from '@/app/trip/components/CurrencyModal';
+import { createInvite } from '@/src/utilities/InviteUtilities';
+import * as Linking from 'expo-linking';
+import { useUser } from '@clerk/clerk-expo';
+import QRCode from 'react-native-qrcode-svg';
 
 type MemberListProps = {
   members: { [id: string]: Member };
-  onAddMember: (id: string, name: string, budget: number, addMemberType: AddMemberType) => void;
+  onAddMember: (id: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
   onRemoveMember: (name: string) => void;
   onGenerateClaimCode?: (memberId: string) => Promise<string>;
   onClaimMockUser?: (memberId: string, claimCode: string) => Promise<void>;
+  tripId: string;
 };
 
 export default function MemberList({ 
@@ -23,11 +29,13 @@ export default function MemberList({
   onAddMember, 
   onRemoveMember,
   onGenerateClaimCode,
-  onClaimMockUser 
+  onClaimMockUser,
+  tripId 
 }: MemberListProps) {
   const profiles = useMemberProfiles();
   const [newMember, setNewMember] = useState("");
-  const [newMemberBudget, setNewMemberBudget] = useState(0);
+  const [newMemberBudget, setNewMemberBudget] = useState<number | null>(null);
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMockMemberModal, setShowMockMemberModal] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
@@ -35,11 +43,64 @@ export default function MemberList({
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [claimCode, setClaimCode] = useState("");
   const [errors, setErrors] = useState<{ name?: string; budget?: string; claim?: string }>({});
-  const [addMemberType, setAddMemberType] = useState<AddMemberType>("mock");
+  const [addMemberType, setAddMemberType] = useState<AddMemberType>(AddMemberType.MOCK);
+  const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
+  const { user } = useUser();
+  const [inviteId, setInviteId] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
+
+  const getInviteUrl = useCallback((inviteId: string, mockUserId: string) => {
+    // For development
+    if (__DEV__) {
+      return Platform.select({
+        // Use Expo URL for both web and mobile in development
+        web: Linking.createURL(`invite/${inviteId}?mockUserId=${mockUserId}`),
+        default: Linking.createURL(`invite/${inviteId}?mockUserId=${mockUserId}`)
+      });
+    }
+    
+    // For production - replace with your actual production domain
+    return Platform.select({
+      web: `https://whosnext-v2.vercel.app/invite/${inviteId}?mockUserId=${mockUserId}`,
+      default: Linking.createURL(`invite/${inviteId}?mockUserId=${mockUserId}`)
+    });
+  }, []);
+
+  const handleShareInvite = useCallback((inviteId: string, mockUserId: string) => {
+    const inviteLink = getInviteUrl(inviteId, mockUserId);
+    const memberName = profiles[mockUserId] || 'this mock profile';
+    Share.share({
+      message: `You've been invited to claim ${memberName} in our trip on Who's Next!\n\nClick here to claim the profile: ${inviteLink}`,
+    });
+  }, [profiles, getInviteUrl]);
+
+  useEffect(() => {
+    if (showClaimModal && user && !inviteId) {
+      setInviteLoading(true);
+      const userName = user.fullName ?? user.username ?? user.primaryEmailAddress?.emailAddress ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+      createInvite(tripId, { id: user.id, name: userName })
+        .then(id => {
+          setInviteId(id);
+          console.log('DEV INVITE URL:', Linking.createURL(`invite/${id}`));
+        })
+        .catch(err => {
+          console.error('Failed to create invite:', err);
+        })
+        .finally(() => {
+          setInviteLoading(false);
+        });
+    }
+  }, [showClaimModal, user, tripId]);
+
+  useEffect(() => {
+    if (!showClaimModal) {
+      setInviteId(null);
+    }
+  }, [showClaimModal]);
 
   const handleAdd = () => {
     const trimmedName = newMember.trim();
@@ -48,7 +109,7 @@ export default function MemberList({
     if (!trimmedName) {
       newErrors.name = "Name is required";
     }
-    if (!newMemberBudget || newMemberBudget <= 0) {
+    if (newMemberBudget < 0) {
       newErrors.budget = "Please enter a valid budget amount";
     }
 
@@ -59,41 +120,14 @@ export default function MemberList({
 
     const memberId = `${trimmedName}-${Date.now()}`;
 
-    onAddMember(memberId, trimmedName, newMemberBudget, addMemberType);
+    onAddMember(memberId, trimmedName, newMemberBudget, selectedCurrency, addMemberType);
     setNewMember("");
-    setNewMemberBudget(0);
-    setErrors({});
+    setNewMemberBudget(null);
     setShowMockMemberModal(false);
   };
 
-  const handleClaimAttempt = async () => {
-    if (!selectedMemberId || !claimCode) {
-      setErrors({ ...errors, claim: "Please enter a valid claim code" });
-      return;
-    }
-
-    try {
-      await onClaimMockUser?.(selectedMemberId, claimCode);
-      setShowClaimModal(false);
-      setClaimCode("");
-      setSelectedMemberId(null);
-      setErrors({});
-    } catch (error) {
-      setErrors({ ...errors, claim: "Invalid claim code" });
-    }
-  };
-
-  const handleGenerateClaimCode = async (memberId: string) => {
-    if (onGenerateClaimCode) {
-      try {
-        const code = await onGenerateClaimCode(memberId);
-        await Share.share({
-          message: `Claim your profile in our trip! Use this code: ${code}`,
-        });
-      } catch (error) {
-        console.error('Error generating claim code:', error);
-      }
-    }
+  const handleFriendSelect = (friendId: string, friendName: string, budget: number) => {
+    onAddMember(friendId, friendName, budget, "USD", AddMemberType.FRIENDS);
   };
 
   const memberCount = Object.keys(members).length;
@@ -106,7 +140,7 @@ export default function MemberList({
             size={40}
             label={profile?.substring(0, 2).toUpperCase() || "??"}
             style={[
-              { backgroundColor: member.isMockUser ? 
+              { backgroundColor: member.addMemberType === AddMemberType.MOCK ? 
                 theme.colors.placeholder : 
                 paperTheme.colors.primary 
               }
@@ -124,7 +158,7 @@ export default function MemberList({
         </View>
 
         <View style={styles.rightContent}>
-          {member.isMockUser && (
+          {member.addMemberType === AddMemberType.MOCK && onGenerateClaimCode && (
             <Chip 
               style={styles.unverifiedBadge}
               textStyle={{ fontSize: 10 }}
@@ -135,7 +169,7 @@ export default function MemberList({
           )}
 
           <View style={styles.actionButtons}>
-            {member.isMockUser && onGenerateClaimCode && (
+            {member.addMemberType === AddMemberType.MOCK && onGenerateClaimCode && (
               <IconButton
                 icon="link-variant"
                 size={20}
@@ -238,7 +272,7 @@ export default function MemberList({
               left={props => <List.Icon {...props} icon="account-multiple" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
-                setAddMemberType("friends");
+                setAddMemberType(AddMemberType.FRIENDS);
                 setShowAddModal(false);
                 setShowFriendsModal(true);
               }}
@@ -250,7 +284,7 @@ export default function MemberList({
               left={props => <List.Icon {...props} icon="link" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
-                setAddMemberType("invite link");
+                setAddMemberType(AddMemberType.INVITE_LINK);
                 setShowAddModal(false);
               }}
               style={{ paddingVertical: 12 }}
@@ -261,7 +295,7 @@ export default function MemberList({
               left={props => <List.Icon {...props} icon="qrcode" />}
               right={props => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => {
-                setAddMemberType("qr code");
+                setAddMemberType(AddMemberType.QR_CODE);
                 setShowAddModal(false);
               }}
               style={{ paddingVertical: 12 }}
@@ -328,19 +362,27 @@ export default function MemberList({
             </Text>
           )}
 
-          <TextInput
-            label="Budget Amount"
-            value={String(newMemberBudget || '')}
-            onChangeText={(text) => {
-              setNewMemberBudget(Number(text) || 0);
-              setErrors(prev => ({ ...prev, budget: undefined }));
-            }}
-            keyboardType="numeric"
-            style={[styles.input, { backgroundColor: theme.colors.background }]}
-            mode="outlined"
-            error={!!errors.budget}
-            left={<TextInput.Affix text="$" />}
-          />
+          <View style={styles.rowInputContainer}>
+            <TextInput
+              label="Budget Amount (Optional)"
+              value={newMemberBudget !== null ? String(newMemberBudget) : ''}
+              onChangeText={(text) => {
+                setNewMemberBudget(text ? Number(text) : null);
+                setErrors(prev => ({ ...prev, budget: undefined }));
+              }}
+              keyboardType="numeric"
+              style={[styles.input, { backgroundColor: theme.colors.background, flex: 1 }]}
+              mode="outlined"
+              error={!!errors.budget}
+            />
+            <Button
+              mode="outlined"
+              onPress={() => setShowCurrencyDialog(true)}
+              style={styles.currencyButton}
+            >
+              {selectedCurrency}
+            </Button>
+          </View>
           {errors.budget && (
             <Text variant="labelSmall" style={styles.errorText}>
               {errors.budget}
@@ -360,7 +402,7 @@ export default function MemberList({
             <Button 
               mode="contained" 
               onPress={() => {
-                setAddMemberType("mock");
+                setAddMemberType(AddMemberType.MOCK);
                 handleAdd();
               }}
               style={styles.modalButton}
@@ -391,7 +433,7 @@ export default function MemberList({
         >
           <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text variant="headlineSmall" style={{ flex: 1, fontSize: 22, fontWeight: '600', color: theme.colors.text }}>
-              Claim Mock Profile
+              Share Mock Profile Link
             </Text>
             <IconButton
               icon="close"
@@ -405,22 +447,42 @@ export default function MemberList({
             />
           </View>
 
-          <TextInput
-            label="Claim Code"
-            value={claimCode}
-            onChangeText={(text) => {
-              setClaimCode(text);
-              setErrors(prev => ({ ...prev, claim: undefined }));
-            }}
-            style={[styles.input, { backgroundColor: theme.colors.background }]}
-            mode="outlined"
-            error={!!errors.claim}
-          />
-          {errors.claim && (
-            <Text variant="labelSmall" style={styles.errorText}>
-              {errors.claim}
-            </Text>
-          )}
+          <View style={styles.inviteLinkContainer}>
+            {inviteLoading ? (
+              <ActivityIndicator style={{ marginVertical: 20 }} size="large" />
+            ) : inviteId && selectedMemberId ? (
+              <>
+                <TextInput
+                  label="Mock Profile Invite Link"
+                  value={getInviteUrl(inviteId, selectedMemberId)}
+                  editable={false}
+                  style={[styles.input, { backgroundColor: theme.colors.background }]}
+                  mode="outlined"
+                  right={<TextInput.Icon icon="content-copy" onPress={() => handleShareInvite(inviteId, selectedMemberId)} />}
+                />
+                <Text variant="bodySmall" style={{ color: theme.colors.subtext, marginTop: 8, marginBottom: 16 }}>
+                  Share this special link to let someone claim this mock profile. When they click the link, they'll be automatically connected to this profile.
+                </Text>
+
+                <View style={styles.qrContainer}>
+                  <Text variant="titleMedium" style={{ color: theme.colors.text, marginBottom: 12, textAlign: 'center' }}>
+                    Scan QR Code
+                  </Text>
+                  <Surface style={[styles.qrWrapper, { backgroundColor: 'white' }]}>
+                    <QRCode
+                      value={getInviteUrl(inviteId, selectedMemberId)}
+                      size={200}
+                    />
+                  </Surface>
+                  <Text variant="bodySmall" style={{ color: theme.colors.subtext, marginTop: 8, textAlign: 'center' }}>
+                    Or scan this QR code with your phone's camera
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <Text style={{ color: theme.colors.error }}>Failed to generate invite link. Please try again.</Text>
+            )}
+          </View>
 
           <View style={styles.modalActions}>
             <Button 
@@ -432,32 +494,32 @@ export default function MemberList({
               }}
               style={styles.modalButton}
             >
-              Cancel
+              Close
             </Button>
-            <Button 
-              mode="contained" 
-              onPress={handleClaimAttempt}
-              style={styles.modalButton}
-            >
-              Claim Profile
-            </Button>
-            <Button 
-              mode="contained-tonal"
-              onPress={() => selectedMemberId && handleGenerateClaimCode(selectedMemberId)}
-              style={styles.modalButton}
-            >
-              Generate Code
-            </Button>
+            {inviteId && selectedMemberId && (
+              <Button 
+                mode="contained" 
+                onPress={() => handleShareInvite(inviteId, selectedMemberId)}
+                style={styles.modalButton}
+                icon="share"
+              >
+                Share Link
+              </Button>
+            )}
           </View>
         </Modal>
+
+        <CurrencyModal
+          visible={showCurrencyDialog}
+          onDismiss={() => setShowCurrencyDialog(false)}
+          selectedCurrency={selectedCurrency}
+          onSelectCurrency={setSelectedCurrency}
+        />
 
         <SelectFriendsModal
           visible={showFriendsModal}
           onDismiss={() => setShowFriendsModal(false)}
-          onSelectFriend={(friendId, friendName, budget) => {
-            onAddMember(friendId, friendName, budget, "friends");
-            setShowFriendsModal(false);
-          }}
+          onSelectFriend={handleFriendSelect}
         />
       </Portal>
     </View>
@@ -469,7 +531,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   memberListContainer: {
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 16,
   },
   header: {
@@ -507,12 +569,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   input: {
-    marginBottom: 4,
+    marginBottom: 8,
   },
   errorText: {
-    color: '#dc3545',
-    marginBottom: 12,
-    marginLeft: 8,
+    color: '#B00020',
+    marginBottom: 8,
   },
   modalActions: {
     flexDirection: 'row',
@@ -537,5 +598,35 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
+  },
+  rowInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  currencyButton: {
+    minWidth: 80,
+    marginTop: 6,
+  },
+  inviteLinkContainer: {
+    marginBottom: 16,
+  },
+  qrContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  qrWrapper: {
+    padding: 16,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
 });

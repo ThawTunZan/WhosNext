@@ -15,7 +15,14 @@ import {
   DocumentReference,
   QuerySnapshot,
   DocumentSnapshot,
+  increment,
+  writeBatch,
+  Timestamp,
+  FieldValue,
 } from 'firebase/firestore';
+import { Currency, Debt, Payment } from '@/src/types/DataTypes';
+import { convertCurrency } from './CurrencyService';
+import { deletePayment } from '@/src/utilities/PaymentUtilities';
 
 // User-related operations
 export const getUserById = async (userId: string) => {
@@ -299,3 +306,247 @@ export const checkIfBlocked = async (userId: string, targetUserId: string) => {
     throw error;
   }
 };
+
+
+// Function to record a new payment
+export const firebaseRecordPayment = async (payment: Payment): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  try {
+    // 1. Add the payment record
+    const paymentsRef = collection(db, 'trips', payment.tripId, 'payments');
+    const paymentDocRef = doc(paymentsRef);
+    
+    const paymentData = {
+      ...payment,
+    };
+    paymentData.createdTime = serverTimestamp();
+    paymentData.createdDate = Timestamp.now();
+    
+    batch.set(paymentDocRef, paymentData);
+
+    // 2. Get current debt values
+    const tripRef = doc(db, 'trips', payment.tripId);
+    const tripSnap = await getDoc(tripRef);
+    
+    if (!tripSnap.exists()) {
+      throw new Error('Trip not found');
+    }
+    
+    const tripData = tripSnap.data();
+    const debts = tripData?.debts || {};
+    const currencyDebts = debts[payment.currency] || {};
+
+    // Get the current debt values in both directions
+    const paidByToPaidTo = `${payment.fromUserId}#${payment.toUserId}`;
+    const paidToToPaidBy = `${payment.toUserId}#${payment.fromUserId}`;
+    
+    const currentPaidByToPaidTo = currencyDebts[paidByToPaidTo] || 0;
+    const paymentAmount = payment.amount;
+
+    // If current debt from paidBy to paidTo is greater than or equal to payment amount
+    // simply decrease that debt
+    if (currentPaidByToPaidTo >= paymentAmount) {
+      batch.update(tripRef, {
+        [`debts.${payment.currency}.${paidByToPaidTo}`]: increment(-paymentAmount),
+        [`members.${payment.fromUserId}.amtLeft`]: increment(-paymentAmount),
+        [`members.${payment.toUserId}.amtLeft`]: increment(paymentAmount),
+      });
+    } 
+    // If payment amount is greater than current debt
+    else {
+      // First, clear out the existing debt
+      const remainingAmount = paymentAmount - currentPaidByToPaidTo;
+      
+      // Create update object
+      const updates: any = {
+        [`members.${payment.fromUserId}.amtLeft`]: increment(-paymentAmount),
+        [`members.${payment.toUserId}.amtLeft`]: increment(paymentAmount),
+      };
+
+      // If there was any existing debt, clear it
+      if (currentPaidByToPaidTo > 0) {
+        updates[`debts.${payment.currency}.${paidByToPaidTo}`] = 0;
+      }
+
+      // Add the remaining amount to the reverse direction
+      updates[`debts.${payment.currency}.${paidToToPaidBy}`] = increment(remainingAmount);
+
+      batch.update(tripRef, updates);
+    }
+
+    await batch.commit();
+    console.log('Payment recorded successfully');
+  } catch (error) {
+    console.error('Error recording payment:', error);
+    throw error;
+  }
+};
+
+// Function to get all payments for a trip
+export const firebaseGetTripPayments = async (tripId: string): Promise<Payment[]> => {
+  try {
+    const paymentsRef = collection(db, 'trips', tripId, 'payments');
+    const q = query(paymentsRef, where('tripId', '==', tripId));
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Payment[];
+  } catch (error) {
+    console.error('Error getting trip payments:', error);
+    throw error;
+  }
+};
+
+// Function to get payments between two users in a trip
+export const firebaseGetUserPayments = async (
+  tripId: string,
+  userId1: string,
+  userId2: string
+): Promise<Payment[]> => {
+  try {
+    const paymentsRef = collection(db, 'trips', tripId, 'payments');
+    const q = query(
+      paymentsRef,
+      where('tripId', '==', tripId),
+      where('fromUserId', 'in', [userId1, userId2])
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const payments = querySnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Payment[];
+    
+    // Filter to only include payments between these two users
+    return payments.filter(payment => 
+      (payment.fromUserId === userId1 && payment.toUserId === userId2) ||
+      (payment.fromUserId === userId2 && payment.toUserId === userId1)
+    );
+  } catch (error) {
+    console.error('Error getting user payments:', error);
+    throw error;
+  }
+};
+
+// Function to delete a payment (and reverse its effects)
+export const firebaseDeletePayment = async (tripId: string, payment: Payment): Promise<void> => {
+  const batch = writeBatch(db);
+  
+  try {
+    // 1. Delete the payment document
+    const paymentRef = doc(db, 'trips', tripId, 'payments', payment.id!);
+    batch.delete(paymentRef);
+
+    // 2. Get current debts
+    const tripRef = doc(db, 'trips', tripId);
+    const tripSnap = await getDoc(tripRef);
+    
+    if (!tripSnap.exists()) {
+      throw new Error('Trip not found');
+    }
+    
+    const tripData = tripSnap.data();
+    const debts = tripData?.debts || {};
+
+    // 3. Calculate updates using the utility function
+    const updates = deletePayment(payment, debts);
+
+    // 4. Apply updates
+    batch.update(tripRef, updates);
+
+    await batch.commit();
+    console.log('Payment deleted successfully');
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    throw error;
+  }
+};
+
+// Expense-related helpers
+export const getExpenseCollectionRefs = (tripId: string, expenseId?: string) => {
+  const tripRef = doc(db, 'trips', tripId);
+  const expensesColRef = collection(db, 'trips', tripId, 'expenses');
+  const expenseDocRef = expenseId ? doc(db, 'trips', tripId, 'expenses', expenseId) : null;
+  return { tripRef, expensesColRef, expenseDocRef };
+};
+
+export const updateExpenseCollection = async (expenseDocRef: any, data: any) => {
+  if (!expenseDocRef) throw new Error('Expense document reference is required');
+  await updateDoc(expenseDocRef, data);
+};
+
+interface DebtsByUser {
+  [userPair: string]: number;  // e.g. "user1#user2": amount
+}
+
+interface DebtsByCurrency {
+  [currency: string]: DebtsByUser;  // e.g. "USD": { "user1#user2": amount }
+}
+
+// Function to get all debts for a trip
+export const getDebtsForTrip = async (tripId: string): Promise<DebtsByCurrency> => {
+  try {
+    const tripRef = doc(db, 'trips', tripId);
+    const tripSnap = await getDoc(tripRef);
+    
+    if (!tripSnap.exists()) {
+      throw new Error('Trip not found');
+    }
+
+    const tripData = tripSnap.data();
+    const debts = tripData?.debts || {};
+
+    // Return the debts object which is already in the correct structure
+    // { EUR: { "user1#user2": amount }, USD: { "user1#user2": amount } }
+    return debts as DebtsByCurrency;
+  } catch (error) {
+    console.error('Error getting debts for trip:', error);
+    throw error;
+  }
+};
+
+// Helper function to get debts for specific currency
+export const getDebtsForCurrency = async (tripId: string, currency: Currency): Promise<DebtsByUser> => {
+  try {
+    const debts = await getDebtsForTrip(tripId);
+    return debts[currency] || {};
+  } catch (error) {
+    console.error(`Error getting debts for currency ${currency}:`, error);
+    throw error;
+  }
+};
+
+// Helper function to get debt between two users in a specific currency
+export const getDebtBetweenUsers = async (
+  tripId: string, 
+  user1Id: string, 
+  user2Id: string, 
+  currency: Currency
+): Promise<number> => {
+  try {
+    const currencyDebts = await getDebtsForCurrency(tripId, currency);
+    const userPair = `${user1Id}#${user2Id}`;
+    const reverseUserPair = `${user2Id}#${user1Id}`;
+    
+    // Check both directions of the debt
+    if (userPair in currencyDebts) {
+      return currencyDebts[userPair];
+    } else if (reverseUserPair in currencyDebts) {
+      return currencyDebts[reverseUserPair];
+    }
+    
+    return 0; // No debt found between these users in this currency
+  } catch (error) {
+    console.error(`Error getting debt between users in ${currency}:`, error);
+    throw error;
+  }
+};
+
+interface ExpenseShare {
+  userId: string;
+  amount: number;
+}
