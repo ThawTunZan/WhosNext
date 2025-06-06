@@ -1,13 +1,13 @@
 // src/screens/TripDetails/ExpensesSection.tsx
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Button, Text, Snackbar, Chip, useTheme } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 import { useExpenses } from '../../src/hooks/useExpenses';
 import { addExpenseAndCalculateDebts, deleteExpense } from '../../src/services/expenseService';
-import ExpenseCard from '../../app/trip/components/ExpenseCard';
+import ExpenseList from '../../app/trip/components/ExpenseList';
 import AddExpenseModal from '../../src/components/AddExpenseModal'; 
 import { ExpensesSectionProps, Expense } from '../../src/types/DataTypes'; 
 import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
@@ -98,40 +98,6 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
        setSnackbarVisible(true);
   }, [tripId]);
 
-
-  const renderExpenseItem = useCallback(({ item }: { item: Expense }) => (
-    <ExpenseCard
-      expense={item}
-      isExpanded={item.id === expandedId}
-      onToggleExpand={toggleExpand}
-      onDelete={handleDeleteExpense}
-      onEdit={handleEditExpenseLocal}
-    />
-  ), [expandedId, toggleExpand, handleDeleteExpense, handleEditExpenseLocal]);
-
-  const keyExtractor = useCallback((item: Expense) => item.id, []);
-
-  // --- Render Logic ---
-   if (isLoading && expenses.length === 0) { // Show loader only on initial load
-    return (
-      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={paperTheme.colors.primary} />
-        <Text style={{ color: theme.colors.text }}>Loading Expenses...</Text>
-      </View>
-    );
-  }
-
-  if (fetchError) {
-    return (
-      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          Error loading expenses: {fetchError}
-        </Text>
-      </View>
-    );
-  }
-
-  // ListHeaderComponent for the header
   const renderListHeader = () => (
     <>
       <Text style={[styles.header, { color: theme.colors.text }]}>🧾 Expenses</Text>
@@ -152,9 +118,47 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
     </>
   );
 
-  // ListFooterComponent for the button
-  const renderListFooter = () => (
-     <Button
+  // --- Render Logic ---
+  if (isLoading && expenses.length === 0) {
+    return (
+      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={paperTheme.colors.primary} />
+        <Text style={{ color: theme.colors.text }}>Loading Expenses...</Text>
+      </View>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+          Error loading expenses: {fetchError}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      keyboardVerticalOffset={100}
+    >
+      {renderListHeader()}
+      
+      <ExpenseList
+        expenses={expenses}
+        searchQuery={searchQuery}
+        profiles={profiles}
+        expandedId={expandedId}
+        isRefreshing={isRefreshing}
+        onRefresh={onRefresh}
+        onToggleExpand={toggleExpand}
+        onDeleteExpense={handleDeleteExpense}
+        onEditExpense={handleEditExpenseLocal}
+        styles={styles}
+      />
+    <Button
         mode="contained"
         icon="plus-circle-outline"
         onPress={onAddExpensePress}
@@ -162,38 +166,6 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
       >
         Add Expense
       </Button>
-  );
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView 
-        keyboardShouldPersistTaps="always"
-        contentContainerStyle={styles.scrollContent}
-      >
-        {renderListHeader()}
-        <FlatList
-          data={filteredExpenses}
-          keyExtractor={keyExtractor}
-          renderItem={renderExpenseItem}
-          ListFooterComponent={renderListFooter}
-          ListEmptyComponent={
-             <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-                 <Text style={{ color: theme.colors.text }}>
-                   {searchQuery ? 'No matching expenses found.' : 'No expenses added yet.'}
-                 </Text>
-             </View>
-          }
-          refreshControl={
-            <RefreshControl 
-              refreshing={isRefreshing} 
-              onRefresh={onRefresh}
-              tintColor={paperTheme.colors.primary}
-            />
-          }
-          contentContainerStyle={styles.listContentContainer}
-          scrollEnabled={false}
-        />
-      </ScrollView>
 
       <AddExpenseModal
         visible={modalVisible}
@@ -201,24 +173,28 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
         onSubmit={handleAddExpenseSubmit}
         members={members}
         tripId={tripId}
-        suggestedPayerId={nextPayerId} 
-        editingExpenseId={null}
       />
 
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
-        duration={Snackbar.DURATION_SHORT}
+        duration={3000}
       >
         {snackbarMessage}
       </Snackbar>
-    </View>
+    </KeyboardAvoidingView>
+    
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  listContentContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 15,
+    paddingBottom: 20,
   },
   scrollContent: {
     flexGrow: 1,
@@ -227,33 +203,26 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   header: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  nextPayerChip: {
-    alignSelf: 'flex-start',
-    marginTop: -5,
     marginBottom: 15,
-    marginLeft: 16,
-  },
-  nextPayerChipText: {
-    fontSize: 13,
+    marginLeft: 5,
   },
   errorText: {
     textAlign: 'center',
-    marginHorizontal: 20,
-  },
-  listContentContainer: {
-    flexGrow: 1,
-    paddingBottom: 16,
   },
   addButton: {
     margin: 16,
+  },
+  nextPayerChip: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  nextPayerChipText: {
+    fontSize: 14,
   },
 });
 

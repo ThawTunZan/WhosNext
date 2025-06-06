@@ -1,11 +1,10 @@
 // src/screens/TripDetails/components/ActivityVotingSection.tsx
 import React, { useState, useCallback } from 'react'
-import { View, StyleSheet, FlatList, Text, ScrollView } from 'react-native'
-import { Button, ActivityIndicator, Snackbar, useTheme } from 'react-native-paper'
+import { View, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
+import { Button, Text, Snackbar, useTheme } from 'react-native-paper'
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 
-import ActivityCard from '../../src/components/ActivityCard'
 import {
   NewProposedActivityData,
   ProposedActivity,
@@ -23,7 +22,8 @@ import ProposeActivityModal from '../../src/components/ProposeActivityModal'
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
 import { SearchBar } from '@/app/trip/components/SearchBar'
-import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
+import { useMemberProfiles } from '@/src/context/MemberProfilesContext'
+import ActivityList from '@/app/trip/components/ActivityList'
 
 const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDeleteActivity, }: ActivityVotingSectionProps) => {
     const { isDarkMode } = useCustomTheme();
@@ -49,17 +49,6 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
       user.primaryEmailAddress?.emailAddress ??
       `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
 
-    const filteredActivities = activities.filter(activity => {
-      const searchLower = searchQuery.toLowerCase();
-      return (
-        activity.name.toLowerCase().includes(searchLower) ||
-        (activity.description?.toLowerCase() || '').includes(searchLower) ||
-        profiles[activity.suggestedByID].toString().includes(searchLower)
-      );
-    });
-
-    // --- Handlers ---
-
     const handleEditActivity = useCallback((activity: ProposedActivity) => {
       setEditingActivity(activity)
       setProposeModalVisible(true)
@@ -80,7 +69,7 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
             setSnackbarMessage(`Error voting: ${err instanceof Error ? err.message : 'Unknown error'}`);
             setSnackbarVisible(true);
         }
-      }, [tripId]); // Dependency: tripId
+    }, [tripId]);
 
     const handleVoteUp = useCallback((id: string) => {
         console.log(`Voted UP on activity: ${id}`);
@@ -95,29 +84,24 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
     const handleDeleteActivityLocal = useCallback((activityId: string) => {
         console.log(`Requesting delete for activity: ${activityId}`);
         onDeleteActivity(activityId);
-     }, [onDeleteActivity]);
+    }, [onDeleteActivity]);
 
     const handleAddExpenseFromActivity = useCallback((activity: ProposedActivity) => {
         onAddExpenseFromActivity(activity)
-
     }, [onAddExpenseFromActivity]);
 
     const handleProposeNewActivity = () => {
         console.log("Opening propose activity modal");
         setProposeModalVisible(true)
     };
-    // ---------------------------
 
-     // --- Handler for Modal Submission ---
     const handleProposeSubmit = useCallback(async (activityData: NewProposedActivityData) => {
         console.log("Submitting proposed activity:", activityData);
         try {
           if (editingActivity) {
-+           //  ––––––– update existing activity –––––––
             await updateProposedActivity(tripId, editingActivity.id, activityData)
             setSnackbarMessage(`Activity "${activityData.name}" updated!`)
           } else {
-+           //  ––––––– add new activity –––––––
             await addProposedActivity(tripId, activityData)
             setSnackbarMessage(`Activity "${activityData.name}" proposed!`)
           }
@@ -132,22 +116,7 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
         }
     }, [tripId, editingActivity, currentUserId, currentUserName]);
 
-
-  // Render function for FlatList
-  const renderActivityCard = useCallback(({ item }: { item: ProposedActivity }) => (
-    <ActivityCard
-      activity={item}
-      onVoteUp={handleVoteUp}
-      onVoteDown={handleVoteDown}
-      onAddExpense={handleAddExpenseFromActivity}
-      onDelete={handleDeleteActivityLocal}
-      onEdit={handleEditActivity}
-    />
-  ), [handleVoteUp, handleVoteDown, handleAddExpenseFromActivity, handleEditActivity]); // Include handlers in dependencies
-
-  const keyExtractor = useCallback((item: ProposedActivity) => item.id, []);
-
-   const renderListHeader = () => (
+    const renderListHeader = () => (
       <>
         <Text style={[styles.header, { color: theme.colors.text }]}>
           🗳️ Activity Voting
@@ -158,76 +127,66 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
           placeholder="Search activities..."
         />
       </>
-  );
-
-   const renderListFooter = () => (
-       <Button
-           mode="contained"
-           icon="lightbulb-on-outline"
-           onPress={handleProposeNewActivity}
-           style={styles.proposeButton}
-        >
-           Propose New Activity
-       </Button>
-   );
-
-  // --- Render Logic ---
-  if (isLoading) {
-    return (
-      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator animating={true} size="large" color={paperTheme.colors.primary} />
-      </View>
     );
-  }
 
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView 
-        keyboardShouldPersistTaps="always"
-        contentContainerStyle={styles.scrollContent}
+    if (isLoading) {
+      return (
+        <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+          <ActivityIndicator animating={true} size="large" color={paperTheme.colors.primary} />
+        </View>
+      );
+    }
+
+    return (
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        keyboardVerticalOffset={100}
       >
         {renderListHeader()}
-        <FlatList
-          data={filteredActivities}
-          renderItem={renderActivityCard}
-          keyExtractor={keyExtractor}
-          ListFooterComponent={renderListFooter}
-          ListEmptyComponent={
-            <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-              <Text style={{ color: theme.colors.text }}>
-                {searchQuery ? 'No matching activities found.' : 'No activities proposed yet.'}
-              </Text>
-            </View>
-          }
-          contentContainerStyle={styles.listContentContainer}
-          scrollEnabled={false}
+
+        <ActivityList
+          activities={activities}
+          searchQuery={searchQuery}
+          profiles={profiles}
+          onVoteUp={handleVoteUp}
+          onVoteDown={handleVoteDown}
+          onAddExpense={handleAddExpenseFromActivity}
+          onDelete={handleDeleteActivityLocal}
+          onEdit={handleEditActivity}
+          styles={styles}
         />
-      </ScrollView>
-      <Snackbar
-        visible={snackbarVisible}
-        onDismiss={() => setSnackbarVisible(false)}
-        duration={3000}
-      >
-        {snackbarMessage}
-      </Snackbar>
-      <ProposeActivityModal
-        visible={proposeModalVisible}
-        onClose={() => setProposeModalVisible(false)}
-        onSubmit={handleProposeSubmit}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-        initialData={
-          editingActivity ? {
-            name: editingActivity.name,
-            description: editingActivity.description,
-            estCost: editingActivity.estCost,
-            currency: editingActivity.currency,
-          }
-          : undefined
-        }
-      />
-    </View>
-  );
+
+        <Button
+          mode="contained"
+          icon="lightbulb-on-outline"
+          onPress={handleProposeNewActivity}
+          style={styles.proposeButton}
+        >
+          Propose New Activity
+        </Button>
+
+        <ProposeActivityModal
+          visible={proposeModalVisible}
+          onClose={() => {
+            setProposeModalVisible(false)
+            setEditingActivity(null)
+          }}
+          onSubmit={handleProposeSubmit}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          initialData={editingActivity || undefined}
+        />
+
+        <Snackbar
+          visible={snackbarVisible}
+          onDismiss={() => setSnackbarVisible(false)}
+          duration={3000}
+        >
+          {snackbarMessage}
+        </Snackbar>
+      </KeyboardAvoidingView>
+    );
 };
 
 const styles = StyleSheet.create({
@@ -243,6 +202,7 @@ const styles = StyleSheet.create({
       flexGrow: 1,
     },
     listContentContainer: {
+      flexGrow: 1,
       paddingHorizontal: 15,
       paddingBottom: 20,
     },
@@ -257,11 +217,10 @@ const styles = StyleSheet.create({
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      marginTop: 50,
+      padding: 20,
     },
     proposeButton: {
-        marginTop: 15,
-        marginHorizontal: 20,
+        margin: 16,
     }
 });
 

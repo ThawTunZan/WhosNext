@@ -39,6 +39,11 @@ export const SearchBar = ({
         autoComplete="off"
         returnKeyType="search"
         clearButtonMode="while-editing"
+        blurOnSubmit={false}
+        enablesReturnKeyAutomatically={true}
+        autoCapitalize="none"
+        autoCorrect={false}
+        onSubmitEditing={() => {}}
       />
     </View>
   );
