@@ -16,7 +16,7 @@ import {
     ParsedDebt,         
 } from '@/src/utilities/SettleUpUtilities'; 
 import { Member, Debt, Currency } from '@/src/types/DataTypes';
-import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
+import { useMemberProfiles, MemberProfilesProvider } from '@/src/context/MemberProfilesContext';
 import RecordPaymentModal from '@/src/components/RecordPaymentModal';
 import { firebaseRecordPayment, firebaseGetTripPayments, Payment } from '@/src/services/FirebaseServices';
 
@@ -287,16 +287,18 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
         label="Record Payment"
       />
 
-      <RecordPaymentModal
-        visible={showPaymentModal}
-        onDismiss={() => setShowPaymentModal(false)}
-        onSubmit={handlePaymentSubmit}
-        profiles={profiles}
-        debts={debts}
-        currentUserId={user?.id || ''}
-        tripId={tripId}
-        defaultCurrency={tripCurrency}
-      />
+      <MemberProfilesProvider memberUids={Object.keys(members)}>
+        <RecordPaymentModal
+          visible={showPaymentModal}
+          onDismiss={() => setShowPaymentModal(false)}
+          onSubmit={handlePaymentSubmit}
+          debts={debts}
+          currentUserId={user?.id || ''}
+          tripId={tripId}
+          defaultCurrency={tripCurrency}
+          members={members}
+        />
+      </MemberProfilesProvider>
     </View>
   );
 }

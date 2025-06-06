@@ -1,6 +1,6 @@
 // src/screens/TripDetails/ExpensesSection.tsx
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
 import { Button, Text, Snackbar, Chip, useTheme } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
@@ -11,6 +11,7 @@ import ExpenseCard from '../../app/trip/components/ExpenseCard';
 import AddExpenseModal from '../../src/components/AddExpenseModal'; 
 import { ExpensesSectionProps, Expense } from '../../src/types/DataTypes'; 
 import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
+import { SearchBar } from '@/app/trip/components/SearchBar';
 
 const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, nextPayerId }: ExpensesSectionProps) => {
   const { isDarkMode } = useCustomTheme();
@@ -22,10 +23,17 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false); // For pull-to-refresh
+  const [searchQuery, setSearchQuery] = useState('');
 
   const profiles = useMemberProfiles();
 
-  
+  const filteredExpenses = expenses.filter(expense => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      expense.activityName.toLowerCase().includes(searchLower) ||
+      profiles[expense.paidById]?.toLowerCase().includes(searchLower)
+    );
+  });
 
   const toggleExpand = useCallback((id: string) => {
     setExpandedId(prev => (prev === id ? null : id));
@@ -127,7 +135,11 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   const renderListHeader = () => (
     <>
       <Text style={[styles.header, { color: theme.colors.text }]}>🧾 Expenses</Text>
-      {/* Conditionally render the Chip/Text if name exists */}
+      <SearchBar
+        searchQuery={searchQuery}
+        onChangeSearch={setSearchQuery}
+        placeholder="Search expenses..."
+      />
       {nextPayerId && (
           <Chip
               icon="account-arrow-right"
@@ -154,28 +166,34 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-
-      <FlatList
-        data={expenses}
-        keyExtractor={keyExtractor}
-        renderItem={renderExpenseItem}
-        ListHeaderComponent={renderListHeader}
-        ListFooterComponent={renderListFooter}
-        ListEmptyComponent={
-           <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-               <Text style={{ color: theme.colors.text }}>No expenses added yet.</Text>
-           </View>
-        }
-        refreshControl={
-          <RefreshControl 
-            refreshing={isRefreshing} 
-            onRefresh={onRefresh}
-            tintColor={paperTheme.colors.primary}
-          />
-        }
-        contentContainerStyle={styles.listContentContainer}
-        
-      />
+      <ScrollView 
+        keyboardShouldPersistTaps="always"
+        contentContainerStyle={styles.scrollContent}
+      >
+        {renderListHeader()}
+        <FlatList
+          data={filteredExpenses}
+          keyExtractor={keyExtractor}
+          renderItem={renderExpenseItem}
+          ListFooterComponent={renderListFooter}
+          ListEmptyComponent={
+             <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+                 <Text style={{ color: theme.colors.text }}>
+                   {searchQuery ? 'No matching expenses found.' : 'No expenses added yet.'}
+                 </Text>
+             </View>
+          }
+          refreshControl={
+            <RefreshControl 
+              refreshing={isRefreshing} 
+              onRefresh={onRefresh}
+              tintColor={paperTheme.colors.primary}
+            />
+          }
+          contentContainerStyle={styles.listContentContainer}
+          scrollEnabled={false}
+        />
+      </ScrollView>
 
       <AddExpenseModal
         visible={modalVisible}
@@ -184,13 +202,13 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
         members={members}
         tripId={tripId}
         suggestedPayerId={nextPayerId} 
-        editingExpenseId={null}      />
+        editingExpenseId={null}
+      />
 
-        {/* Snackbar for user feedback */}
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
-        duration={Snackbar.DURATION_SHORT} // Or DURATION_MEDIUM
+        duration={Snackbar.DURATION_SHORT}
       >
         {snackbarMessage}
       </Snackbar>
@@ -201,6 +219,9 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   centered: {
     flex: 1,

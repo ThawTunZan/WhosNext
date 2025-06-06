@@ -5,34 +5,37 @@ import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
-import { Currency, Debt } from '@/src/types/DataTypes';
+import { Currency, Debt, Member } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 import { Payment } from '@/src/services/FirebaseServices';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
+import CurrencyModal from '@/app/trip/components/CurrencyModal';
+import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 type RecordPaymentModalProps = {
   visible: boolean;
   onDismiss: () => void;
   onSubmit: (payment: Payment) => Promise<void>;
-  profiles: Record<string, string>;
   debts: Debt[];
   currentUserId: string;
   tripId: string;
   defaultCurrency: Currency;
+  members: Record<string, Member>;
 };
 
 export default function RecordPaymentModal({
   visible,
   onDismiss,
   onSubmit,
-  profiles,
   debts = [],
   currentUserId,
   tripId,
-  defaultCurrency = 'USD'
+  defaultCurrency = 'USD',
+  members
 }: RecordPaymentModalProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
+  const profiles = useMemberProfiles();
 
   const [showPayerDropdown, setShowPayerDropdown] = useState(false);
   const [showPayeeDropdown, setShowPayeeDropdown] = useState(false);
@@ -47,22 +50,12 @@ export default function RecordPaymentModal({
   const [selectedCurrency, setSelectedCurrency] = useState<Currency>(defaultCurrency);
 
   // Get list of all members who can be payers or payees
-  const members = React.useMemo(() => {
-    const memberIds = new Set<string>();
-    
-    // Add all members involved in debts
-    if (Array.isArray(debts)) {
-      debts.forEach(debt => {
-        memberIds.add(debt.fromUserId);
-        memberIds.add(debt.toUserId);
-      });
-    }
-    
-    return Array.from(memberIds).map(id => ({
+  const membersList = React.useMemo(() => {
+    return Object.entries(members).map(([id, member]) => ({
       id,
       name: profiles[id] || id
     }));
-  }, [debts, profiles]);
+  }, [members, profiles]);
 
   // Get the total debt amount between two members
   const getDebtAmount = async (fromId: string, toId: string): Promise<number> => {
@@ -115,17 +108,20 @@ export default function RecordPaymentModal({
             title={selectedPayer ? profiles[selectedPayer] || selectedPayer : "Select payer"}
             expanded={showPayerDropdown}
             onPress={() => setShowPayerDropdown(!showPayerDropdown)}
-            style={styles.dropdown}
+            style={[styles.dropdown, { backgroundColor: theme.colors.surface }]}
           >
-            {members.map((member) => (
+            {membersList.map((member) => (
               <List.Item
                 key={member.id}
                 title={member.name}
                 onPress={() => {
                   setSelectedPayer(member.id);
                   setShowPayerDropdown(false);
-                  setSelectedPayee(''); // Reset payee when payer changes
                 }}
+                style={[
+                  styles.dropdownItem,
+                  selectedPayer === member.id && { backgroundColor: theme.colors.primaryContainer }
+                ]}
               />
             ))}
           </List.Accordion>
@@ -138,24 +134,22 @@ export default function RecordPaymentModal({
             title={selectedPayee ? profiles[selectedPayee] || selectedPayee : "Select payee"}
             expanded={showPayeeDropdown}
             onPress={() => setShowPayeeDropdown(!showPayeeDropdown)}
-            style={styles.dropdown}
+            style={[styles.dropdown, { backgroundColor: theme.colors.surface }]}
           >
-            {members
-              .filter(member => member.id !== selectedPayer) // Exclude the selected payer
+            {membersList
+              .filter(member => member.id !== selectedPayer)
               .map((member) => (
                 <List.Item
                   key={member.id}
                   title={member.name}
-                  description={async () => {
-                    const debtAmount = await getDebtAmount(selectedPayer, member.id);
-                    return debtAmount > 0 ? 
-                      `Owed ${debtAmount.toFixed(2)} ${defaultCurrency}` : 
-                      undefined;
-                  }}
                   onPress={() => {
                     setSelectedPayee(member.id);
                     setShowPayeeDropdown(false);
                   }}
+                  style={[
+                    styles.dropdownItem,
+                    selectedPayee === member.id && { backgroundColor: theme.colors.primaryContainer }
+                  ]}
                 />
             ))}
           </List.Accordion>
@@ -186,11 +180,12 @@ export default function RecordPaymentModal({
         {/* Payment Method */}
         <View style={styles.inputContainer}>
           <Text style={[styles.label, { color: theme.colors.text }]}>Payment Method</Text>
-          <View style={styles.methodContainer}>
+          <View style={[styles.methodContainer, { backgroundColor: theme.colors.surface }]}>
             <Button
               mode={method === 'cash' ? 'contained' : 'outlined'}
               onPress={() => setMethod('cash')}
               style={styles.methodButton}
+              icon="cash"
             >
               Cash
             </Button>
@@ -198,6 +193,7 @@ export default function RecordPaymentModal({
               mode={method === 'transfer' ? 'contained' : 'outlined'}
               onPress={() => setMethod('transfer')}
               style={styles.methodButton}
+              icon="bank-transfer"
             >
               Transfer
             </Button>
@@ -205,6 +201,7 @@ export default function RecordPaymentModal({
               mode={method === 'other' ? 'contained' : 'outlined'}
               onPress={() => setMethod('other')}
               style={styles.methodButton}
+              icon="dots-horizontal"
             >
               Other
             </Button>
@@ -258,6 +255,13 @@ export default function RecordPaymentModal({
           </Button>
         </View>
       </Modal>
+
+      <CurrencyModal
+        visible={showCurrencyDialog}
+        onDismiss={() => setShowCurrencyDialog(false)}
+        selectedCurrency={selectedCurrency}
+        onSelectCurrency={setSelectedCurrency}
+      />
     </Portal>
   );
 }
@@ -267,6 +271,8 @@ const styles = StyleSheet.create({
     margin: 20,
     padding: 20,
     borderRadius: 8,
+    backgroundColor: 'white',
+    maxHeight: '90%',
   },
   title: {
     fontSize: 24,
@@ -283,6 +289,11 @@ const styles = StyleSheet.create({
   dropdown: {
     borderWidth: 1,
     borderRadius: 4,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   amountContainer: {
     flexDirection: 'row',
@@ -298,10 +309,12 @@ const styles = StyleSheet.create({
   methodContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 8,
   },
   methodButton: {
     flex: 1,
-    marginHorizontal: 4,
+    height: 40,
   },
   dateButton: {
     alignSelf: 'flex-start',

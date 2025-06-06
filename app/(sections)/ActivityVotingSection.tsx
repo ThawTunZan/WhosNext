@@ -1,6 +1,6 @@
 // src/screens/TripDetails/components/ActivityVotingSection.tsx
 import React, { useState, useCallback } from 'react'
-import { View, StyleSheet, FlatList, Text } from 'react-native'
+import { View, StyleSheet, FlatList, Text, ScrollView } from 'react-native'
 import { Button, ActivityIndicator, Snackbar, useTheme } from 'react-native-paper'
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
@@ -22,6 +22,8 @@ import {
 import ProposeActivityModal from '../../src/components/ProposeActivityModal'
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
+import { SearchBar } from '@/app/trip/components/SearchBar'
+import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
 
 const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDeleteActivity, }: ActivityVotingSectionProps) => {
     const { isDarkMode } = useCustomTheme();
@@ -32,7 +34,9 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
     const [snackbarVisible, setSnackbarVisible] = React.useState(false);
     const [snackbarMessage, setSnackbarMessage] = React.useState('');
     const [proposeModalVisible, setProposeModalVisible] = useState(false);
-    const [editingActivity, setEditingActivity] = useState<ProposedActivity | null>(null)
+    const [editingActivity, setEditingActivity] = useState<ProposedActivity | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const profiles = useMemberProfiles();
 
     const { isLoaded, isSignedIn, user } = useUser()
     if (!isLoaded) return null
@@ -44,7 +48,15 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
       user.username ??
       user.primaryEmailAddress?.emailAddress ??
       `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
-      // ------------------------------------------------------------------
+
+    const filteredActivities = activities.filter(activity => {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        activity.name.toLowerCase().includes(searchLower) ||
+        (activity.description?.toLowerCase() || '').includes(searchLower) ||
+        profiles[activity.suggestedByID].toString().includes(searchLower)
+      );
+    });
 
     // --- Handlers ---
 
@@ -136,9 +148,16 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
   const keyExtractor = useCallback((item: ProposedActivity) => item.id, []);
 
    const renderListHeader = () => (
-    <Text style={[styles.header, { color: theme.colors.text }]}>
-        🗳️ Activity Voting
-      </Text>
+      <>
+        <Text style={[styles.header, { color: theme.colors.text }]}>
+          🗳️ Activity Voting
+        </Text>
+        <SearchBar
+          searchQuery={searchQuery}
+          onChangeSearch={setSearchQuery}
+          placeholder="Search activities..."
+        />
+      </>
   );
 
    const renderListFooter = () => (
@@ -163,45 +182,50 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <FlatList
-        data={activities}
-        renderItem={renderActivityCard}
-        keyExtractor={keyExtractor}
-        ListHeaderComponent={renderListHeader}
-        ListFooterComponent={renderListFooter}
-        ListEmptyComponent={
+      <ScrollView 
+        keyboardShouldPersistTaps="always"
+        contentContainerStyle={styles.scrollContent}
+      >
+        {renderListHeader()}
+        <FlatList
+          data={filteredActivities}
+          renderItem={renderActivityCard}
+          keyExtractor={keyExtractor}
+          ListFooterComponent={renderListFooter}
+          ListEmptyComponent={
             <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-                <Text style={{ color: theme.colors.text }}>
-                    No activities proposed yet.
-                </Text>
+              <Text style={{ color: theme.colors.text }}>
+                {searchQuery ? 'No matching activities found.' : 'No activities proposed yet.'}
+              </Text>
             </View>
-        }
-        contentContainerStyle={styles.listContentContainer}
-      />
+          }
+          contentContainerStyle={styles.listContentContainer}
+          scrollEnabled={false}
+        />
+      </ScrollView>
       <Snackbar
-         visible={snackbarVisible}
-         onDismiss={() => setSnackbarVisible(false)}
-         duration={3000} // Show a bit longer for feedback
-        >
-         {snackbarMessage}
-       </Snackbar>
-       {/* Modals for proposing or confirming would go here, outside FlatList */}
-       <ProposeActivityModal
-          visible={proposeModalVisible}
-          onClose={() => setProposeModalVisible(false)}
-          onSubmit={handleProposeSubmit}
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-          initialData={
-          editingActivity? {
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+      >
+        {snackbarMessage}
+      </Snackbar>
+      <ProposeActivityModal
+        visible={proposeModalVisible}
+        onClose={() => setProposeModalVisible(false)}
+        onSubmit={handleProposeSubmit}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        initialData={
+          editingActivity ? {
             name: editingActivity.name,
             description: editingActivity.description,
             estCost: editingActivity.estCost,
             currency: editingActivity.currency,
           }
           : undefined
-       }
-        />
+        }
+      />
     </View>
   );
 };
@@ -213,7 +237,10 @@ const styles = StyleSheet.create({
         marginHorizontal: 20,
     },
     container: {
-      flex: 1, // Occupy available space
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
     },
     listContentContainer: {
       paddingHorizontal: 15,
@@ -223,7 +250,7 @@ const styles = StyleSheet.create({
       fontSize: 24,
       fontWeight: 'bold',
       marginBottom: 15,
-      marginTop: 5, // Add some top margin if needed
+      marginTop: 5,
       marginLeft: 5,
     },
     centered: {
@@ -233,8 +260,8 @@ const styles = StyleSheet.create({
       marginTop: 50,
     },
     proposeButton: {
-        marginTop: 15, // Space above button
-        marginHorizontal: 20, // Add some horizontal margin
+        marginTop: 15,
+        marginHorizontal: 20,
     }
 });
 
