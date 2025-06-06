@@ -338,45 +338,55 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
     
     batch.set(paymentDocRef, paymentData);
 
-    // 2. Update the debt in the trip document
+    // 2. Get current debt values
     const tripRef = doc(db, 'trips', payment.tripId);
     const tripSnap = await getDoc(tripRef);
+    
+    if (!tripSnap.exists()) {
+      throw new Error('Trip not found');
+    }
+    
     const tripData = tripSnap.data();
-    const tripCurrency = tripData?.currency;
+    const debts = tripData?.debts || {};
+    const currencyDebts = debts[payment.currency] || {};
+
+    // Get the current debt values in both directions
+    const paidByToPaidTo = `${payment.fromUserId}#${payment.toUserId}`;
+    const paidToToPaidBy = `${payment.toUserId}#${payment.fromUserId}`;
     
-    // Convert payment amount to trip currency
-    const convertedAmount = await convertCurrency(payment.amount, payment.currency, tripCurrency);
-    
-    // Update the debts array
-    const debts = tripData?.debts || [];
-    const updatedDebtsPromises = debts.map(async (debt: Debt) => {
-      if (debt.fromUserId === payment.fromUserId && debt.toUserId === payment.toUserId) {
-        // Convert debt amount to trip currency for comparison
-        const convertedDebtAmount = await convertCurrency(debt.amount, debt.currency, tripCurrency);
-        const remainingAmount = convertedDebtAmount - convertedAmount;
-        if (remainingAmount > 0) {
-          // Update the debt with the remaining amount
-          return {
-            ...debt,
-            amount: remainingAmount,
-            currency: tripCurrency
-          };
-        }
-        return null; // Remove this debt if it's fully paid
+    const currentPaidByToPaidTo = currencyDebts[paidByToPaidTo] || 0;
+    const paymentAmount = payment.amount;
+
+    // If current debt from paidBy to paidTo is greater than or equal to payment amount
+    // simply decrease that debt
+    if (currentPaidByToPaidTo >= paymentAmount) {
+      batch.update(tripRef, {
+        [`debts.${payment.currency}.${paidByToPaidTo}`]: increment(-paymentAmount),
+        [`members.${payment.fromUserId}.amtLeft`]: increment(-paymentAmount),
+        [`members.${payment.toUserId}.amtLeft`]: increment(paymentAmount),
+      });
+    } 
+    // If payment amount is greater than current debt
+    else {
+      // First, clear out the existing debt
+      const remainingAmount = paymentAmount - currentPaidByToPaidTo;
+      
+      // Create update object
+      const updates: any = {
+        [`members.${payment.fromUserId}.amtLeft`]: increment(-paymentAmount),
+        [`members.${payment.toUserId}.amtLeft`]: increment(paymentAmount),
+      };
+
+      // If there was any existing debt, clear it
+      if (currentPaidByToPaidTo > 0) {
+        updates[`debts.${payment.currency}.${paidByToPaidTo}`] = 0;
       }
-      return debt;
-    });
 
-    const updatedDebts = (await Promise.all(updatedDebtsPromises)).filter(Boolean);
+      // Add the remaining amount to the reverse direction
+      updates[`debts.${payment.currency}.${paidToToPaidBy}`] = increment(remainingAmount);
 
-    // Update member balances
-    batch.update(tripRef, {
-      debts: updatedDebts,
-      [`members.${payment.fromUserId}.amtLeft`]: increment(-convertedAmount),
-      [`members.${payment.toUserId}.amtLeft`]: increment(convertedAmount),
-      [`members.${payment.fromUserId}.owesTotalMap.${payment.currency}`]: increment(-payment.amount),
-      [`members.${payment.toUserId}.owesTotalMap.${payment.currency}`]: increment(payment.amount),
-    });
+      batch.update(tripRef, updates);
+    }
 
     await batch.commit();
     console.log('Payment recorded successfully');
@@ -484,8 +494,7 @@ export const firebaseDeletePayment = async (tripId: string, payment: Payment): P
       debts: updatedDebts,
       [`members.${payment.fromUserId}.amtLeft`]: increment(convertedAmount),
       [`members.${payment.toUserId}.amtLeft`]: increment(-convertedAmount),
-      [`members.${payment.fromUserId}.owesTotalMap.${payment.currency}`]: increment(payment.amount),
-      [`members.${payment.toUserId}.owesTotalMap.${payment.currency}`]: increment(-payment.amount),
+      [`debts.${payment.currency}.${payment.toUserId}#${payment.fromUserId}`]: increment(payment.amount),
     });
 
     await batch.commit();
@@ -508,3 +517,75 @@ export const updateExpenseCollection = async (expenseDocRef: any, data: any) => 
   if (!expenseDocRef) throw new Error('Expense document reference is required');
   await updateDoc(expenseDocRef, data);
 };
+
+interface DebtsByUser {
+  [userPair: string]: number;  // e.g. "user1#user2": amount
+}
+
+interface DebtsByCurrency {
+  [currency: string]: DebtsByUser;  // e.g. "USD": { "user1#user2": amount }
+}
+
+// Function to get all debts for a trip
+export const getDebtsForTrip = async (tripId: string): Promise<DebtsByCurrency> => {
+  try {
+    const tripRef = doc(db, 'trips', tripId);
+    const tripSnap = await getDoc(tripRef);
+    
+    if (!tripSnap.exists()) {
+      throw new Error('Trip not found');
+    }
+
+    const tripData = tripSnap.data();
+    const debts = tripData?.debts || {};
+
+    // Return the debts object which is already in the correct structure
+    // { EUR: { "user1#user2": amount }, USD: { "user1#user2": amount } }
+    return debts as DebtsByCurrency;
+  } catch (error) {
+    console.error('Error getting debts for trip:', error);
+    throw error;
+  }
+};
+
+// Helper function to get debts for specific currency
+export const getDebtsForCurrency = async (tripId: string, currency: Currency): Promise<DebtsByUser> => {
+  try {
+    const debts = await getDebtsForTrip(tripId);
+    return debts[currency] || {};
+  } catch (error) {
+    console.error(`Error getting debts for currency ${currency}:`, error);
+    throw error;
+  }
+};
+
+// Helper function to get debt between two users in a specific currency
+export const getDebtBetweenUsers = async (
+  tripId: string, 
+  user1Id: string, 
+  user2Id: string, 
+  currency: Currency
+): Promise<number> => {
+  try {
+    const currencyDebts = await getDebtsForCurrency(tripId, currency);
+    const userPair = `${user1Id}#${user2Id}`;
+    const reverseUserPair = `${user2Id}#${user1Id}`;
+    
+    // Check both directions of the debt
+    if (userPair in currencyDebts) {
+      return currencyDebts[userPair];
+    } else if (reverseUserPair in currencyDebts) {
+      return currencyDebts[reverseUserPair];
+    }
+    
+    return 0; // No debt found between these users in this currency
+  } catch (error) {
+    console.error(`Error getting debt between users in ${currency}:`, error);
+    throw error;
+  }
+};
+
+interface ExpenseShare {
+  userId: string;
+  amount: number;
+}

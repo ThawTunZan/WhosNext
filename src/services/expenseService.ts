@@ -134,19 +134,21 @@ export const generateExpenseImpactUpdate = (
 
 	const multiplier = (reverse) ? 1 : -1;
 
+	// handle debts
 	for (const member of sharedWith) {
-		const share = Number(member.amount) * multiplier;
+		const share = Number(member.amount);
 		const payeeID = member.payeeID;
-		if (payeeID !== paidById && !isNaN(share)) {  // Add check for NaN
-			// Update owesTotalMap
-			updates[`members.${payeeID}.owesTotalMap.${currency}`] = -share;
-
-			// Add to the debts dictionary only if we have valid numbers
+		if (payeeID !== paidById && !isNaN(share)) {
+			
 			const debtAmount = Math.abs(share);
-			if (!isNaN(debtAmount) && debtAmount > 0) {  // Ensure we only add valid debts
-				const debtKey = `${payeeID}#${paidById}`;
-				// Use dot notation for the path to ensure proper increment handling
-				updates[`debts.${currency}.${debtKey}`] = -share;
+			if (!isNaN(debtAmount) && debtAmount > 0) {
+				if (!reverse) {
+					const debtKey = `${payeeID}#${paidById}`;
+					updates[`debts.${currency}.${debtKey}`] = debtAmount;
+				} else {
+					const debtKey = `${paidById}#${payeeID}`;
+					updates[`debts.${currency}.${debtKey}`] = debtAmount;
+				}
 			}
 		}
 	}
@@ -320,16 +322,83 @@ export const addExpenseAndCalculateDebts = async (
 // Function to delete an expense
 // IMPORTANT: Deleting an expense requires recalculating/reversing the debt updates.
 export const deleteExpense = async (tripId: string, expenseId: string, members: Record<string, Member>, profiles: Record<string, string>): Promise<void> => {
-	const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
 	try {
-		await reverseExpensesAndUpdate(tripId, expenseId, members, true, profiles);
-		await deleteDoc(expenseDocRef);
+		// Get the expense data first
+		const expenseRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
+		const expenseSnap = await getDoc(expenseRef);
+		
+		if (!expenseSnap.exists()) {
+			throw new Error('Expense not found');
+		}
 
-		console.log("Expense deleted successfully (debts not automatically reversed).");
-		// TODO: Implement debt reversal logic if required. This might involve fetching the
-		// expense data before deleting it to know what changes to reverse.
+		const expenseData = expenseSnap.data() as Expense;
+		const { paidById, sharedWith, currency } = expenseData;
+
+		// Create a batch for atomic operations
+		const batch = writeBatch(db);
+
+		// Delete the expense document
+		batch.delete(expenseRef);
+
+		// Get current debts
+		const tripRef = doc(db, TRIPS_COLLECTION, tripId);
+		const tripSnap = await getDoc(tripRef);
+		
+		if (!tripSnap.exists()) {
+			throw new Error('Trip not found');
+		}
+		
+		const tripData = tripSnap.data();
+		const debts = tripData?.debts || {};
+		const currencyDebts = debts[currency] || {};
+
+		// Process each share to update debts
+		const updates: { [key: string]: any } = {};
+		let totalAmtLeft = 0;
+
+		for (const share of sharedWith) {
+			if (share.payeeID === paidById) continue; // Skip if share belongs to payer
+
+			const shareAmount = Number(share.amount);
+			if (isNaN(shareAmount) || shareAmount <= 0) continue;
+
+			// Get the current debt values in both directions
+			const payeeToPayerKey = `${share.payeeID}#${paidById}`;
+			const payerToPayeeKey = `${paidById}#${share.payeeID}`;
+			
+			const currentPayeeToPayer = currencyDebts[payeeToPayerKey] || 0;
+
+			// If current debt from payee to payer is greater than or equal to share amount
+			// simply decrease that debt
+			if (currentPayeeToPayer >= shareAmount) {
+				updates[`debts.${currency}.${payeeToPayerKey}`] = increment(-shareAmount);
+			} else {
+				// If there was any existing debt, clear it
+				if (currentPayeeToPayer > 0) {
+					updates[`debts.${currency}.${payeeToPayerKey}`] = 0;
+				}
+
+				// Add the remaining amount to the reverse direction
+				const remainingAmount = shareAmount - currentPayeeToPayer;
+				updates[`debts.${currency}.${payerToPayeeKey}`] = increment(remainingAmount);
+			}
+
+			// Update member balances
+			updates[`members.${share.payeeID}.amtLeft`] = increment(-shareAmount);
+			totalAmtLeft -= shareAmount;
+		}
+
+		// Update payer's balance
+		updates[`members.${paidById}.amtLeft`] = increment(expenseData.paidAmt);
+		updates[`totalAmtLeft`] = increment(totalAmtLeft + expenseData.paidAmt);
+
+		// Apply all updates
+		batch.update(tripRef, updates);
+
+		// Commit the batch
+		await batch.commit();
 	} catch (error) {
-		console.error("Error deleting expense: ", error);
+		console.error('Error deleting expense:', error);
 		throw error;
 	}
 };

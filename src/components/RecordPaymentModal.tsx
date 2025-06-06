@@ -29,7 +29,11 @@ const MemberList = memo(({
   onSelect, 
   onClose,
   excludeId,
-  theme
+  theme,
+  isPayee = false,
+  getDebtAmount,
+  selectedPayer,
+  onDebtSelect
 }: { 
   members: { id: string; name: string }[];
   selectedId: string;
@@ -37,8 +41,48 @@ const MemberList = memo(({
   onClose: () => void;
   excludeId?: string;
   theme: any;
+  isPayee?: boolean;
+  getDebtAmount?: (fromId: string, toId: string) => Promise<{amount: number, currency: Currency}>;
+  selectedPayer?: string;
+  onDebtSelect?: (amount: number, currency: Currency) => void;
 }) => {
   const filteredMembers = excludeId ? members.filter(m => m.id !== excludeId) : members;
+  const [memberDebts, setMemberDebts] = useState<Record<string, {amount: number, currency: Currency}>>({});
+
+  console.log('MemberList render - isPayee:', isPayee);
+  console.log('MemberList render - selectedPayer:', selectedPayer);
+  console.log('MemberList render - memberDebts:', memberDebts);
+
+  // Fetch debt amounts for payee list
+  React.useEffect(() => {
+    const fetchDebts = async () => {
+      console.log('Starting fetchDebts - conditions:', {
+        isPayee,
+        hasGetDebtAmount: !!getDebtAmount,
+        selectedPayer,
+        memberCount: filteredMembers.length
+      });
+
+      if (!isPayee || !getDebtAmount || !selectedPayer) {
+        console.log('Skipping debt fetch - conditions not met');
+        return;
+      }
+      
+      const debts: Record<string, {amount: number, currency: Currency}> = {};
+      for (const member of filteredMembers) {
+        console.log('Fetching debt for member:', member.id);
+        const debt = await getDebtAmount(selectedPayer, member.id);
+        console.log('Received debt:', debt, 'for member:', member.id);
+        if (debt.amount > 0) {
+          debts[member.id] = debt;
+        }
+      }
+      console.log('Setting memberDebts:', debts);
+      setMemberDebts(debts);
+    };
+
+    fetchDebts();
+  }, [isPayee, getDebtAmount, selectedPayer, filteredMembers]);
   
   return (
     <View style={styles.dropdownOverlay}>
@@ -47,20 +91,37 @@ const MemberList = memo(({
         keyboardDismissMode="none"
         style={[styles.dropdownScroll, { backgroundColor: theme.colors.surface }]}
       >
-        {filteredMembers.map((member) => (
-          <List.Item
-            key={member.id}
-            title={member.name}
-            onPress={() => {
-              onSelect(member.id);
-              onClose();
-            }}
-            style={[
-              styles.dropdownItem,
-              selectedId === member.id && { backgroundColor: theme.colors.primaryContainer }
-            ]}
-          />
-        ))}
+        {filteredMembers.map((member) => {
+          const debt = memberDebts[member.id];
+          console.log('Rendering member:', member.id, 'debt:', debt);
+          
+          return (
+            <List.Item
+              key={member.id}
+              title={
+                <View style={styles.memberItemContent}>
+                  <Text style={styles.memberName}>{member.name}</Text>
+                  {debt && (
+                    <Text style={[styles.debtAmount, { color: theme.colors.primary }]}>
+                      {` (Owes ${debt.currency} ${debt.amount.toFixed(2)})`}
+                    </Text>
+                  )}
+                </View>
+              }
+              onPress={() => {
+                onSelect(member.id);
+                if (debt && onDebtSelect) {
+                  onDebtSelect(debt.amount, debt.currency);
+                }
+                onClose();
+              }}
+              style={[
+                styles.dropdownItem,
+                selectedId === member.id && { backgroundColor: theme.colors.primaryContainer }
+              ]}
+            />
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -101,15 +162,28 @@ export default function RecordPaymentModal({
   }, [members, profiles]);
 
   // Get the total debt amount between two members
-  const getDebtAmount = async (fromId: string, toId: string): Promise<number> => {
-    let totalDebt = 0;
-    for (const debt of debts) {
-      if (debt.fromUserId === fromId && debt.toUserId === toId) {
-        const convertedAmount = await convertCurrency(debt.amount, debt.currency, defaultCurrency);
-        totalDebt += convertedAmount;
+  const getDebtAmountForMember = async (fromId: string, toId: string): Promise<{amount: number, currency: Currency}> => {
+    console.log('getDebtAmountForMember called with:', { fromId, toId });
+    console.log('Current debts:', debts);
+    
+    // Handle the new debt structure where debts is an object keyed by currency
+    if (typeof debts === 'object' && !Array.isArray(debts)) {
+      for (const [currency, debtsByUser] of Object.entries(debts)) {
+        console.log('Checking currency:', currency, 'debts:', debtsByUser);
+        
+        // Check if there's a debt from the payer to the payee
+        const debtKey = `${fromId}#${toId}`;
+        const amount = debtsByUser[debtKey];
+        
+        if (amount) {
+          console.log('Found debt:', { currency, amount });
+          return { amount, currency: currency as Currency };
+        }
       }
     }
-    return totalDebt;
+
+    console.log('No matching debt found, returning 0');
+    return { amount: 0, currency: defaultCurrency };
   };
 
   const handleSubmit = async () => {
@@ -182,7 +256,15 @@ export default function RecordPaymentModal({
                   <List.Accordion
                     title={selectedPayee ? profiles[selectedPayee] || selectedPayee : "Select payee"}
                     expanded={showPayeeDropdown}
-                    onPress={() => setShowPayeeDropdown(!showPayeeDropdown)}
+                    onPress={() => {
+                      console.log('Toggling payee dropdown. Current state:', {
+                        showPayeeDropdown,
+                        selectedPayer,
+                        selectedPayee,
+                        debtsCount: debts.length
+                      });
+                      setShowPayeeDropdown(!showPayeeDropdown);
+                    }}
                     style={[styles.dropdown, { backgroundColor: theme.colors.surface }]}
                   >
                     <MemberList
@@ -192,6 +274,14 @@ export default function RecordPaymentModal({
                       onClose={() => setShowPayeeDropdown(false)}
                       excludeId={selectedPayer}
                       theme={theme}
+                      isPayee={true}
+                      getDebtAmount={getDebtAmountForMember}
+                      selectedPayer={selectedPayer}
+                      onDebtSelect={(amount, currency) => {
+                        console.log('Debt selected:', { amount, currency });
+                        setAmount(amount.toString());
+                        setSelectedCurrency(currency);
+                      }}
                     />
                   </List.Accordion>
                 </View>
@@ -350,6 +440,8 @@ const styles = StyleSheet.create({
   dropdownItem: {
     paddingVertical: 8,
     paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   amountContainer: {
     flexDirection: 'row',
@@ -403,5 +495,19 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 1,
     borderColor: '#ccc',
+  },
+  memberItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    paddingVertical: 4,
+  },
+  memberName: {
+    fontSize: 16,
+  },
+  debtAmount: {
+    fontSize: 14,
+    marginLeft: 8,
+    fontWeight: '500',
   },
 }); 
