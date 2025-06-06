@@ -1,6 +1,6 @@
 // src/types/expenses.ts
 
-import { Timestamp } from "firebase/firestore";
+import { FieldValue, Timestamp } from "firebase/firestore";
 
 export type MemberInfo = { name: string }; // Basic info for components needing just name
 
@@ -137,6 +137,20 @@ export type Debt = {
   amount: number;
   currency: Currency;
 }
+
+export type Payment = {
+  id?: string;
+  tripId: string;
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+  currency: Currency;
+  method: 'cash' | 'transfer' | 'other';
+  paymentDate: Date | Timestamp;
+  note?: string;
+  createdTime: Timestamp | FieldValue;
+  createdDate: Timestamp | FieldValue;
+};
 
 export interface TripData {
   destination: string;

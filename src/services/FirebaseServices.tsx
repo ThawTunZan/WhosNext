@@ -20,8 +20,9 @@ import {
   Timestamp,
   FieldValue,
 } from 'firebase/firestore';
-import { Currency, Debt } from '../types/DataTypes';
+import { Currency, Debt, Payment } from '@/src/types/DataTypes';
 import { convertCurrency } from './CurrencyService';
+import { deletePayment } from '@/src/utilities/PaymentUtilities';
 
 // User-related operations
 export const getUserById = async (userId: string) => {
@@ -306,20 +307,6 @@ export const checkIfBlocked = async (userId: string, targetUserId: string) => {
   }
 };
 
-// Payment-related types
-export interface Payment {
-  id?: string;
-  tripId: string;
-  fromUserId: string;
-  toUserId: string;
-  amount: number;
-  currency: Currency;
-  method: 'cash' | 'transfer' | 'other';
-  paymentDate: Date | Timestamp;
-  note?: string;
-  createdTime: Timestamp | FieldValue;
-  createdDate: Timestamp | FieldValue;
-}
 
 // Function to record a new payment
 export const firebaseRecordPayment = async (payment: Payment): Promise<void> => {
@@ -454,48 +441,22 @@ export const firebaseDeletePayment = async (tripId: string, payment: Payment): P
     const paymentRef = doc(db, 'trips', tripId, 'payments', payment.id!);
     batch.delete(paymentRef);
 
-    // 2. Reverse the debt changes
+    // 2. Get current debts
     const tripRef = doc(db, 'trips', tripId);
     const tripSnap = await getDoc(tripRef);
-    const tripData = tripSnap.data();
-    const tripCurrency = tripData?.currency;
     
-    // Convert payment amount to trip currency
-    const convertedAmount = await convertCurrency(payment.amount, payment.currency, tripCurrency);
-
-    // Update the debts array
-    const debts = tripData?.debts || [];
-    let debtExists = false;
-
-    const updatedDebts = debts.map((debt: Debt) => {
-      if (debt.fromUserId === payment.fromUserId && debt.toUserId === payment.toUserId) {
-        debtExists = true;
-        return {
-          ...debt,
-          amount: debt.amount + convertedAmount,
-          currency: tripCurrency
-        };
-      }
-      return debt;
-    });
-
-    // If the debt doesn't exist, create a new one
-    if (!debtExists) {
-      updatedDebts.push({
-        fromUserId: payment.fromUserId,
-        toUserId: payment.toUserId,
-        amount: convertedAmount,
-        currency: tripCurrency
-      });
+    if (!tripSnap.exists()) {
+      throw new Error('Trip not found');
     }
+    
+    const tripData = tripSnap.data();
+    const debts = tripData?.debts || {};
 
-    // Update member balances
-    batch.update(tripRef, {
-      debts: updatedDebts,
-      [`members.${payment.fromUserId}.amtLeft`]: increment(convertedAmount),
-      [`members.${payment.toUserId}.amtLeft`]: increment(-convertedAmount),
-      [`debts.${payment.currency}.${payment.toUserId}#${payment.fromUserId}`]: increment(payment.amount),
-    });
+    // 3. Calculate updates using the utility function
+    const updates = deletePayment(payment, debts);
+
+    // 4. Apply updates
+    batch.update(tripRef, updates);
 
     await batch.commit();
     console.log('Payment deleted successfully');

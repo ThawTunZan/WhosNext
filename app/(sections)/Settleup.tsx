@@ -1,8 +1,8 @@
 // src/components/SettleUpSection.tsx (or wherever it resides)
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, StyleSheet, SectionList } from 'react-native';
-import { Card, Text, Divider, Button, useTheme, FAB, List, Avatar, SegmentedButtons } from 'react-native-paper';
+import { View, StyleSheet, SectionList, Alert, TouchableOpacity } from 'react-native';
+import { Card, Text, Divider, Button, useTheme, FAB, List, Avatar, SegmentedButtons, IconButton } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { useUser } from '@clerk/clerk-expo';
@@ -15,10 +15,10 @@ import {
     calculateSimplifiedDebtsPerCurrency,
     ParsedDebt,         
 } from '@/src/utilities/SettleUpUtilities'; 
-import { Member, Debt, Currency } from '@/src/types/DataTypes';
+import { Member, Debt, Currency, Payment } from '@/src/types/DataTypes';
 import { useMemberProfiles, MemberProfilesProvider } from '@/src/context/MemberProfilesContext';
 import RecordPaymentModal from '@/src/components/RecordPaymentModal';
-import { firebaseRecordPayment, firebaseGetTripPayments, Payment } from '@/src/services/FirebaseServices';
+import { firebaseRecordPayment, firebaseGetTripPayments, firebaseDeletePayment } from '@/src/services/FirebaseServices';
 
 // Props type specific to this component
 type SettleUpProps = {
@@ -45,6 +45,22 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [shownDebts, setShownDebts] = useState<DebtSection[]>([]);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [expandedPaymentIds, setExpandedPaymentIds] = useState<Set<string>>(new Set());
+
+  // Toggle payment expansion
+  const togglePaymentExpanded = useCallback((paymentId: string) => {
+    setExpandedPaymentIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(paymentId)) {
+        newSet.delete(paymentId);
+      } else {
+        newSet.add(paymentId);
+      }
+      return newSet;
+    });
+  }, []);
 
   // Fetch payments when component mounts or tripId changes
   useEffect(() => {
@@ -135,6 +151,21 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
     setShowPaymentModal(false);
   };
 
+  const handleDeletePayment = useCallback(async (payment: Payment) => {
+    try {
+      await firebaseDeletePayment(tripId, payment);
+      // Refresh payments list
+      const updatedPayments = await firebaseGetTripPayments(tripId);
+      setPayments(updatedPayments);
+      setSnackbarMessage("Payment deleted successfully");
+      setSnackbarVisible(true);
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      setSnackbarMessage("Failed to delete payment");
+      setSnackbarVisible(true);
+    }
+  }, [tripId]);
+
   // Render function for each debt item
   const renderItem = useCallback(({ item }: { item: Debt }) => (
     <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
@@ -152,7 +183,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   ), [theme.colors, profiles]);
 
   // Render payment item
-  const renderPaymentItem = (payment: Payment) => {
+  const renderPaymentItem = useCallback((payment: Payment) => {
     const fromUser = profiles[payment.fromUserId] || payment.fromUserId;
     const toUser = profiles[payment.toUserId] || payment.toUserId;
     
@@ -161,35 +192,103 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
     if (payment.paymentDate instanceof Date) {
       paymentDate = payment.paymentDate;
     } else if (payment.paymentDate instanceof Timestamp) {
-      // Handle Firestore Timestamp
       paymentDate = payment.paymentDate.toDate();
     } else {
-      // Fallback to current date if invalid
       paymentDate = new Date();
       console.warn('Invalid payment date format:', payment.paymentDate);
     }
 
+    const isExpanded = expandedPaymentIds.has(payment.id || '');
+
     return (
-      <List.Item
-        title={`${fromUser} → ${toUser}`}
-        description={`${format(paymentDate, 'MMM d, yyyy')} • ${payment.method}`}
-        left={props => (
-          <Avatar.Icon 
-            {...props} 
-            icon={payment.method === 'cash' ? 'cash' : payment.method === 'transfer' ? 'bank-transfer' : 'note'} 
-            size={40}
-            style={{ backgroundColor: theme.colors.primary }}
+      <Card style={[styles.paymentItem, { backgroundColor: theme.colors.surface }]}>
+        <TouchableOpacity onPress={() => togglePaymentExpanded(payment.id || '')}>
+          <Card.Title
+            title={`${fromUser} → ${toUser}`}
+            subtitle={format(paymentDate, 'MMM d, yyyy')}
+            left={props => (
+              <Avatar.Icon 
+                {...props} 
+                icon={payment.method === 'cash' ? 'cash' : payment.method === 'transfer' ? 'bank-transfer' : 'note'} 
+                size={40}
+                style={{ backgroundColor: theme.colors.primary }}
+              />
+            )}
+            right={props => (
+              <View style={styles.paymentItemRight}>
+                <Text style={[styles.paymentAmount, { color: theme.colors.text }]}>
+                  ${payment.amount.toFixed(2)}
+                </Text>
+                <IconButton
+                  {...props}
+                  icon={isExpanded ? 'chevron-up' : 'chevron-down'}
+                  onPress={() => togglePaymentExpanded(payment.id || '')}
+                />
+              </View>
+            )}
           />
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <Card.Content>
+            <Divider style={styles.divider} />
+            <View style={styles.expandedContent}>
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>From</Text>
+                <Text style={[styles.detailValue, { color: theme.colors.text }]}>{fromUser}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>To</Text>
+                <Text style={[styles.detailValue, { color: theme.colors.text }]}>{toUser}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Amount</Text>
+                <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                  ${payment.amount.toFixed(2)} {payment.currency}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Method</Text>
+                <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                  {payment.method.charAt(0).toUpperCase() + payment.method.slice(1)}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Date</Text>
+                <Text style={[styles.detailValue, { color: theme.colors.text }]}>
+                  {format(paymentDate, 'MMMM d, yyyy')}
+                </Text>
+              </View>
+              
+              <View style={styles.actionButtons}>
+                <IconButton
+                  icon="delete"
+                  mode="contained"
+                  containerColor={theme.colors.error}
+                  iconColor={theme.colors.surface}
+                  size={20}
+                  onPress={() => {
+                    Alert.alert(
+                      "Delete Payment",
+                      "Are you sure you want to delete this payment?",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        { 
+                          text: "Delete", 
+                          style: "destructive",
+                          onPress: () => handleDeletePayment(payment)
+                        }
+                      ]
+                    );
+                  }}
+                />
+              </View>
+            </View>
+          </Card.Content>
         )}
-        right={props => (
-          <Text {...props} style={[styles.paymentAmount, { color: theme.colors.text }]}>
-            ${payment.amount.toFixed(2)}
-          </Text>
-        )}
-        style={[styles.paymentItem, { backgroundColor: theme.colors.surface }]}
-      />
+      </Card>
     );
-  };
+  }, [expandedPaymentIds, profiles, theme.colors, handleDeletePayment]);
 
   const renderListHeader = () => (
     <>
@@ -268,7 +367,27 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
                 }
               ]}
             />
-            {renderPaymentsSection()}
+            <View style={styles.paymentsSection}>
+              <Text style={[styles.header, { color: theme.colors.text }]}>📝 Payment History</Text>
+              <Divider style={[styles.divider, { backgroundColor: theme.colors.divider }]} />
+              {payments.length === 0 ? (
+                <Text style={[styles.noPaymentsText, { color: theme.colors.subtext }]}>
+                  No payments recorded yet
+                </Text>
+              ) : (
+                payments
+                  .sort((a, b) => {
+                    const dateA = a.paymentDate instanceof Date ? a.paymentDate : a.paymentDate.toDate();
+                    const dateB = b.paymentDate instanceof Date ? b.paymentDate : b.paymentDate.toDate();
+                    return dateB.getTime() - dateA.getTime();
+                  })
+                  .map((payment, index) => (
+                    <React.Fragment key={payment.id || index}>
+                      {renderPaymentItem(payment)}
+                    </React.Fragment>
+                  ))
+              )}
+            </View>
           </>
         }
         ListEmptyComponent={
@@ -277,7 +396,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
           </Text>
         }
         stickySectionHeadersEnabled={false}
-        contentContainerStyle={styles.listContentContainer}
+        contentContainerStyle={[styles.listContentContainer, { paddingBottom: 80 }]}
       />
 
       <FAB
@@ -361,14 +480,14 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   paymentItem: {
-    marginVertical: 2,
+    marginVertical: 8,
     borderRadius: 8,
+    elevation: 2,
   },
   paymentAmount: {
     fontSize: 16,
     fontWeight: 'bold',
     alignSelf: 'center',
-    marginRight: 16,
   },
   noPaymentsText: {
     fontStyle: 'italic',
@@ -379,5 +498,32 @@ const styles = StyleSheet.create({
   segmentedButton: {
     marginHorizontal: 10,
     marginVertical: 10,
+  },
+  paymentItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 8,
+  },
+  expandedContent: {
+    paddingVertical: 8,
+    gap: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  detailLabel: {
+    fontSize: 14,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
   },
 });
