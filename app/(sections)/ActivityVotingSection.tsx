@@ -1,7 +1,7 @@
 // src/screens/TripDetails/components/ActivityVotingSection.tsx
 import React, { useState, useCallback } from 'react'
-import { View, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
-import { Button, Text, Snackbar, useTheme } from 'react-native-paper'
+import { View } from 'react-native'
+import { Button, Snackbar } from 'react-native-paper'
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { sectionStyles } from '@/app/styles/section_comp_styles';
@@ -25,11 +25,12 @@ import { Redirect } from 'expo-router'
 import { SearchBar } from '@/app/trip/components/SearchBar'
 import { useMemberProfiles } from '@/src/context/MemberProfilesContext'
 import ActivityList from '@/app/trip/components/ItemList/ActivityList'
+import { BaseSection } from '@/app/common_components/BaseSection'
+import { CommonModal } from '@/app/common_components/CommonModal'
 
 const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDeleteActivity, }: ActivityVotingSectionProps) => {
     const { isDarkMode } = useCustomTheme();
     const theme = isDarkMode ? darkTheme : lightTheme;
-    const paperTheme = useTheme();
 
     const { activities, isLoading, error } = useProposedActivities(tripId);
     const [snackbarVisible, setSnackbarVisible] = React.useState(false);
@@ -99,14 +100,11 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
 
     const onRefresh = useCallback(async () => {
       setIsRefreshing(true);
-      // You might trigger a manual re-fetch here if needed,
-      // but typically the listener handles updates.
-      // For demonstration, we'll just simulate a delay.
       await new Promise(resolve => setTimeout(resolve, 1000));
       setIsRefreshing(false);
-       setSnackbarMessage('Activities up to date.');
-       setSnackbarVisible(true);
-  }, [tripId]);
+      setSnackbarMessage('Activities up to date.');
+      setSnackbarVisible(true);
+    }, [tripId]);
 
     const handleProposeSubmit = useCallback(async (activityData: NewProposedActivityData) => {
         console.log("Submitting proposed activity:", activityData);
@@ -129,34 +127,22 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
         }
     }, [tripId, editingActivity, currentUserId, currentUserName]);
 
-    const renderListHeader = () => (
-      <>
-        <Text style={[sectionStyles.header, { color: theme.colors.text }]}>
-          🗳️ Activity Voting
-        </Text>
-        <SearchBar
-          searchQuery={searchQuery}
-          onChangeSearch={setSearchQuery}
-          placeholder="Search activities..."
-        />
-      </>
+    const renderHeader = () => (
+      <SearchBar
+        searchQuery={searchQuery}
+        onChangeSearch={setSearchQuery}
+        placeholder="Search activities..."
+      />
     );
 
-    if (isLoading) {
-      return (
-        <View style={[sectionStyles.centered, { backgroundColor: theme.colors.background }]}>
-          <ActivityIndicator animating={true} size="large" color={paperTheme.colors.primary} />
-        </View>
-      );
-    }
-
     return (
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={[sectionStyles.container, { backgroundColor: theme.colors.background }]}
-        keyboardVerticalOffset={100}
+      <BaseSection
+        title="Activity Voting"
+        icon="🗳️"
+        loading={isLoading}
+        error={error?.toString() || null}
       >
-        {renderListHeader()}
+        {renderHeader()}
 
         <ActivityList
           activities={activities}
@@ -181,17 +167,26 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
           Propose New Activity
         </Button>
 
-        <ProposeActivityModal
+        <CommonModal
           visible={proposeModalVisible}
-          onClose={() => {
+          onDismiss={() => {
             setProposeModalVisible(false)
             setEditingActivity(null)
           }}
-          onSubmit={handleProposeSubmit}
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-          initialData={editingActivity || undefined}
-        />
+          title={editingActivity ? "Edit Activity" : "Propose New Activity"}
+        >
+          <ProposeActivityModal
+            visible={proposeModalVisible}
+            onClose={() => {
+              setProposeModalVisible(false)
+              setEditingActivity(null)
+            }}
+            onSubmit={handleProposeSubmit}
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            initialData={editingActivity || undefined}
+          />
+        </CommonModal>
 
         <Snackbar
           visible={snackbarVisible}
@@ -200,7 +195,7 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
         >
           {snackbarMessage}
         </Snackbar>
-      </KeyboardAvoidingView>
+      </BaseSection>
     );
 };
 

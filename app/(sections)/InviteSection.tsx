@@ -1,18 +1,23 @@
 // app/(sections)/InviteSection.tsx
 import React, { useState, useEffect, useCallback } from 'react'
-import { View, StyleSheet, Share, ActivityIndicator } from 'react-native'
+import { View, Share, ScrollView } from 'react-native'
 import { Button, Text, Snackbar } from 'react-native-paper'
 import * as Linking from 'expo-linking'
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
 import { createInvite } from '@/src/utilities/InviteUtilities'
 import QRCode from 'react-native-qrcode-svg';
-import { ScrollView } from 'react-native';
-
+import { BaseSection } from '@/app/common_components/BaseSection';
+import { CommonCard } from '@/app/common_components/CommonCard';
+import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
+import { sectionStyles } from '@/app/styles/section_comp_styles';
 
 type InviteSectionProps = { tripId: string }
 
 export default function InviteSection({ tripId }: InviteSectionProps) {
+  const { isDarkMode } = useCustomTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
   const { isLoaded, isSignedIn, user } = useUser()
   const [inviteId, setInviteId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -26,7 +31,6 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
   console.log("INVITE SECTION LOADED")
 
   const inviteUrl = `https://myapp.com/invite?tripId=${tripId}`
-
 
   const userId = user.id
   const userName =
@@ -63,7 +67,7 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
     const url = Linking.createURL(`invite/${inviteId}`)
     try {
       await Share.share({
-        message: `Join my trip on Who’s Next:\n\n${url}`,
+        message: `Join my trip on Who's Next:\n\n${url}`,
       })
     } catch (err) {
       console.error('Share error:', err)
@@ -72,42 +76,61 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
     }
   }, [inviteId])
 
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {loading ? (
-        <ActivityIndicator style={{ marginVertical: 20 }} size="large" />
-      ) : (
-        <>
-          <Text style={styles.header}>Invite Friends</Text>
+  const renderContent = () => (
+    <ScrollView contentContainerStyle={{ alignItems: 'center', padding: 20 }}>
+      <CommonCard
+        title="Invite Friends to Your Trip"
+        subtitle="Share your trip with friends using the link or QR code"
+        leftIcon="account-multiple-plus"
+        style={{ width: '100%', marginBottom: 20 }}
+      >
+        <View style={{ gap: 12 }}>
           <Button
             mode="contained"
             icon="share-variant"
             onPress={handleShareLink}
             disabled={!inviteId}
-            style={styles.button}
+            style={sectionStyles.actionButton}
           >
             Share Invite Link
           </Button>
           <Button
             mode="outlined"
             icon="qrcode-scan"
-            onPress={() => setShowQR(true)}
-            style={styles.button}
+            onPress={() => setShowQR(!showQR)}
+            style={sectionStyles.actionButton}
           >
-            Show QR Code
+            {showQR ? 'Hide QR Code' : 'Show QR Code'}
           </Button>
+        </View>
+      </CommonCard>
 
-          {showQR && inviteId && (
-            <View style={styles.qrWrapper}>
-              <QRCode
-                value={Linking.createURL(`invite/${inviteId}`)} // This generates your deep link
-                size={200}
-              />
-            </View>
-          )}
-        </>
+      {showQR && inviteId && (
+        <CommonCard
+          title="QR Code"
+          subtitle="Scan this code to join the trip"
+          style={{ width: '100%' }}
+        >
+          <View style={{ alignItems: 'center', padding: 20 }}>
+            <QRCode
+              value={Linking.createURL(`invite/${inviteId}`)}
+              size={200}
+            />
+          </View>
+        </CommonCard>
       )}
+    </ScrollView>
+  );
 
+  return (
+    <BaseSection
+      title="Invite Friends"
+      icon="👥"
+      loading={loading}
+      keyboardAvoiding={false}
+    >
+      {renderContent()}
+      
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
@@ -115,31 +138,6 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
       >
         {snackbarMessage}
       </Snackbar>
-    </ScrollView>
+    </BaseSection>
   )
 }
-
-const styles = StyleSheet.create({
-  qrWrapper: {
-    marginTop: 24,
-    marginBottom: 60, // prevent overlap with bottom nav
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  container: {
-    flex: 1,
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  header: {
-    fontSize: 22,
-    marginBottom: 16,
-    fontWeight: '600',
-  },
-  button: {
-    marginVertical: 8,
-    width: '100%',
-  },
-})

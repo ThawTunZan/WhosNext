@@ -1,7 +1,7 @@
 // src/screens/TripDetails/ExpensesSection.tsx
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
-import { Button, Text, Snackbar, Chip, useTheme } from 'react-native-paper';
+import { View } from 'react-native';
+import { Button, Snackbar, Chip } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { sectionStyles } from '@/app/styles/section_comp_styles';
@@ -13,17 +13,18 @@ import AddExpenseModal from '@/src/components/AddExpenseModal';
 import { ExpensesSectionProps, Expense } from '@/src/types/DataTypes'; 
 import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { SearchBar } from '@/app/trip/components/SearchBar';
+import { BaseSection } from '@/app/common_components/BaseSection';
+import { CommonModal } from '@/app/common_components/CommonModal';
 
 const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, nextPayerId }: ExpensesSectionProps) => {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const paperTheme = useTheme();
   const { expenses, isLoading, error: fetchError } = useExpenses(tripId);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [isRefreshing, setIsRefreshing] = useState(false); // For pull-to-refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const profiles = useMemberProfiles();
@@ -53,18 +54,15 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   }, [onEditExpense]);
 
   const handleAddExpenseSubmit = async (expenseData: Expense) => {
-    // Debt calculation
     try {
       await addExpenseAndCalculateDebts(tripId, expenseData, members, profiles);
       setSnackbarMessage('Expense added successfully!');
       setSnackbarVisible(true);
-      // No need to manually update state, Firestore listener will do it
+      setModalVisible(false);
     } catch (err) {
       console.error("Failed to submit expense:", err);
       setSnackbarMessage(`Error: ${err instanceof Error ? err.message : 'Could not add expense'}`);
       setSnackbarVisible(true);
-      // Re-throw if AddExpenseModal needs to keep loading state
-      // throw err;
     }
   };
 
@@ -75,10 +73,9 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
       setSnackbarMessage('Expense deleted.');
       setSnackbarVisible(true);
 
-        if(expandedId === id) {
-            setExpandedId(null);
-        }
-      // Data refreshes via listener
+      if(expandedId === id) {
+        setExpandedId(null);
+      }
     } catch (err) {
       console.error("Failed to delete expense:", err);
       setSnackbarMessage(`Error: ${err instanceof Error ? err.message : 'Could not delete expense'}`);
@@ -88,63 +85,40 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
 
   // Handle pull-to-refresh 
   const onRefresh = useCallback(async () => {
-      setIsRefreshing(true);
-      // You might trigger a manual re-fetch here if needed,
-      // but typically the listener handles updates.
-      // For demonstration, we'll just simulate a delay.
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setIsRefreshing(false);
-       setSnackbarMessage('Expenses up to date.');
-       setSnackbarVisible(true);
+    setIsRefreshing(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setIsRefreshing(false);
+    setSnackbarMessage('Expenses up to date.');
+    setSnackbarVisible(true);
   }, [tripId]);
 
-  const renderListHeader = () => (
+  const renderHeader = () => (
     <>
-      <Text style={[sectionStyles.header, { color: theme.colors.text }]}>🧾 Expenses</Text>
       <SearchBar
         searchQuery={searchQuery}
         onChangeSearch={setSearchQuery}
         placeholder="Search expenses..."
       />
       {nextPayerId && (
-          <Chip
-              icon="account-arrow-right"
-              style={[sectionStyles.nextPayerChip, { backgroundColor: theme.colors.surfaceVariant }]}
-              textStyle={[sectionStyles.nextPayerChipText, { color: theme.colors.text }]}
-          >
-              Next Payer: {profiles[nextPayerId]}
-          </Chip>
-       )}
+        <Chip
+          icon="account-arrow-right"
+          style={[sectionStyles.nextPayerChip, { backgroundColor: theme.colors.surfaceVariant }]}
+          textStyle={[sectionStyles.nextPayerChipText, { color: theme.colors.text }]}
+        >
+          Next Payer: {profiles[nextPayerId]}
+        </Chip>
+      )}
     </>
   );
 
-  // --- Render Logic ---
-  if (isLoading && expenses.length === 0) {
-    return (
-      <View style={[sectionStyles.centered, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={paperTheme.colors.primary} />
-        <Text style={{ color: theme.colors.text }}>Loading Expenses...</Text>
-      </View>
-    );
-  }
-
-  if (fetchError) {
-    return (
-      <View style={[sectionStyles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text style={[sectionStyles.errorText, { color: theme.colors.error }]}>
-          Error loading expenses: {fetchError}
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={[sectionStyles.container, { backgroundColor: theme.colors.background }]}
-      keyboardVerticalOffset={100}
+    <BaseSection
+      title="Expenses"
+      icon="🧾"
+      loading={isLoading && expenses.length === 0}
+      error={fetchError}
     >
-      {renderListHeader()}
+      {renderHeader()}
       
       <ExpenseList
         expenses={expenses}
@@ -158,6 +132,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
         onEditExpense={handleEditExpenseLocal}
         styles={sectionStyles}
       />
+
       <Button
         mode="contained"
         icon="plus-circle-outline"
@@ -167,13 +142,19 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
         Add Expense
       </Button>
 
-      <AddExpenseModal
+      <CommonModal
         visible={modalVisible}
         onDismiss={() => setModalVisible(false)}
-        onSubmit={handleAddExpenseSubmit}
-        members={members}
-        tripId={tripId}
-      />
+        title="Add New Expense"
+      >
+        <AddExpenseModal
+          visible={modalVisible}
+          onDismiss={() => setModalVisible(false)}
+          onSubmit={handleAddExpenseSubmit}
+          members={members}
+          tripId={tripId}
+        />
+      </CommonModal>
 
       <Snackbar
         visible={snackbarVisible}
@@ -182,7 +163,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
       >
         {snackbarMessage}
       </Snackbar>
-    </KeyboardAvoidingView>
+    </BaseSection>
   );
 };
 
