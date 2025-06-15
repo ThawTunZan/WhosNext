@@ -4,6 +4,7 @@ import { View, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } f
 import { Button, Text, Snackbar, useTheme } from 'react-native-paper'
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import { sectionStyles } from '@/app/styles/section_comp_styles';
 
 import {
   NewProposedActivityData,
@@ -23,7 +24,7 @@ import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
 import { SearchBar } from '@/app/trip/components/SearchBar'
 import { useMemberProfiles } from '@/src/context/MemberProfilesContext'
-import ActivityList from '@/app/trip/components/ActivityList'
+import ActivityList from '@/app/trip/components/ItemList/ActivityList'
 
 const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDeleteActivity, }: ActivityVotingSectionProps) => {
     const { isDarkMode } = useCustomTheme();
@@ -37,6 +38,7 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
     const [editingActivity, setEditingActivity] = useState<ProposedActivity | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const profiles = useMemberProfiles();
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const { isLoaded, isSignedIn, user } = useUser()
     if (!isLoaded) return null
@@ -95,6 +97,17 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
         setProposeModalVisible(true)
     };
 
+    const onRefresh = useCallback(async () => {
+      setIsRefreshing(true);
+      // You might trigger a manual re-fetch here if needed,
+      // but typically the listener handles updates.
+      // For demonstration, we'll just simulate a delay.
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setIsRefreshing(false);
+       setSnackbarMessage('Activities up to date.');
+       setSnackbarVisible(true);
+  }, [tripId]);
+
     const handleProposeSubmit = useCallback(async (activityData: NewProposedActivityData) => {
         console.log("Submitting proposed activity:", activityData);
         try {
@@ -118,7 +131,7 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
 
     const renderListHeader = () => (
       <>
-        <Text style={[styles.header, { color: theme.colors.text }]}>
+        <Text style={[sectionStyles.header, { color: theme.colors.text }]}>
           🗳️ Activity Voting
         </Text>
         <SearchBar
@@ -131,7 +144,7 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
 
     if (isLoading) {
       return (
-        <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+        <View style={[sectionStyles.centered, { backgroundColor: theme.colors.background }]}>
           <ActivityIndicator animating={true} size="large" color={paperTheme.colors.primary} />
         </View>
       );
@@ -140,7 +153,7 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
     return (
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        style={[sectionStyles.container, { backgroundColor: theme.colors.background }]}
         keyboardVerticalOffset={100}
       >
         {renderListHeader()}
@@ -151,17 +164,19 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
           profiles={profiles}
           onVoteUp={handleVoteUp}
           onVoteDown={handleVoteDown}
+          isRefreshing={isRefreshing}
+          onRefresh={onRefresh}
           onAddExpense={handleAddExpenseFromActivity}
           onDelete={handleDeleteActivityLocal}
           onEdit={handleEditActivity}
-          styles={styles}
+          styles={sectionStyles}
         />
 
         <Button
           mode="contained"
           icon="lightbulb-on-outline"
           onPress={handleProposeNewActivity}
-          style={styles.proposeButton}
+          style={sectionStyles.actionButton}
         >
           Propose New Activity
         </Button>
@@ -188,40 +203,5 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
       </KeyboardAvoidingView>
     );
 };
-
-const styles = StyleSheet.create({
-    errorText: {
-        color: 'red',
-        textAlign: 'center',
-        marginHorizontal: 20,
-    },
-    container: {
-      flex: 1,
-    },
-    scrollContent: {
-      flexGrow: 1,
-    },
-    listContentContainer: {
-      flexGrow: 1,
-      paddingHorizontal: 15,
-      paddingBottom: 20,
-    },
-    header: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      marginBottom: 15,
-      marginTop: 5,
-      marginLeft: 5,
-    },
-    centered: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    proposeButton: {
-        margin: 16,
-    }
-});
 
 export default ActivityVotingSection;

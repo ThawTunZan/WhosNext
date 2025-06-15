@@ -4,10 +4,11 @@ import { View, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } f
 import { Button, Text, Snackbar, Chip, useTheme } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import { sectionStyles } from '@/app/styles/section_comp_styles';
 
 import { useExpenses } from '../../src/hooks/useExpenses';
 import { addExpenseAndCalculateDebts, deleteExpense } from '../../src/services/expenseService';
-import ExpenseList from '@/app/trip/components/ExpenseList';
+import ExpenseList from '@/app/trip/components/ItemList/ExpenseList';
 import AddExpenseModal from '@/src/components/AddExpenseModal'; 
 import { ExpensesSectionProps, Expense } from '@/src/types/DataTypes'; 
 import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
@@ -52,7 +53,6 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   }, [onEditExpense]);
 
   const handleAddExpenseSubmit = async (expenseData: Expense) => {
-    
     // Debt calculation
     try {
       await addExpenseAndCalculateDebts(tripId, expenseData, members, profiles);
@@ -100,7 +100,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
 
   const renderListHeader = () => (
     <>
-      <Text style={[styles.header, { color: theme.colors.text }]}>🧾 Expenses</Text>
+      <Text style={[sectionStyles.header, { color: theme.colors.text }]}>🧾 Expenses</Text>
       <SearchBar
         searchQuery={searchQuery}
         onChangeSearch={setSearchQuery}
@@ -109,8 +109,8 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
       {nextPayerId && (
           <Chip
               icon="account-arrow-right"
-              style={[styles.nextPayerChip, { backgroundColor: theme.colors.surfaceVariant }]}
-              textStyle={[styles.nextPayerChipText, { color: theme.colors.text }]}
+              style={[sectionStyles.nextPayerChip, { backgroundColor: theme.colors.surfaceVariant }]}
+              textStyle={[sectionStyles.nextPayerChipText, { color: theme.colors.text }]}
           >
               Next Payer: {profiles[nextPayerId]}
           </Chip>
@@ -121,7 +121,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   // --- Render Logic ---
   if (isLoading && expenses.length === 0) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
+      <View style={[sectionStyles.centered, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={paperTheme.colors.primary} />
         <Text style={{ color: theme.colors.text }}>Loading Expenses...</Text>
       </View>
@@ -130,8 +130,8 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
 
   if (fetchError) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+      <View style={[sectionStyles.centered, { backgroundColor: theme.colors.background }]}>
+        <Text style={[sectionStyles.errorText, { color: theme.colors.error }]}>
           Error loading expenses: {fetchError}
         </Text>
       </View>
@@ -141,7 +141,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      style={[sectionStyles.container, { backgroundColor: theme.colors.background }]}
       keyboardVerticalOffset={100}
     >
       {renderListHeader()}
@@ -156,13 +156,13 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
         onToggleExpand={toggleExpand}
         onDeleteExpense={handleDeleteExpense}
         onEditExpense={handleEditExpenseLocal}
-        styles={styles}
+        styles={sectionStyles}
       />
-    <Button
+      <Button
         mode="contained"
         icon="plus-circle-outline"
         onPress={onAddExpensePress}
-        style={styles.addButton}
+        style={sectionStyles.actionButton}
       >
         Add Expense
       </Button>
@@ -183,47 +183,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
         {snackbarMessage}
       </Snackbar>
     </KeyboardAvoidingView>
-    
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  listContentContainer: {
-    flexGrow: 1,
-    paddingHorizontal: 15,
-    paddingBottom: 20,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    marginLeft: 5,
-  },
-  errorText: {
-    textAlign: 'center',
-  },
-  addButton: {
-    margin: 16,
-  },
-  nextPayerChip: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  nextPayerChipText: {
-    fontSize: 14,
-  },
-});
 
 export default ExpensesSection;

@@ -3,65 +3,54 @@ import { View, FlatList, Text, RefreshControl } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Expense } from '@/src/types/DataTypes';
-import ExpenseCard from './ExpenseCard';
 
-interface ExpenseListProps {
-  expenses: Expense[];
+interface GenericListProps<T> {
+  data: T[];
   searchQuery: string;
   profiles: Record<string, string>;
-  expandedId: string | null;
+  renderItem: ({ item }: { item: T }) => React.ReactElement;
+  searchFields: (item: T) => string[];
+  emptyMessage: {
+    withSearch: string;
+    withoutSearch: string;
+  };
   isRefreshing: boolean;
   onRefresh: () => void;
-  onToggleExpand: (id: string) => void;
-  onDeleteExpense: (id: string) => void;
-  onEditExpense: (expense: Expense) => void;
   styles: any;
+  expandedId?: string | null;
 }
 
-const ExpenseList = memo(({
-  expenses,
+function GenericList<T>({
+  data,
   searchQuery,
   profiles,
-  expandedId,
+  renderItem,
+  searchFields,
+  emptyMessage,
   isRefreshing,
   onRefresh,
-  onToggleExpand,
-  onDeleteExpense,
-  onEditExpense,
   styles,
-}: ExpenseListProps) => {
+}: GenericListProps<T>) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
 
-  const filteredExpenses = expenses.filter(expense => {
+  const filteredData = data.filter(item => {
     const searchLower = searchQuery.toLowerCase();
-    return (
-      expense.activityName.toLowerCase().includes(searchLower) ||
-      profiles[expense.paidById]?.toLowerCase().includes(searchLower)
+    return searchFields(item).some(field => 
+      field.toLowerCase().includes(searchLower)
     );
   });
 
-  const renderExpenseItem = ({ item }: { item: Expense }) => (
-    <ExpenseCard
-      expense={item}
-      isExpanded={item.id === expandedId}
-      onToggleExpand={onToggleExpand}
-      onDelete={onDeleteExpense}
-      onEdit={onEditExpense}
-    />
-  );
-
   return (
     <FlatList
-      data={filteredExpenses}
-      renderItem={renderExpenseItem}
-      keyExtractor={(item) => item.id}
+      data={filteredData}
+      renderItem={renderItem}
+      keyExtractor={(item: any) => item.id}
       ListEmptyComponent={
         <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
           <Text style={{ color: theme.colors.text }}>
-            {searchQuery ? 'No matching expenses found.' : 'No expenses added yet.'}
+            {searchQuery ? emptyMessage.withSearch : emptyMessage.withoutSearch}
           </Text>
         </View>
       }
@@ -77,6 +66,6 @@ const ExpenseList = memo(({
       keyboardDismissMode="on-drag"
     />
   );
-});
+}
 
-export default ExpenseList; 
+export default memo(GenericList); 
