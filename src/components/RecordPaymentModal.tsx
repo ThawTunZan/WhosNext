@@ -340,15 +340,7 @@ export default function RecordPaymentModal({
 
                 {/* Date Selection */}
                 <View style={styles.inputContainer}>
-                  <Text style={[styles.label, { color: theme.colors.text }]}>Date</Text>
-                  <Button
-                    mode="outlined"
-                    onPress={() => setShowDatePicker(true)}
-                    style={styles.dateButton}
-                  >
-                    {format(date, 'MMM d, yyyy')}
-                  </Button>
-                  {showDatePicker && (
+                  <Text style={[styles.label, { color: theme.colors.text }]}>Date</Text>    
                     <DateTimePicker
                       value={date}
                       mode="date"
@@ -359,7 +351,6 @@ export default function RecordPaymentModal({
                         }
                       }}
                     />
-                  )}
                 </View>
 
                 {/* Note Input */}
@@ -367,6 +358,7 @@ export default function RecordPaymentModal({
                   <Text style={[styles.label, { color: theme.colors.text }]}>Note (Optional)</Text>
                   <TextInput
                     value={note}
+                    maxLength={100}
                     onChangeText={setNote}
                     mode="outlined"
                     placeholder="Add a note"
