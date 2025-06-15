@@ -4,7 +4,7 @@ import "expo-router/entry";
 import React, { useMemo, useCallback } from "react";
 import { ClerkProvider, useUser } from "@clerk/clerk-expo";
 import { Provider as PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
-import { SafeAreaView, View, StyleSheet, TouchableOpacity, Text, Platform } from "react-native";
+import { SafeAreaView, View, StyleSheet, TouchableOpacity, Text, Platform, ActivityIndicator } from "react-native";
 import { Redirect, router, Stack, useFocusEffect, usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService";
@@ -65,6 +65,18 @@ const BottomNav = React.memo(({ path, theme }: { path: string; theme: any }) => 
   </SafeAreaView>
 ));
 
+// Loading component
+const LoadingScreen = React.memo(({ theme }: { theme: any }) => (
+  <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={theme.colors.primary} />
+      <Text style={[styles.loadingText, { color: theme.colors.text }]}>
+        Loading...
+      </Text>
+    </View>
+  </SafeAreaView>
+));
+
 export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
@@ -97,12 +109,29 @@ function AuthGateAndStack() {
 
   useFocusEffect(syncUser);
 
-  if (!isLoaded) return null;
+  // Show loading screen while Clerk is initializing
+  if (!isLoaded) {
+    return (
+      <PaperProvider theme={paperTheme}>
+        <LoadingScreen theme={theme} />
+      </PaperProvider>
+    );
+  }
   
-  // Only redirect if not signed in and not already on an auth path
-  const isAuthPath = path.startsWith("/auth") || path.startsWith("/(auth)");
-  if (!isSignedIn && !isAuthPath) {
+  // Define which paths are public (don't require authentication)
+  const publicPaths = ['/auth', '/(auth)', '/auth/sign-in', '/auth/sign-up'];
+  const isPublicPath = publicPaths.some(publicPath => 
+    path.startsWith(publicPath) || path === publicPath
+  );
+  
+  // Redirect to sign-in if not authenticated and not on a public path
+  if (!isSignedIn && !isPublicPath) {
     return <Redirect href="/auth/sign-in" />;
+  }
+  
+  // Redirect to home if authenticated and on auth path
+  if (isSignedIn && isPublicPath) {
+    return <Redirect href="/" />;
   }
 
   return (
@@ -152,8 +181,8 @@ function AuthGateAndStack() {
           <Stack.Screen name="profile_screens" />
         </Stack>
 
-        {/* Bottom Navigation Bar */}
-        {!isAuthPath && !path.includes('modal') && (
+        {/* Bottom Navigation Bar - only show for authenticated users on main screens */}
+        {isSignedIn && !isPublicPath && !path.includes('modal') && (
           <BottomNav path={path} theme={theme} />
         )}
       </SafeAreaView>
@@ -179,6 +208,15 @@ const styles = StyleSheet.create({
   navLabel: {
     fontSize: 12,
     marginTop: 2,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
   },
 });
 

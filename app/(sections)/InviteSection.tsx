@@ -3,8 +3,6 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { View, Share, ScrollView } from 'react-native'
 import { Button, Text, Snackbar } from 'react-native-paper'
 import * as Linking from 'expo-linking'
-import { useUser } from '@clerk/clerk-expo'
-import { Redirect } from 'expo-router'
 import { createInvite } from '@/src/utilities/InviteUtilities'
 import QRCode from 'react-native-qrcode-svg';
 import { BaseSection } from '@/app/common_components/BaseSection';
@@ -12,22 +10,25 @@ import { CommonCard } from '@/app/common_components/CommonCard';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { sectionStyles } from '@/app/styles/section_comp_styles';
+import { useRequireAuth } from '@/src/hooks/useAuthGuard';
 
 type InviteSectionProps = { tripId: string }
 
 export default function InviteSection({ tripId }: InviteSectionProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const { isLoaded, isSignedIn, user } = useUser()
+  const { user, shouldRender } = useRequireAuth();
   const [inviteId, setInviteId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [snackbarVisible, setSnackbarVisible] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState('')
   const [showQR, setShowQR] = useState(false)
 
-  // 1. Guard: wait for Clerk, redirect if not signed in
-  if (!isLoaded) return null
-  if (!isSignedIn) return <Redirect href="/auth/sign-in" />
+  // Early return if auth guard says not to render
+  if (!shouldRender || !user) {
+    return null;
+  }
+
   console.log("INVITE SECTION LOADED")
 
   const inviteUrl = `https://myapp.com/invite?tripId=${tripId}`
