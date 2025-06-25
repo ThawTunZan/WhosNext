@@ -1,12 +1,14 @@
 // src/services/UserProfileService.ts
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore"
 import { db } from "@/firebase"
+import { getUserPremiumStatus, PremiumStatus } from "@/src/utilities/PremiumUtilities"
 
 /** The shape we’ll keep in `/users/{userId}` */
 export interface UserProfile {
   username: string
   avatarUrl: string
   updatedAt: Date
+  premiumStatus: PremiumStatus
 }
 
 /**
@@ -29,6 +31,7 @@ export async function upsertClerkUserToFirestore(user: {
       email: user.primaryEmailAddress?.emailAddress || "",
       avatarUrl: user.profileImageUrl || "",
       updatedAt: new Date(),
+      premiumStatus: getUserPremiumStatus(user.id) || PremiumStatus.FREE,
     },
     { merge: true }
   )
@@ -45,6 +48,7 @@ export async function fetchOrCreateUserProfile(userId: string): Promise<UserProf
       username: "",
       avatarUrl: "",
       updatedAt: new Date(),
+      premiumStatus: PremiumStatus.FREE,
     }
     await setDoc(ref, initial)
     return initial

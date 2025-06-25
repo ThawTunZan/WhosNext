@@ -2,6 +2,49 @@
 
 import { FieldValue, Timestamp } from "firebase/firestore";
 
+
+export enum PremiumStatus {
+  PREMIUM = 'premium',
+  FREE = 'free',
+  TRIAL = 'trial'
+}
+
+interface IUserLimits {
+  premiumStatus: PremiumStatus;
+  maxTrips: number;
+  maxMembers: number;
+  maxExpensesPerDayPerTrip: number;
+  maxActivities: number;
+  maxVotes: number;
+  haveCloudStorage: boolean;
+  maxNumOfReceiptsPerTrip: number;
+  maxMBOfReceiptStoragePerTrip: number;
+}
+
+export const FREE_USER_LIMITS: IUserLimits = {
+  premiumStatus: PremiumStatus.FREE,
+  maxTrips: 5,
+  maxMembers: 8,
+  maxExpensesPerDayPerTrip: 10,
+  maxActivities: 10,
+  maxVotes: 10,
+  haveCloudStorage: false,
+  maxNumOfReceiptsPerTrip: 20,
+  maxMBOfReceiptStoragePerTrip: 300,
+};
+
+export const PREMIUM_USER_LIMITS: IUserLimits = {
+  premiumStatus: PremiumStatus.PREMIUM,
+  maxTrips: 20,
+  maxMembers: 20,
+  maxExpensesPerDayPerTrip: 30,
+  maxActivities: 30 ,
+  maxVotes: 30,
+  haveCloudStorage: true,
+  maxNumOfReceiptsPerTrip: 20,
+  maxMBOfReceiptStoragePerTrip: 300,
+};
+
 export type MemberInfo = { name: string }; // Basic info for components needing just name
 
 export enum AddMemberType {
@@ -23,6 +66,7 @@ export type Member = {
   premiumUser: boolean;
   addMemberType: AddMemberType;
   owesTotalMap: OwesTotalMap;
+  premiumStatus: PremiumStatus;
 };
 
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CNY' | 'SGD'; 
@@ -160,5 +204,6 @@ export interface TripData {
   debts?: Debt[];
   userId: string;
   currency: Currency;
+  premiumStatus: PremiumStatus;
 }
 
