@@ -236,6 +236,7 @@ export default function SignUpScreen() {
                     errors.username ? styles.inputError : null,
                   ]}
                   placeholder="Username"
+                  placeholderTextColor="#E5E7EB"
                   autoCapitalize="none"
                   value={username}
                   onChangeText={(text) => {
@@ -255,6 +256,7 @@ export default function SignUpScreen() {
                     errors.email ? styles.inputError : null,
                   ]}
                   placeholder="Email address"
+                  placeholderTextColor="#E5E7EB"
                   autoCapitalize="none"
                   keyboardType="email-address"
                   value={emailAddress}
@@ -277,6 +279,7 @@ export default function SignUpScreen() {
                       errors.password ? styles.inputError : null,
                     ]}
                     placeholder="Password"
+                    placeholderTextColor="#E5E7EB"
                     secureTextEntry={hidePassword}
                     value={password}
                     onChangeText={(text) => {

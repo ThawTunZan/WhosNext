@@ -5,6 +5,8 @@ import React, { useMemo, useCallback } from "react";
 import { ClerkProvider, useUser } from "@clerk/clerk-expo";
 import { Provider as PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
 import { SafeAreaView, View, StyleSheet, TouchableOpacity, Text, Platform, ActivityIndicator } from "react-native";
+import { useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Redirect, router, Stack, useFocusEffect, usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService";
@@ -79,11 +81,13 @@ const LoadingScreen = React.memo(({ theme }: { theme: any }) => (
 
 export default function RootLayout() {
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-      <ThemeProvider>
-        <AuthGateAndStack />
-      </ThemeProvider>
-    </ClerkProvider>
+    <SafeAreaProvider>
+      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+        <ThemeProvider>
+          <AuthGateAndStack />
+        </ThemeProvider>
+      </ClerkProvider>
+    </SafeAreaProvider>
   );
 }
 
@@ -91,6 +95,7 @@ function AuthGateAndStack() {
   const { isLoaded, isSignedIn, user } = useUser();
   const path = usePathname();
   const { isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
   
   const theme = useMemo(() => isDarkMode ? darkTheme : lightTheme, [isDarkMode]);
   const paperTheme = useMemo(() => ({
@@ -136,12 +141,12 @@ function AuthGateAndStack() {
 
   return (
     <PaperProvider theme={paperTheme}>
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
         <Stack 
           screenOptions={{
             headerShown: false,
             contentStyle: { 
-              paddingTop: Platform.OS === 'ios' ? 50 : 0,
               backgroundColor: theme.colors.background 
             }
           }}
@@ -185,7 +190,7 @@ function AuthGateAndStack() {
         {isSignedIn && !isPublicPath && !path.includes('modal') && (
           <BottomNav path={path} theme={theme} />
         )}
-      </SafeAreaView>
+      </View>
     </PaperProvider>
   );
 }

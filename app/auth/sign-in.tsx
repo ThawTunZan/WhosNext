@@ -13,17 +13,23 @@ import {
   ActivityIndicator,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useSignIn } from '@clerk/clerk-expo'
+import { useSignIn, useOAuth } from '@clerk/clerk-expo'
 import { Feather } from '@expo/vector-icons'
+// Note: expo-apple-authentication will be added when you install it
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn()
   const router = useRouter()
 
+  // OAuth hooks
+  const { startOAuthFlow: googleOAuth } = useOAuth({ strategy: 'oauth_google' })
+  const { startOAuthFlow: appleOAuth } = useOAuth({ strategy: 'oauth_apple' })
+
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [hidePassword, setHidePassword] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [oauthLoading, setOauthLoading] = useState('')
   const [errors, setErrors] = useState({
     username: '',
     password: '',
@@ -31,6 +37,52 @@ export default function SignInScreen() {
   })
 
   const { redirect_to } = useLocalSearchParams<{ redirect_to?: string }>()
+
+  // Google OAuth Sign-In
+  const onGoogleSignIn = async () => {
+    if (!isLoaded) return
+
+    setOauthLoading('google')
+    try {
+      const { createdSessionId, setActive } = await googleOAuth()
+      
+      if (createdSessionId) {
+        setActive({ session: createdSessionId })
+        router.replace(redirect_to ?? '/')
+      }
+    } catch (err: any) {
+      console.error('Google OAuth error:', err)
+      setErrors(prev => ({ 
+        ...prev, 
+        general: 'Google sign-in failed. Please try again.' 
+      }))
+    } finally {
+      setOauthLoading('')
+    }
+  }
+
+  // Apple OAuth Sign-In
+  const onAppleSignIn = async () => {
+    if (!isLoaded) return
+
+    setOauthLoading('apple')
+    try {
+      const { createdSessionId, setActive } = await appleOAuth()
+      
+      if (createdSessionId) {
+        setActive({ session: createdSessionId })
+        router.replace(redirect_to ?? '/')
+      }
+    } catch (err: any) {
+      console.error('Apple OAuth error:', err)
+      setErrors(prev => ({ 
+        ...prev, 
+        general: 'Apple sign-in failed. Please try again.' 
+      }))
+    } finally {
+      setOauthLoading('')
+    }
+  }
 
   const validateForm = () => {
     let isValid = true
@@ -100,11 +152,11 @@ export default function SignInScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={styles.avoid}
+      <KeyboardAvoidingView 
+        style={styles.avoid} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView
+        <ScrollView 
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
@@ -112,24 +164,19 @@ export default function SignInScreen() {
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>Sign in to continue to Who's Next</Text>
 
-            {renderError(errors.general)}
+            {errors.general ? renderError(errors.general) : null}
 
+            {/* Email/Password Form */}
             <View style={styles.form}>
               <View style={styles.inputContainer}>
                 <TextInput
-                  style={[
-                    styles.input,
-                    errors.username ? styles.inputError : null,
-                  ]}
-                  placeholder="Username"
-                  autoCapitalize="none"
+                  style={[styles.input, errors.username ? styles.inputError : null]}
+                  placeholder="Username or Email"
+                  placeholderTextColor="#E5E7EB"
                   value={username}
-                  onChangeText={(text) => {
-                    setUsername(text)
-                    if (errors.username) {
-                      setErrors(prev => ({ ...prev, username: '' }))
-                    }
-                  }}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                 />
                 {renderError(errors.username)}
               </View>
@@ -137,61 +184,95 @@ export default function SignInScreen() {
               <View style={styles.inputContainer}>
                 <View style={styles.passwordWrapper}>
                   <TextInput
-                    style={[
-                      styles.input,
-                      { flex: 1 },
-                      errors.password ? styles.inputError : null,
-                    ]}
+                    style={[styles.input, errors.password ? styles.inputError : null]}
                     placeholder="Password"
-                    secureTextEntry={hidePassword}
+                    placeholderTextColor="#E5E7EB"
                     value={password}
-                    onChangeText={(text) => {
-                      setPassword(text)
-                      if (errors.password) {
-                        setErrors(prev => ({ ...prev, password: '' }))
-                      }
-                    }}
+                    onChangeText={setPassword}
+                    secureTextEntry={hidePassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
                   />
                   <TouchableOpacity
-                    onPress={() => setHidePassword(!hidePassword)}
                     style={styles.eyeButton}
+                    onPress={() => setHidePassword(!hidePassword)}
                   >
-                    <Feather
-                      name={hidePassword ? 'eye-off' : 'eye'}
-                      size={20}
-                      color="#6B7280"
+                    <Feather 
+                      name={hidePassword ? 'eye-off' : 'eye'} 
+                      size={20} 
+                      color="#6B7280" 
                     />
                   </TouchableOpacity>
                 </View>
                 {renderError(errors.password)}
+                <TouchableOpacity onPress={() => router.push('/auth/forgot-password')}>
+                  <Text style={styles.forgot}>Forgot password?</Text>
+                </TouchableOpacity>
               </View>
 
               <TouchableOpacity
-                onPress={() => router.push('/auth/forgot-password')}
+                style={[styles.signInButton, loading ? styles.signInButtonDisabled : null]}
+                onPress={onSignInPress}
+                disabled={loading}
               >
-                <Text style={styles.forgot}>Forgot password?</Text>
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.signInText}>Sign In</Text>
+                )}
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              onPress={onSignInPress}
-              style={[
-                styles.signInButton,
-                loading ? styles.signInButtonDisabled : null,
-              ]}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.signInText}>Sign In</Text>
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* OAuth Buttons */}
+            <View style={styles.oauthContainer}>
+              {/* Apple Sign-In Button (iOS only) */}
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={[styles.oauthButton, styles.appleButton]}
+                  onPress={onAppleSignIn}
+                  disabled={oauthLoading !== ''}
+                >
+                  {oauthLoading === 'apple' ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Feather name="smartphone" size={20} color="#FFFFFF" />
+                      <Text style={styles.appleButtonText}>Continue with Apple</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+
+              {/* Google Sign-In Button */}
+              <TouchableOpacity
+                style={[styles.oauthButton, styles.googleButton]}
+                onPress={onGoogleSignIn}
+                disabled={oauthLoading !== ''}
+              >
+                {oauthLoading === 'google' ? (
+                  <ActivityIndicator color="#1F2937" />
+                ) : (
+                  <>
+                    <Feather name="mail" size={20} color="#1F2937" />
+                    <Text style={styles.googleButtonText}>Continue with Google</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account?</Text>
+              <Text style={styles.footerText}>Don't have an account? </Text>
               <TouchableOpacity onPress={() => router.push('/auth/sign-up')}>
-                <Text style={styles.footerLink}> Sign Up</Text>
+                <Text style={styles.footerLink}>Sign up</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -246,7 +327,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#111827',
+    color: '#111111',
+    width: '100%',
   },
   inputError: {
     borderColor: '#EF4444',
@@ -300,5 +382,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#2563EB',
     fontWeight: '600',
+  },
+  oauthContainer: {
+    flexDirection: 'column',
+    gap: 12,
+    width: '100%',
+    marginBottom: 24,
+  },
+  oauthButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  appleButton: {
+    backgroundColor: '#000000',
+    borderColor: '#000000',
+  },
+  appleButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  googleButton: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E5E7EB',
+  },
+  googleButtonText: {
+    color: '#1F2937',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: '#6B7280',
+    fontSize: 14,
   },
 });

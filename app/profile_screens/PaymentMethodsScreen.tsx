@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Text,
   Card,
@@ -37,6 +38,7 @@ export default function PaymentMethodsScreen() {
   const router = useRouter();
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
+  const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedType, setSelectedType] = useState<'card' | 'bank' | 'paypal' | 'venmo'>('card');
 
@@ -91,7 +93,10 @@ export default function PaymentMethodsScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <ScrollView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      contentContainerStyle={{ paddingBottom: insets.bottom }}
+    >
       {/* Header Section */}
       <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
         <Text style={[styles.title, { color: theme.colors.text }]}>Payment Methods</Text>
@@ -275,7 +280,7 @@ export default function PaymentMethodsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flex: 1000,
     backgroundColor: '#f5f5f5',
   },
   header: {

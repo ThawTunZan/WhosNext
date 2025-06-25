@@ -307,8 +307,16 @@ export default function ContactUsScreen() {
                 id={index.toString()}
                 expanded={expandedFaq === index.toString()}
                 onPress={() => setExpandedFaq(expandedFaq === index.toString() ? false : index.toString())}
+                titleStyle={{ color: theme.colors.text }}
+                descriptionStyle={{ color: theme.colors.subtext }}
+                style={{ backgroundColor: theme.colors.surface }}
               >
-                <List.Item title={faq.answer} titleNumberOfLines={0} />
+                <List.Item 
+                  title={faq.answer} 
+                  titleNumberOfLines={0}
+                  titleStyle={{ color: theme.colors.text }}
+                  style={{ backgroundColor: theme.colors.surface }}
+                />
               </List.Accordion>
             ))}
           </List.AccordionGroup>

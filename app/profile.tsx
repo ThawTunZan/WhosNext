@@ -27,17 +27,10 @@ const SECTIONS = [
   {
     title: 'Account',
     items: [
+      { label: 'App Settings', icon: 'settings-outline', route: '/profile_screens/AppSettings' },
       { label: 'Edit Profile', icon: 'pencil-outline', action: 'onEditProfile' },
-      { label: 'App Settings', icon: 'settings-outline', route: '/profile_screens/settings' },
       { label: 'Payment Methods', icon: 'card-outline', route: '/profile_screens/PaymentMethodsScreen' },
       { label: 'Change Password', icon: 'key-outline', action: 'onChangePassword' },
-    ],
-  },
-  {
-    title: 'Social',
-    items: [
-      { label: 'Friends & Groups', icon: 'people-outline', route: '/profile_screens/FriendsScreen' },
-      { label: 'Referral / Invite Code', icon: 'share-outline', route: '/profile_screens/referral' },
     ],
   },
   {

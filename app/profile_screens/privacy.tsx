@@ -1,18 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
+  Alert,
+  Platform,
 } from 'react-native';
 import {
   Text,
   Surface,
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
+import * as Linking from 'expo-linking';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { SettingItem, SettingSection } from '@/src/components/SettingItem';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NotificationService } from '@/src/services/notification/NotificationService';
 
 interface PrivacyOption {
   id: string;
@@ -25,36 +31,10 @@ interface PrivacyOption {
 export default function PrivacySettingsScreen() {
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
+  const insets = useSafeAreaInsets();
+  const [notificationPermissions, setNotificationPermissions] = useState<boolean>(false);
 
   const [privacySettings, setPrivacySettings] = useState<PrivacyOption[]>([
-    {
-      id: 'profileVisibility',
-      title: 'Public Profile',
-      subtitle: 'Allow others to find and view your profile',
-      value: true,
-      icon: 'person-outline',
-    },
-    {
-      id: 'showOnlineStatus',
-      title: 'Show Online Status',
-      subtitle: 'Let friends see when you\'re active',
-      value: false,
-      icon: 'radio-outline',
-    },
-    {
-      id: 'allowFriendRequests',
-      title: 'Allow Friend Requests',
-      subtitle: 'Receive friend requests from other users',
-      value: true,
-      icon: 'people-outline',
-    },
-    {
-      id: 'showTripHistory',
-      title: 'Show Trip History',
-      subtitle: 'Display your past trips on your profile',
-      value: true,
-      icon: 'map-outline',
-    },
     {
       id: 'shareLocation',
       title: 'Share Location',
@@ -87,12 +67,107 @@ export default function PrivacySettingsScreen() {
       id: 'pushNotifications',
       title: 'Push Notifications',
       subtitle: 'Receive notifications on your device',
-      value: true,
+      value: notificationPermissions,
       icon: 'notifications-outline',
     },
   ]);
 
+  useEffect(() => {
+    checkNotificationPermissions();
+  }, []);
+
+  const checkNotificationPermissions = async () => {
+    if (Platform.OS === 'web') {
+      setNotificationPermissions(true);
+      return;
+    }
+
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      const hasPermission = status === 'granted';
+      setNotificationPermissions(hasPermission);
+      
+      // Update the push notifications setting to reflect actual permission
+      setPrivacySettings(prev =>
+        prev.map(setting =>
+          setting.id === 'pushNotifications' 
+            ? { ...setting, value: hasPermission }
+            : setting
+        )
+      );
+    } catch (error) {
+      console.error('Error checking notification permissions:', error);
+      setNotificationPermissions(false);
+    }
+  };
+
+  const handleNotificationToggle = async () => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    try {
+      if (notificationPermissions) {
+        // If notifications are currently enabled, show alert about disabling
+        Alert.alert(
+          'Disable Notifications',
+          'To disable notifications, please go to your device settings and turn off notifications for this app.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: openAppSettings }
+          ]
+        );
+      } else {
+        // Request permission
+        const hasPermission = await NotificationService.requestPermissions();
+        if (hasPermission) {
+          setNotificationPermissions(true);
+          setPrivacySettings(prev =>
+            prev.map(setting =>
+              setting.id === 'pushNotifications' 
+                ? { ...setting, value: true }
+                : setting
+            )
+          );
+          Alert.alert(
+            'Notifications Enabled',
+            'You will now receive push notifications from the app.'
+          );
+        } else {
+          Alert.alert(
+            'Permission Denied',
+            'Please enable notifications in your device settings to receive important updates.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Open Settings', onPress: openAppSettings }
+            ]
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error handling notification toggle:', error);
+      Alert.alert('Error', 'Failed to update notification settings');
+    }
+  };
+
+  const openAppSettings = () => {
+    if (Platform.OS === 'ios') {
+      Linking.openURL('app-settings:');
+    } else {
+      // On Android, we can't directly open app-specific settings
+      Alert.alert(
+        'Settings',
+        'Please go to Settings > Apps > Who\'s Next > Notifications to manage notification permissions.'
+      );
+    }
+  };
+
   const toggleSetting = (id: string) => {
+    if (id === 'pushNotifications') {
+      handleNotificationToggle();
+      return;
+    }
+    
     setPrivacySettings(prev =>
       prev.map(setting =>
         setting.id === id ? { ...setting, value: !setting.value } : setting
@@ -121,7 +196,10 @@ export default function PrivacySettingsScreen() {
   const notificationSettings = privacySettings.slice(7);
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <ScrollView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      contentContainerStyle={{ paddingBottom: insets.bottom }}
+    >
       <ScreenHeader
         title="Privacy Settings"
         subtitle="Control who can see your information and how your data is used"

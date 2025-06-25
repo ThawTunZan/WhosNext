@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Platform, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Switch, Surface, Divider, List, Button, RadioButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NotificationService, NotificationSettings } from '@/src/services/notification/NotificationService';
 import { useTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 const NOTIFICATION_SETTINGS = [
   { key: 'tripUpdates', label: 'Trip Updates', description: 'Get notified about changes to your trips' },
@@ -16,7 +18,6 @@ const NOTIFICATION_SETTINGS = [
 
 const APPEARANCE_SETTINGS = [
   { key: 'darkMode', label: 'Dark Mode', description: 'Enable dark mode appearance' },
-  { key: 'compactView', label: 'Compact View', description: 'Show more content with less spacing' },
 ];
 
 const CURRENCY_OPTIONS = [
@@ -57,6 +58,8 @@ const DEFAULT_TRIP_SETTINGS = [
 export default function SettingsScreen() {
   const router = useRouter();
   const { isDarkMode, setDarkMode } = useTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
+  const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState<NotificationSettings>({
     tripUpdates: true,
     expenseAlerts: true,
@@ -112,10 +115,13 @@ export default function SettingsScreen() {
 
   const toggleNotification = async (key: keyof NotificationSettings) => {
     try {
-      const newSettings = await NotificationService.updateSettings({
+      await NotificationService.updateSettings({
         [key]: !notifications[key],
       });
-      setNotifications(newSettings);
+      setNotifications(prev => ({
+        ...prev,
+        [key]: !prev[key],
+      }));
     } catch (error) {
       console.error('Error updating notification setting:', error);
       Alert.alert('Error', 'Failed to update notification settings');
@@ -155,7 +161,10 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, isDarkMode && styles.darkContainer]}>
+    <ScrollView 
+      style={[styles.container, isDarkMode && styles.darkContainer]}
+      contentContainerStyle={{ paddingBottom: insets.bottom }}
+    >
       <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
         <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Notifications</Text>
         <View style={styles.settingsList}>
@@ -208,7 +217,9 @@ export default function SettingsScreen() {
           title={LANGUAGE_OPTIONS.find(lang => lang.code === selectedLanguage)?.label || 'English'}
           expanded={showLanguagePicker}
           onPress={() => setShowLanguagePicker(!showLanguagePicker)}
-          style={styles.pickerStyle}
+          style={[styles.pickerStyle, { backgroundColor: theme.colors.surface }]}
+          titleStyle={{ color: theme.colors.text }}
+          descriptionStyle={{ color: theme.colors.subtext }}
         >
           {LANGUAGE_OPTIONS.map((language) => (
             <RadioButton.Item
@@ -220,6 +231,8 @@ export default function SettingsScreen() {
                 setSelectedLanguage(language.code);
                 setShowLanguagePicker(false);
               }}
+              labelStyle={{ color: theme.colors.text }}
+              style={{ backgroundColor: theme.colors.surface }}
             />
           ))}
         </List.Accordion>
@@ -289,8 +302,11 @@ export default function SettingsScreen() {
               key={setting.key}
               title={setting.label}
               description={setting.description}
-              right={props => <List.Icon {...props} icon="chevron-right" />}
+              right={props => <List.Icon {...props} icon="chevron-right" color={theme.colors.text} />}
               onPress={() => {/* TODO: Implement settings detail screen */}}
+              titleStyle={{ color: theme.colors.text }}
+              descriptionStyle={{ color: theme.colors.subtext }}
+              style={{ backgroundColor: theme.colors.surface }}
             />
           ))}
         </View>
@@ -302,22 +318,30 @@ export default function SettingsScreen() {
           title="Backup Options"
           expanded={showBackupOptions}
           onPress={() => setShowBackupOptions(!showBackupOptions)}
-          style={styles.pickerStyle}
+          style={[styles.pickerStyle, { backgroundColor: theme.colors.surface }]}
+          titleStyle={{ color: theme.colors.text }}
+          descriptionStyle={{ color: theme.colors.subtext }}
         >
           <List.Item
             title="Backup Now"
-            left={props => <List.Icon {...props} icon="cloud-upload" />}
+            left={props => <List.Icon {...props} icon="cloud-upload" color={theme.colors.text} />}
             onPress={() => {/* TODO: Implement backup */}}
+            titleStyle={{ color: theme.colors.text }}
+            style={{ backgroundColor: theme.colors.surface }}
           />
           <List.Item
             title="Restore from Backup"
-            left={props => <List.Icon {...props} icon="cloud-download" />}
+            left={props => <List.Icon {...props} icon="cloud-download" color={theme.colors.text} />}
             onPress={() => {/* TODO: Implement restore */}}
+            titleStyle={{ color: theme.colors.text }}
+            style={{ backgroundColor: theme.colors.surface }}
           />
           <List.Item
             title="Auto-Backup"
-            left={props => <List.Icon {...props} icon="clock-outline" />}
+            left={props => <List.Icon {...props} icon="clock-outline" color={theme.colors.text} />}
             right={() => <Switch value={true} onValueChange={() => {}} />}
+            titleStyle={{ color: theme.colors.text }}
+            style={{ backgroundColor: theme.colors.surface }}
           />
         </List.Accordion>
       </Surface>
@@ -350,7 +374,9 @@ export default function SettingsScreen() {
           title={selectedCurrency}
           expanded={showCurrencyPicker}
           onPress={() => setShowCurrencyPicker(!showCurrencyPicker)}
-          style={styles.currencyPicker}
+          style={[styles.currencyPicker, { backgroundColor: theme.colors.surface }]}
+          titleStyle={{ color: theme.colors.text }}
+          descriptionStyle={{ color: theme.colors.subtext }}
         >
           {CURRENCY_OPTIONS.map((currency) => (
             <List.Item
@@ -360,7 +386,9 @@ export default function SettingsScreen() {
                 setSelectedCurrency(currency);
                 setShowCurrencyPicker(false);
               }}
-              left={() => <List.Icon icon="currency-usd" />}
+              left={() => <List.Icon icon="currency-usd" color={theme.colors.text} />}
+              titleStyle={{ color: theme.colors.text }}
+              style={{ backgroundColor: theme.colors.surface }}
             />
           ))}
         </List.Accordion>
@@ -442,7 +470,7 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   currencyPicker: {
-    backgroundColor: 'white',
+    paddingHorizontal: 16,
   },
   dangerButton: {
     borderColor: '#EF4444',
@@ -457,7 +485,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   pickerStyle: {
-    backgroundColor: 'white',
     paddingHorizontal: 16,
   },
   exportButton: {
