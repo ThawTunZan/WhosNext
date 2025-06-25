@@ -264,7 +264,17 @@ export const deleteProposedActivity = async (
     const activityDocRef = doc(db, TRIPS_COLLECTION, tripId, ACTIVITIES_SUBCOLLECTION, activityId);
      try {
         await deleteDoc(activityDocRef);
+
+        // Update the activities count
+        const tripRef = doc(db, TRIPS_COLLECTION, tripId);
+        const tripSnap = await getDoc(tripRef);
+        const tripData = tripSnap.data();
+        const activitiesCount = tripData.activitiesCount;
+        const newActivitiesCount = activitiesCount - 1;
+        await updateDoc(tripRef, { activitiesCount: newActivitiesCount });
+        
         console.log(`Proposed activity ${activityId} deleted successfully.`);
+
      } catch (error) {
          console.error(`Error deleting proposed activity ${activityId}: `, error);
          throw error;

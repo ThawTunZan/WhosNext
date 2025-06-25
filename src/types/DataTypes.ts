@@ -2,6 +2,15 @@
 
 import { FieldValue, Timestamp } from "firebase/firestore";
 
+export enum ErrorType {
+  MAX_EXPENSES_FREE_USER = 'maxExpensesFreeUser',
+  MAX_EXPENSES_PREMIUM_USER = 'maxExpensesPremiumUser',
+  MAX_ACTIVITIES = 'maxActivities',
+  MAX_VOTES = 'maxVotes',
+  MAX_NUM_OF_RECEIPTS_PER_TRIP = 'maxNumOfReceiptsPerTrip',
+  MAX_MB_OF_RECEIPT_STORAGE_PER_TRIP = 'maxMBOfReceiptStoragePerTrip',
+}
+
 
 export enum PremiumStatus {
   PREMIUM = 'premium',
@@ -65,6 +74,7 @@ export type Member = {
   claimCode?: string;
   addMemberType: AddMemberType;
   owesTotalMap: OwesTotalMap;
+  receiptsCount: number;
 };
 
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CNY' | 'SGD'; 

@@ -13,7 +13,7 @@ import {
 	arrayRemove,
 } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Expense, Member, Currency, Debt } from '@/src/types/DataTypes';
+import { Expense, Member, Currency, Debt, FREE_USER_LIMITS, PREMIUM_USER_LIMITS, ErrorType } from '@/src/types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
@@ -266,10 +266,23 @@ export const addExpenseAndCalculateDebts = async (
 	members: Record<string, Member>,
 	profiles: Record<string, string>
 ): Promise<void> => {
+
 	const paidByID = expenseData.paidById;
 
 	if (!paidByID) {
 		throw new Error(`Could not find member ID for payer: ${expenseData.paidById}`);
+	}
+
+	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
+	const tripSnap = await getDoc(tripDocRef);
+	const tripData = tripSnap.data();
+
+	if (tripData.expensesCount >= FREE_USER_LIMITS.maxExpensesPerDayPerTrip && !tripData.isTripPremium) {
+		throw new Error(ErrorType.MAX_EXPENSES_FREE_USER);
+	}
+
+	if (tripData.expensesCount >= PREMIUM_USER_LIMITS.maxExpensesPerDayPerTrip && tripData.isTripPremium) {
+		throw new Error(ErrorType.MAX_EXPENSES_PREMIUM_USER);
 	}
 
 	const expenseDocData = {
@@ -280,14 +293,13 @@ export const addExpenseAndCalculateDebts = async (
 	const batch = writeBatch(db);
 	const newExpenseRef = doc(collection(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION));
 	batch.set(newExpenseRef, expenseDocData);
-	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
-	const tripSnap = await getDoc(tripDocRef);
-	const tripData = tripSnap.data();
+
 	let updatesRaw: { [key: string]: number } = {};
 	const convertedPaidAmt = await convertCurrency(expenseData.paidAmt, expenseData.currency, tripData.currency);
 	updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false, profiles, expenseData.id, convertedPaidAmt);
 	updatesRaw['totalAmtLeft'] = -convertedPaidAmt;
 	let updates = formatToFirebase(updatesRaw);
+	updates['expensesCount'] = increment(1);
 
 	batch.update(tripDocRef, updates);
 	try {

@@ -86,6 +86,7 @@ export default function CreateTripScreen() {
           CNY: 0,
           SGD: 0
         },
+        receiptsCount: 0,
       }
     };
 
@@ -100,6 +101,8 @@ export default function CreateTripScreen() {
         debts: [],
         createdAt: Timestamp.now(),
         isTripPremium,
+        expensesCount: 0,
+        activitiesCount: 0,
       });
 
       router.push('/');

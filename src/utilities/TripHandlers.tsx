@@ -16,7 +16,7 @@ import {
 	editExpense,
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
-import type { Expense, ProposedActivity, AddMemberType, Currency } from "@/src/types/DataTypes";
+import { type Expense, type ProposedActivity, type AddMemberType, type Currency, ErrorType } from "@/src/types/DataTypes";
 
 interface UseTripHandlersParams {
 	tripId: string;
@@ -150,10 +150,18 @@ export function useTripHandlers({
 				setSnackbarVisible(true);
 				closeAddExpenseModal();
 			} catch (err: any) {
-				console.error(err);
-				setSnackbarMessage(`Error saving expense: ${err.message}`);
-				setSnackbarVisible(true);
-				throw err;
+				if (err.message === ErrorType.MAX_EXPENSES_FREE_USER) {
+					setSnackbarMessage("Max expenses per day per trip reached. Please upgrade to premium to add more expenses or wait for the next day.");
+					setSnackbarVisible(true);
+				} else if (err.message === ErrorType.MAX_EXPENSES_PREMIUM_USER) {
+					setSnackbarMessage("Upgrade one of your users to premium to add more expenses or wait for the next day.");
+					setSnackbarVisible(true);
+				} else {
+					console.error(err);
+					setSnackbarMessage(`Error saving expense: ${err.message}`);
+					setSnackbarVisible(true);
+					throw err;
+				}
 			}
 		},
 		[tripId, trip, activityToDeleteId, closeAddExpenseModal]
@@ -179,7 +187,7 @@ export function useTripHandlers({
 		},
 		[tripId]
 	);
-
+	// TODO: Update activities count and expenses count
 	const handleAddExpenseFromActivity = useCallback(
 		(activity: ProposedActivity) =>
 			openAddExpenseModal(
