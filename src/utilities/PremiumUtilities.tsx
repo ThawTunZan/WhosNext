@@ -1,11 +1,6 @@
 import { User } from "@clerk/nextjs/server";
 import { getUserById } from "@/src/services/FirebaseServices";
-
-export enum PremiumStatus {
-    PREMIUM = 'premium',
-    FREE = 'free',
-    TRIAL = 'trial'
-}
+import { PremiumStatus } from "@/src/types/DataTypes";
 
 function isPremiumUser(user: any) {
     //return user.publicMetadata.isPremium;

@@ -6,7 +6,7 @@ import {
 	getDoc,
 } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Currency, Member, AddMemberType } from '@/src/types/DataTypes';
+import { Currency, Member, AddMemberType, PremiumStatus } from '@/src/types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
@@ -101,7 +101,6 @@ export const addMemberToTrip = async (
 		currency?: Currency,
 		skipIfExists?: boolean,
 		sendNotifications?: boolean,
-		isPremiumUser?: boolean
 	} = {}
 ): Promise<void> => {
 	if (!tripId || !memberId) {
@@ -115,7 +114,6 @@ export const addMemberToTrip = async (
 		currency = "USD",
 		skipIfExists = false,
 		sendNotifications = false,
-		isPremiumUser = false
 	} = options;
 
 	const tripRef = doc(db, "trips", tripId);
@@ -150,7 +148,6 @@ export const addMemberToTrip = async (
 			CNY: 0,
 			SGD: 0
 		},
-		premiumUser: isPremiumUser,
 		...(addMemberType === AddMemberType.MOCK ? { claimCode: generateRandomString(8) } : {}),
 		addMemberType: addMemberType,
 	};

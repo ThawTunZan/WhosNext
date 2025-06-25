@@ -26,7 +26,8 @@ import { db } from '@/firebase';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Currency, AddMemberType } from '@/src/types/DataTypes';
+import { Currency, AddMemberType, PremiumStatus } from '@/src/types/DataTypes';
+import { getUserPremiumStatus } from '@/src/utilities/PremiumUtilities';
 
 const { width } = Dimensions.get('window');
 
@@ -64,13 +65,18 @@ export default function CreateTripScreen() {
     const parsedBudget = parseFloat(totalBudget) || 0;
     const userId = user.id;
 
+    let isTripPremium = false;
+    const userPremiumStatus = await getUserPremiumStatus(userId);
+    if (userPremiumStatus === PremiumStatus.PREMIUM || userPremiumStatus === PremiumStatus.TRIAL) {
+      isTripPremium = true;
+    }
+
     const initialMembers = {
       [userId]: {
         id: userId,
         budget: parsedBudget,
         amtLeft: parsedBudget,
         currency: selectedCurrency,
-        premiumUser: false,
         addMemberType: AddMemberType.FRIENDS,
         owesTotalMap: {
           USD: 0,
@@ -79,7 +85,7 @@ export default function CreateTripScreen() {
           JPY: 0,
           CNY: 0,
           SGD: 0
-        }
+        },
       }
     };
 
@@ -92,7 +98,8 @@ export default function CreateTripScreen() {
         userId,
         members: initialMembers,
         debts: [],
-        createdAt: Timestamp.now()
+        createdAt: Timestamp.now(),
+        isTripPremium,
       });
 
       router.push('/');

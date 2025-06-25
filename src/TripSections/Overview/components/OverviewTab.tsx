@@ -8,6 +8,7 @@ import BudgetSummaryCard from '@/src/TripSections/Overview/components/BudgetSumm
 import PersonalBudgetCard from '@/src/TripSections/Overview/components/PersonalBudgetCard';
 import MemberList from '@/app/trip/MemberList';
 import NextPayerCard from '@/app/trip/components/NextPayerCard';
+import { UpgradeTripButton } from '@/src/components';
 
 type OverviewTabProps = {
   members: Record<string, Member>;
@@ -55,6 +56,7 @@ export default function OverviewTab({
         { backgroundColor: theme.colors.background }
       ]}
     >
+      <UpgradeTripButton style={styles.upgradeButton} />
       <View style={styles.section}>
         <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.text }]}>
           👥 Members
@@ -138,6 +140,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: 16,
     fontWeight: '600',
+  },
+  upgradeButton: {
+    marginVertical: 16,
+
   },
   actionButtons: {
     marginTop: 8,

@@ -1,7 +1,8 @@
 // src/services/UserProfileService.ts
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore"
 import { db } from "@/firebase"
-import { getUserPremiumStatus, PremiumStatus } from "@/src/utilities/PremiumUtilities"
+import { getUserPremiumStatus } from "@/src/utilities/PremiumUtilities"
+import { PremiumStatus } from "@/src/types/DataTypes"
 
 /** The shape we’ll keep in `/users/{userId}` */
 export interface UserProfile {

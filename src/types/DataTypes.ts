@@ -63,10 +63,8 @@ export type Member = {
   amtLeft: number;
   currency: Currency;
   claimCode?: string;
-  premiumUser: boolean;
   addMemberType: AddMemberType;
   owesTotalMap: OwesTotalMap;
-  premiumStatus: PremiumStatus;
 };
 
 export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CNY' | 'SGD'; 
