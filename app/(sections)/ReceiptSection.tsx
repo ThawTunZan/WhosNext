@@ -32,7 +32,7 @@ import {
   Timestamp,
 } from "firebase/firestore"
 import { pickAndUploadReceipt } from "@/src/services/FirebaseStorageService"
-import { deleteReceipt } from "@/src/utilities/ReceiptUtilities"
+import { deleteReceipt } from "@/src/TripSections/Receipt/utilities/ReceiptUtilities"
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { BaseSection } from '@/app/common_components/BaseSection';
 import { CommonModal } from '@/app/common_components/CommonModal';

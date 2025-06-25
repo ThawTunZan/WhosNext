@@ -3,9 +3,9 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, View, Alert } from 'react-native';
 import { Card, Text, Divider, Button } from 'react-native-paper';
-import { ExpenseListItemProps } from '../types/DataTypes';
+import { ExpenseListItemProps } from '@/src/types/DataTypes';
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
-import { formatCurrency } from '../utilities/CurrencyUtilities';
+import { formatCurrency } from '@/src/utilities/CurrencyUtilities';
 
 const ExpenseItemList = React.memo(({ item, isExpanded, onToggleExpand, onDelete, onEdit }: ExpenseListItemProps) => {
   const profiles = useMemberProfiles();

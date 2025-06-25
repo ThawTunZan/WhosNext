@@ -5,10 +5,10 @@ import {
 	setDoc,
 	getDoc,
 } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { Currency, Member, AddMemberType } from '../types/DataTypes';
-import { NotificationService, NOTIFICATION_TYPES } from '../services/notification';
-import { convertCurrency } from '../services/CurrencyService';
+import { db } from '@/firebase';
+import { Currency, Member, AddMemberType } from '@/src/types/DataTypes';
+import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
+import { convertCurrency } from '@/src/services/CurrencyService';
 
 /**
  * Generates a random string of specified length

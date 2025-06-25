@@ -1,4 +1,4 @@
-import { Currency } from '../types/DataTypes';
+import { Currency } from '@/src/types/DataTypes';
 
 // Configuration
 const API_URL = process.env.EXPO_PUBLIC_CUSTOM_API_URL;

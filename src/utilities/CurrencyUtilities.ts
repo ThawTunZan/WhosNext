@@ -1,4 +1,4 @@
-import { Currency } from '../types/DataTypes';
+import { Currency } from '@/src/types/DataTypes';
 
 // Shared list of supported currencies
 export const SUPPORTED_CURRENCIES: Currency[] = [

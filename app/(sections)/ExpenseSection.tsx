@@ -6,10 +6,10 @@ import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { sectionStyles } from '@/app/styles/section_comp_styles';
 
-import { useExpenses } from '../../src/hooks/useExpenses';
-import { addExpenseAndCalculateDebts, deleteExpense } from '../../src/services/expenseService';
+import { useExpenses } from '@/src/hooks/useExpenses';
+import { addExpenseAndCalculateDebts, deleteExpense } from '@/src/services/expenseService';
 import ExpenseList from '@/app/trip/components/ItemList/ExpenseList';
-import AddExpenseModal from '@/src/components/AddExpenseModal'; 
+import AddExpenseModal from '@/src/TripSections/Expenses/components/AddExpenseModal'; 
 import { ExpensesSectionProps, Expense } from '@/src/types/DataTypes'; 
 import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { SearchBar } from '@/app/trip/components/SearchBar';

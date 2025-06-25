@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { NotificationData } from './types';
-import { NOTIFICATION_TYPES } from './constants';
+import { NotificationData } from '@/src/services/notification/types';
+import { NOTIFICATION_TYPES } from '@/src/services/notification/constants';
 
 export function useNotificationResponse() {
   const router = useRouter();

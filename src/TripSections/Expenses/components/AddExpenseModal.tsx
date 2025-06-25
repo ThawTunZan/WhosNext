@@ -4,7 +4,7 @@ import { Modal, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-nat
 import { Button, Card, Text, TextInput, RadioButton, HelperText, Caption, useTheme, Surface, Divider, Portal } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { AddExpenseModalProps, Expense, SharedWith, Currency } from '../types/DataTypes';
+import { AddExpenseModalProps, Expense, SharedWith, Currency } from '@/src/types/DataTypes';
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { useUser } from '@clerk/clerk-expo';
 import { Redirect } from 'expo-router';
@@ -12,7 +12,7 @@ import { db } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
-import { SUPPORTED_CURRENCIES } from '../utilities/CurrencyUtilities';
+import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
 
 const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerId }: AddExpenseModalProps) => {
 	const [expenseName, setExpenseName] = useState('');

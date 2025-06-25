@@ -2,8 +2,8 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NotificationBehavior } from 'expo-notifications';
-import { NotificationSettings, DEFAULT_SETTINGS } from './types';
-import { STORAGE_KEYS } from './constants';
+import { NotificationSettings, DEFAULT_SETTINGS } from '@/src/services/notification/types';
+import { STORAGE_KEYS } from '@/src/services/notification/constants';
 
 // Configure default notification behavior
 if (Platform.OS !== 'web') {

@@ -21,8 +21,8 @@ import {
   FieldValue,
 } from 'firebase/firestore';
 import { Currency, Debt, Payment } from '@/src/types/DataTypes';
-import { convertCurrency } from './CurrencyService';
-import { deletePayment } from '@/src/utilities/PaymentUtilities';
+import { convertCurrency } from '@/src/services/CurrencyService';
+import { deletePayment } from '@/src/TripSections/Payment/utilities/PaymentUtilities';
 
 // User-related operations
 export const getUserById = async (userId: string) => {

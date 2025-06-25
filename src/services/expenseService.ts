@@ -12,10 +12,10 @@ import {
 	arrayUnion,
 	arrayRemove,
 } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { Expense, Member, Currency, Debt } from '../types/DataTypes';
-import { NotificationService, NOTIFICATION_TYPES } from './notification';
-import { convertCurrency } from './CurrencyService';
+import { db } from '@/firebase';
+import { Expense, Member, Currency, Debt } from '@/src/types/DataTypes';
+import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
+import { convertCurrency } from '@/src/services/CurrencyService';
 
 const TRIPS_COLLECTION = 'trips';
 const EXPENSES_SUBCOLLECTION = 'expenses';

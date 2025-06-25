@@ -1,8 +1,8 @@
 // src/hooks/useTripData.ts
 import { useState, useEffect } from 'react';
 import { doc, collection, onSnapshot, DocumentData } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { TripData, Expense } from '../types/DataTypes';
+import { db } from '@/firebase';
+import { TripData, Expense } from '@/src/types/DataTypes';
 
 export const useTripData = (tripId: string | null | undefined) => {
     const [trip, setTrip] = useState<TripData | null>(null);

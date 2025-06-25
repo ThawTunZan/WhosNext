@@ -10,17 +10,17 @@ import { useUser } from "@clerk/clerk-expo";
 import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 import TripHeader from "@/src/components/TripHeader";
-import TabBar from "./components/TabBar";
-import BudgetDialog from "./components/BudgetDialog";
-import ErrorStates from "./components/ErrorStates";
-import OverviewTab from "./components/OverviewTab";
-import ExpensesSection from "../(sections)/ExpenseSection";
+import TabBar from "@/app/trip/components/TabBar";
+import BudgetDialog from "@/src/TripSections/Overview/components/BudgetDialog";
+import ErrorStates from "@/app/trip/components/ErrorStates";
+import OverviewTab from "@/src/TripSections/Overview/components/OverviewTab";
+import ExpensesSection from "@/app/(sections)/ExpenseSection";
 import SettleUpSection from "@/app/(sections)/Settleup";
-import ActivityVotingSection from "../(sections)/ActivityVotingSection";
-import ReceiptSection from "../(sections)/ReceiptSection";
-import InviteSection from "../(sections)/InviteSection";
-import AddExpenseModal from "@/src/components/AddExpenseModal";
-import ChooseExistingOrNew from "./components/ChooseExistingOrNew";
+import ActivityVotingSection from "@/app/(sections)/ActivityVotingSection";
+import ReceiptSection from "@/app/(sections)/ReceiptSection";
+import InviteSection from "@/app/(sections)/InviteSection";
+import AddExpenseModal from "@/src/TripSections/Expenses/components/AddExpenseModal";
+import ChooseExistingOrNew from "@/app/trip/components/ChooseExistingOrNew";
 
 import { calculateNextPayer } from "@/src/services/expenseService";
 import { useTripHandlers } from "@/src/utilities/TripHandlers";

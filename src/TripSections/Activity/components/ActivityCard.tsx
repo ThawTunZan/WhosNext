@@ -2,9 +2,9 @@
 import React from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Button, IconButton, Divider, Caption } from 'react-native-paper';
-import { ActivityCardProps } from '../types/DataTypes'; // Adjust path if using activities.ts
+import { ActivityCardProps } from '@/src/types/DataTypes'; // Adjust path if using activities.ts
 import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
-import { formatCurrency } from '../utilities/CurrencyUtilities';
+import { formatCurrency } from '@/src/utilities/CurrencyUtilities';
 
 const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense, onDelete, onEdit }: ActivityCardProps) => {
 

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-expo';
-import { db } from '../../firebase';
+import { db } from '@/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { TripData } from '../types/DataTypes';
+import { TripData } from '@/src/types/DataTypes';
 
 export function useTrips() {
   const { user } = useUser();

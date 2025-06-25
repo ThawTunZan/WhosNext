@@ -63,6 +63,12 @@ export default function ProfileScreensLayout() {
           title: "Settings"
         }}
       />
+      <Stack.Screen
+        name="privacy"
+        options={{
+          title: "Privacy Settings"
+        }}
+      />
     </Stack>
   );
 }

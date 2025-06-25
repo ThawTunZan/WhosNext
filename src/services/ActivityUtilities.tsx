@@ -14,13 +14,13 @@ import {
     getDoc,
     // serverTimestamp // Alternative to Timestamp.now()
 } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db } from '@/firebase';
 import {
     ProposedActivity,
     NewProposedActivityData,
     VoteType
-} from '../types/DataTypes';
-import { NotificationService, NOTIFICATION_TYPES } from './notification';
+} from '@/src/types/DataTypes';
+import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
 
 const TRIPS_COLLECTION = 'trips';
 const ACTIVITIES_SUBCOLLECTION = 'proposed_activities';

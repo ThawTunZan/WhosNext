@@ -1,8 +1,8 @@
 // src/services/SettleUpUtilities.tsx
 
 // Define types needed for debt processing
-import { Currency, Debt } from '../types/DataTypes';
-import { convertCurrency } from '../services/CurrencyService';
+import { Currency, Debt } from '@/src/types/DataTypes';
+import { convertCurrency } from '@/src/services/CurrencyService';
 
 export type ParsedDebt = {
   fromId: string;

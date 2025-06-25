@@ -1,5 +1,5 @@
 // src/services/InviteUtilities.ts
-import { db } from "../../firebase"
+import { db } from "../../../../firebase"
 import {
   collection,
   addDoc,
@@ -8,7 +8,7 @@ import {
   updateDoc,
   Timestamp,
 } from "firebase/firestore"
-import { addMemberToTrip } from "./TripUtilities"
+import { addMemberToTrip } from "../../../utilities/TripUtilities"
 import { AddMemberType } from "@/src/types/DataTypes"
 
 export interface Invite {

@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Expense } from '@/src/types/DataTypes';
-import ExpenseCard from '../ExpenseCard';
+import ExpenseCard from '@/app/trip/components/ExpenseCard';
 import GenericList from '@/app/trip/components/ItemList/GenericList';
 
 interface ExpenseListProps {

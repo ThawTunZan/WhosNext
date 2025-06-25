@@ -4,10 +4,10 @@ import { Button, useTheme, Text } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { Member, AddMemberType, Currency } from '@/src/types/DataTypes';
-import BudgetSummaryCard from './BudgetSummaryCard';
-import PersonalBudgetCard from './PersonalBudgetCard';
-import MemberList from '../MemberList';
-import NextPayerCard from './NextPayerCard';
+import BudgetSummaryCard from '@/src/TripSections/Overview/components/BudgetSummaryCard';
+import PersonalBudgetCard from '@/src/TripSections/Overview/components/PersonalBudgetCard';
+import MemberList from '@/app/trip/MemberList';
+import NextPayerCard from '@/app/trip/components/NextPayerCard';
 
 type OverviewTabProps = {
   members: Record<string, Member>;

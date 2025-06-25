@@ -14,9 +14,9 @@ import {
     ProposeActivityModalProps,
     NewProposedActivityData,
     Currency,
-} from '../types/DataTypes';
+} from '@/src/types/DataTypes';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
-import { SUPPORTED_CURRENCIES } from '../utilities/CurrencyUtilities';
+import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
 
 const ProposeActivityModal = ({
     visible,

@@ -14,10 +14,10 @@ import {
     calculateSimplifiedDebtsToTripCurrency,
     calculateSimplifiedDebtsPerCurrency,
     ParsedDebt,         
-} from '@/src/utilities/SettleUpUtilities'; 
+} from '@/src/TripSections/SettleUp/utilities/SettleUpUtilities'; 
 import { Member, Debt, Currency, Payment } from '@/src/types/DataTypes';
 import { useMemberProfiles, MemberProfilesProvider } from '@/src/context/MemberProfilesContext';
-import RecordPaymentModal from '@/src/components/RecordPaymentModal';
+import RecordPaymentModal from '@/src/TripSections/Payment/components/RecordPaymentModal';
 import { firebaseRecordPayment, firebaseGetTripPayments, firebaseDeletePayment } from '@/src/services/FirebaseServices';
 
 // Props type specific to this component

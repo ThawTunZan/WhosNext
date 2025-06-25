@@ -19,7 +19,7 @@ import {
   deleteProposedActivity,
   updateProposedActivity,
 } from '@/src/services/ActivityUtilities'
-import ProposeActivityModal from '@/src/components/ProposeActivityModal'
+import ProposeActivityModal from '@/src/TripSections/Activity/components/ProposeActivityModal'
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
 import { SearchBar } from '@/app/trip/components/SearchBar'

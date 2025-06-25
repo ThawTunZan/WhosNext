@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { ProposedActivity } from '@/src/types/DataTypes';
-import ActivityCard from '@/src/components/ActivityCard';
+import ActivityCard from '@/src/TripSections/Activity/components/ActivityCard';
 import GenericList from '@/app/trip/components/ItemList/GenericList';
 
 interface ActivityListProps {

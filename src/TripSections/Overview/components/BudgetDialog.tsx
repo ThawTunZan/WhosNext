@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Dialog, TextInput, Button, Portal } from 'react-native-paper';
 import { Currency } from '@/src/types/DataTypes';
-import CurrencyModal from './CurrencyModal';
+import CurrencyModal from '@/app/trip/components/CurrencyModal';
 
 type BudgetDialogProps = {
   visible: boolean;
