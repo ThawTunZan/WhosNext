@@ -22,8 +22,14 @@ export default function SignInScreen() {
   const router = useRouter()
 
   // OAuth hooks
-  const { startOAuthFlow: googleOAuth } = useOAuth({ strategy: 'oauth_google' })
-  const { startOAuthFlow: appleOAuth } = useOAuth({ strategy: 'oauth_apple' })
+  const { startOAuthFlow: googleOAuth } = useOAuth({ 
+    strategy: 'oauth_google',
+    redirectUrl: Platform.OS === 'web' ? `${window.location.origin}/auth/callback` : undefined,
+  })
+  const { startOAuthFlow: appleOAuth } = useOAuth({ 
+    strategy: 'oauth_apple',
+    redirectUrl: Platform.OS === 'web' ? `${window.location.origin}/auth/callback` : undefined,
+  })
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -44,11 +50,83 @@ export default function SignInScreen() {
 
     setOauthLoading('google')
     try {
-      const { createdSessionId, setActive } = await googleOAuth()
+      console.log('Starting Google OAuth flow...')
+      const { createdSessionId, signIn, signUp, setActive: clerkSetActive } = await googleOAuth()
+      
+      console.log('OAuth response:', { 
+        createdSessionId, 
+        signInStatus: signIn?.status, 
+        signUpStatus: signUp?.status,
+        signInSessionId: signIn?.createdSessionId,
+        signUpSessionId: signUp?.createdSessionId
+      })
       
       if (createdSessionId) {
-        setActive({ session: createdSessionId })
+        console.log('Using createdSessionId:', createdSessionId)
+        // Session was created, activate it
+        await clerkSetActive({ session: createdSessionId })
         router.replace(redirect_to ?? '/')
+      } else if (signIn?.status === 'complete') {
+        console.log('Sign in complete, using session:', signIn.createdSessionId)
+        // User signed in successfully
+        await clerkSetActive({ session: signIn.createdSessionId })
+        router.replace(redirect_to ?? '/')
+      } else if (signUp?.status === 'complete') {
+        console.log('Sign up complete, using session:', signUp.createdSessionId)
+        // User signed up successfully
+        await clerkSetActive({ session: signUp.createdSessionId })
+        router.replace(redirect_to ?? '/')
+      } else if (signUp?.status === 'missing_requirements') {
+        console.log('Missing requirements for sign up:', signUp.missingFields)
+        
+        // Auto-generate username if missing
+        if (signUp.missingFields?.includes('username')) {
+          const emailPrefix = signUp.emailAddress?.split('@')[0]?.replace(/[^a-zA-Z0-9]/g, '') || 'user'
+          const timestamp = Date.now().toString().slice(-4)
+          const generatedUsername = `${emailPrefix}${timestamp}`
+          
+          console.log('Auto-generating username:', generatedUsername)
+          
+          try {
+            // Update the sign-up with missing fields
+            const updatedSignUp = await signUp.update({ 
+              username: generatedUsername 
+            })
+            
+            console.log('Updated signup status:', updatedSignUp.status)
+            
+            if (updatedSignUp.status === 'complete' && updatedSignUp.createdSessionId) {
+              console.log('Sign up completed after username update:', updatedSignUp.createdSessionId)
+              await clerkSetActive({ session: updatedSignUp.createdSessionId })
+              router.replace(redirect_to ?? '/')
+            } else {
+              console.log('Signup still not complete after username update, current status:', updatedSignUp.status)
+              setErrors(prev => ({ 
+                ...prev, 
+                general: 'Account created successfully! Please sign in with your credentials.' 
+              }))
+            }
+          } catch (updateError) {
+            console.error('Error completing signup with username:', updateError)
+            setErrors(prev => ({ 
+              ...prev, 
+              general: 'Account setup in progress. Please try signing in again.' 
+            }))
+          }
+        }
+      } else if (signIn?.status === 'needs_identifier') {
+        console.log('Sign in needs identifier - user may need to sign up first')
+        setErrors(prev => ({ 
+          ...prev, 
+          general: 'Account found but additional information needed. Please try again or sign up manually.' 
+        }))
+      } else {
+        // Handle other cases or prompt user for additional info
+        console.log('OAuth completed but no session created:', { signIn, signUp })
+        setErrors(prev => ({ 
+          ...prev, 
+          general: 'Authentication completed but could not sign in. Please try again.' 
+        }))
       }
     } catch (err: any) {
       console.error('Google OAuth error:', err)
@@ -67,11 +145,27 @@ export default function SignInScreen() {
 
     setOauthLoading('apple')
     try {
-      const { createdSessionId, setActive } = await appleOAuth()
+      const { createdSessionId, signIn, signUp, setActive: clerkSetActive } = await appleOAuth()
       
       if (createdSessionId) {
-        setActive({ session: createdSessionId })
+        // Session was created, activate it
+        await clerkSetActive({ session: createdSessionId })
         router.replace(redirect_to ?? '/')
+      } else if (signIn?.status === 'complete') {
+        // User signed in successfully
+        await clerkSetActive({ session: signIn.createdSessionId })
+        router.replace(redirect_to ?? '/')
+      } else if (signUp?.status === 'complete') {
+        // User signed up successfully
+        await clerkSetActive({ session: signUp.createdSessionId })
+        router.replace(redirect_to ?? '/')
+      } else {
+        // Handle other cases or prompt user for additional info
+        console.log('OAuth completed but no session created:', { signIn, signUp })
+        setErrors(prev => ({ 
+          ...prev, 
+          general: 'Authentication completed but could not sign in. Please try again.' 
+        }))
       }
     } catch (err: any) {
       console.error('Apple OAuth error:', err)
