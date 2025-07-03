@@ -13,12 +13,16 @@ import { collection, doc } from "firebase/firestore";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
 import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
+import IconRadioSelector from './IconRadioSelector';
+import AvatarRadioSelector from './AvatarRadioSelector';
 
 const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerId }: AddExpenseModalProps) => {
 	const [expenseName, setExpenseName] = useState('');
 	const [paidAmtStr, setPaidAmtStr] = useState('');
 	const [sharedWithIds, setSharedWithIds] = useState<string[]>([]);
+	const [paidByIds, setPaidByIds] = useState<string[]>([]);
 	const [splitType, setSplitType] = useState<'even' | 'custom'>('even');
+	const [paidType, setPaidType] = useState<'single' | 'multiple'>('multiple');
 	const [customAmounts, setCustomAmounts] = useState<{ [id: string]: string }>({});
 	const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
 	const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
@@ -259,6 +263,13 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 		setCustomAmounts(prev => ({ ...prev, [id]: cleanedText }));
 	};
 
+	const handleSinglePaidByChange = (val: string | string[]) => {
+		if (typeof val === 'string') setPaidByID(val);
+	};
+	const handleMultiplePaidByChange = (val: string | string[]) => {
+		if (Array.isArray(val)) setPaidByIds(val);
+	};
+
 	const { isDarkMode } = useCustomTheme();
 	const theme = isDarkMode ? darkTheme : lightTheme;
 	const paperTheme = useTheme();
@@ -305,96 +316,88 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 									</View>
 									{errors.amount && <HelperText type="error">{errors.amount}</HelperText>}
 
+									{/* Paid By Type Section */}
+									<IconRadioSelector
+										title="Paid By Type"
+										value={paidType}
+										onValueChange={v => setPaidType(v as 'single' | 'multiple')}
+										options={[
+											{ value: 'single', label: 'Single Payer', icon: 'equal-box' },
+											{ value: 'multiple', label: 'Multiple Payers', icon: 'calculator-variant' },
+										]}
+										containerStyle={{ backgroundColor: theme.colors.background }}
+									/>
+
 									{/* Paid By Section */}
-									<Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
-										<Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
-											Paid by
-										</Text>
-										{suggestedPayerId && (
-											<Caption style={[styles.suggestionText, { color: theme.colors.primary }]}>
-												💡 Suggestion: {profiles[suggestedPayerId]} is next to pay
-											</Caption>
-										)}
-										{memberEntries.length > 0 ? (
-											<RadioButton.Group onValueChange={newValue => setPaidByID(newValue)} value={paidById}>
-												{memberEntries.map(([id, member]) => (
-													<TouchableOpacity
-														key={id}
-														onPress={() => setPaidByID(id)}
-														style={[
-															styles.memberOption,
-															paidById === id && styles.selectedMemberOption,
-															{ backgroundColor: paidById === id ? paperTheme.colors.primaryContainer : theme.colors.surface }
-														]}
-													>
-														<RadioButton.Android value={id} />
-														<Text style={[
-															styles.memberName,
-															{ color: paidById === id ? paperTheme.colors.onPrimaryContainer : theme.colors.text }
-														]}>
+									{paidType === 'single' ? (
+										<AvatarRadioSelector
+											title="Paid by"
+											value={paidById}
+											onValueChange={handleSinglePaidByChange}
+											options={memberEntries.map(([id, member]) => ({ value: id, label: profiles[id] }))}
+											containerStyle={{ backgroundColor: theme.colors.background }}
+											multiple={false}
+										/>
+									) : (
+										<AvatarRadioSelector
+											title="Paid by"
+											value={paidByIds}
+											onValueChange={handleMultiplePaidByChange}
+											options={memberEntries.map(([id, member]) => ({ value: id, label: profiles[id] }))}
+											containerStyle={{ backgroundColor: theme.colors.background }}
+											multiple={true}
+										/>
+									)}
+									{suggestedPayerId && (
+										<Caption style={[styles.suggestionText, { color: theme.colors.primary }]}>💡 Suggestion: {profiles[suggestedPayerId]} is next to pay</Caption>
+									)}
+									{errors.paidBy && <HelperText type="error">{errors.paidBy}</HelperText>}
+
+									{/* Custom Paid Amounts Section */}
+									{paidType === 'multiple' && (
+										<Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
+											<Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+												Paid Amounts
+											</Text>
+											<View style={styles.customAmountsContainer}>
+												{paidByIds.map(id => (
+													<View key={id} style={styles.customAmountRow}>
+														<Text style={[styles.customAmountLabel, { color: theme.colors.text }]}>
 															{profiles[id]}
 														</Text>
-													</TouchableOpacity>
+														<TextInput
+															mode="outlined"
+															dense
+															style={[styles.customAmountInput, { backgroundColor: theme.colors.surface }]}
+															value={customAmounts[id] || ''}
+															placeholder="0.00"
+															keyboardType="numeric"
+															onChangeText={(text) => handleCustomAmountChange(id, text)}
+															error={!!errors[`custom_${id}`]}
+															left={<TextInput.Affix text={selectedCurrency} />}
+														/>
+													</View>
 												))}
-											</RadioButton.Group>
-										) : (
-											<Text style={[styles.infoText, { color: theme.colors.error }]}>
-												No members available to select
-											</Text>
-										)}
-										{errors.paidBy && <HelperText type="error">{errors.paidBy}</HelperText>}
-									</Surface>
+											</View>
+											{errors.customTotal && (
+												<HelperText type="error" style={styles.customTotalError}>
+													{errors.customTotal}
+												</HelperText>
+											)}
+										</Surface>
+									)}
 
 									{/* Split Type Section */}
-									<Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
-										<Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
-											Split Type
-										</Text>
-										<RadioButton.Group onValueChange={newValue => setSplitType(newValue as 'even' | 'custom')} value={splitType}>
-											<View style={styles.splitTypeContainer}>
-												<TouchableOpacity
-													onPress={() => setSplitType('even')}
-													style={[
-														styles.splitOption,
-														splitType === 'even' && styles.selectedSplitOption,
-														{ backgroundColor: splitType === 'even' ? paperTheme.colors.primaryContainer : theme.colors.surface }
-													]}
-												>
-													<MaterialCommunityIcons
-														name="equal-box"
-														size={24}
-														color={splitType === 'even' ? paperTheme.colors.onPrimaryContainer : theme.colors.text}
-													/>
-													<Text style={[
-														styles.splitOptionText,
-														{ color: splitType === 'even' ? paperTheme.colors.onPrimaryContainer : theme.colors.text }
-													]}>
-														Split Evenly
-													</Text>
-												</TouchableOpacity>
-												<TouchableOpacity
-													onPress={() => setSplitType('custom')}
-													style={[
-														styles.splitOption,
-														splitType === 'custom' && styles.selectedSplitOption,
-														{ backgroundColor: splitType === 'custom' ? paperTheme.colors.primaryContainer : theme.colors.surface }
-													]}
-												>
-													<MaterialCommunityIcons
-														name="calculator-variant"
-														size={24}
-														color={splitType === 'custom' ? paperTheme.colors.onPrimaryContainer : theme.colors.text}
-													/>
-													<Text style={[
-														styles.splitOptionText,
-														{ color: splitType === 'custom' ? paperTheme.colors.onPrimaryContainer : theme.colors.text }
-													]}>
-														Custom Split
-													</Text>
-												</TouchableOpacity>
-											</View>
-										</RadioButton.Group>
-									</Surface>
+									<IconRadioSelector
+										title="Split Type"
+										value={splitType}
+										onValueChange={v => setSplitType(v as 'even' | 'custom')}
+										options={[
+											{ value: 'even', label: 'Split Evenly', icon: 'equal-box' },
+											{ value: 'custom', label: 'Custom Split', icon: 'calculator-variant' },
+										]}
+										containerStyle={{ backgroundColor: theme.colors.background }}
+									/>
 
 									{/* Shared With Section */}
 									<Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
