@@ -5,10 +5,12 @@ import { FieldValue, Timestamp } from "firebase/firestore";
 export enum ErrorType {
   MAX_EXPENSES_FREE_USER = 'maxExpensesFreeUser',
   MAX_EXPENSES_PREMIUM_USER = 'maxExpensesPremiumUser',
-  MAX_ACTIVITIES = 'maxActivities',
-  MAX_VOTES = 'maxVotes',
-  MAX_NUM_OF_RECEIPTS_PER_TRIP = 'maxNumOfReceiptsPerTrip',
-  MAX_MB_OF_RECEIPT_STORAGE_PER_TRIP = 'maxMBOfReceiptStoragePerTrip',
+  MAX_ACTIVITIES_FREE_USER = 'maxActivitiesFreeUser',
+  MAX_ACTIVITIES_PREMIUM_USER = 'maxActivitiesPremiumUser',
+  MAX_NUM_OF_RECEIPTS_FREE_USER = 'maxNumOfReceiptsFreeUser',
+  MAX_NUM_OF_RECEIPTS_PREMIUM_USER = 'maxNumOfReceiptsPremiumUser',
+  MAX_MB_OF_RECEIPT_STORAGE_FREE_USER = 'maxMBOfReceiptStorageFreeUser',
+  MAX_MB_OF_RECEIPT_STORAGE_PREMIUM_USER = 'maxMBOfReceiptStoragePremiumUser',
 }
 
 
@@ -85,14 +87,14 @@ export type Expenses = {[id:string]: {expense: Expense}}
 export type SharedWith = {
   payeeID: string;
   amount: number;
+  currency: Currency
 };
   
   // Type for a single expense item
 export type Expense = {
   id: string; // Firestore document ID
   activityName: string;
-  paidById: string; // Name of the person who paid
-  paidAmt: number;
+  paidByAndAmounts: {memberId: string, amount: string}[];
   sharedWith: SharedWith[];
   createdAt?: string; // Firestore Timestamp type for consistency
   currency: Currency;

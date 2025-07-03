@@ -33,10 +33,13 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
     const searchLower = searchQuery.toLowerCase();
     return (
       expense.activityName.toLowerCase().includes(searchLower) ||
-      profiles[expense.paidById]?.toLowerCase().includes(searchLower)
+      expense.paidByAndAmounts.some(paidByAndAmount => {
+        const profileName = profiles[paidByAndAmount.memberId];
+        return profileName && profileName.toLowerCase().includes(searchLower);
+      })
     );
   });
-
+  
   const toggleExpand = useCallback((id: string) => {
     setExpandedId(prev => (prev === id ? null : id));
   }, []);

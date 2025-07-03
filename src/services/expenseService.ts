@@ -34,9 +34,9 @@ export const updateExpense = async (expenseId: string, tripId: string, updatedEx
 		const originalExpense = originalExpenseSnap.data() as Expense
 
 		const reversalRaw = generateExpenseImpactUpdate({}, originalExpense, members, true, profiles);
-		reversalRaw['totalAmtLeft'] = originalExpense.paidAmt
+		reversalRaw['totalAmtLeft'] = getTotalPaid(originalExpense.paidByAndAmounts);
 		const applyRaw = generateExpenseImpactUpdate({}, updatedExpenseData, members, false, profiles);
-		applyRaw['totalAmtLeft'] = -updatedExpenseData.paidAmt
+		applyRaw['totalAmtLeft'] = -getTotalPaid(updatedExpenseData.paidByAndAmounts);
 
 		const combinedUpdates = mergeIncrements(reversalRaw, applyRaw)
 
@@ -119,49 +119,100 @@ export const generateExpenseImpactUpdate = (
 	profiles: Record<string, string>,
 	expenseId?: string,
 	convertedPaidAmt?: number
-): { [key: string]: any } => {
-
-	const { sharedWith, paidById, paidAmt, currency } = expenseData;
-
-	if (!paidById) {
-		throw new Error(`Payer ID is missing from expense data ${expenseId ? `for expense ${expenseId}` : ''}`);
+  ): { [key: string]: any } => {
+  
+	const { sharedWith, paidByAndAmounts, currency } = expenseData;
+  
+	if (!paidByAndAmounts) {
+	  throw new Error(`paid by and amount map has error: ${paidByAndAmounts}`);
 	}
-
-	// Check if the payer exists in members
-	if (!members[paidById]) {
-		throw new Error(`Payer "${profiles[paidById] || paidById}" not found in members. Failed to ${reverse ? 'reverse' : 'process'} expense ${expenseId || ''}.`);
-	}
-
-	const multiplier = (reverse) ? 1 : -1;
-
-	// handle debts
-	for (const member of sharedWith) {
-		const share = Number(member.amount);
-		const payeeID = member.payeeID;
-		if (payeeID !== paidById && !isNaN(share)) {
-			
-			const debtAmount = Math.abs(share);
-			if (!isNaN(debtAmount) && debtAmount > 0) {
-				if (!reverse) {
-					const debtKey = `${payeeID}#${paidById}`;
-					updates[`debts.${currency}.${debtKey}`] = debtAmount;
-				} else {
-					const debtKey = `${paidById}#${payeeID}`;
-					updates[`debts.${currency}.${debtKey}`] = debtAmount;
-				}
-			}
+  
+	// Validate payers
+	paidByAndAmounts.forEach(p => {
+	  if (!members[p.memberId]) {
+		throw new Error(`${profiles[p.memberId] || p.memberId} does not exist in the trip!`);
+	  }
+	});
+  
+	const multiplier = reverse ? 1 : -1;
+  
+	// Make mutable copies
+	let tempPaidByAndAmounts = paidByAndAmounts.map(p => ({ ...p }));
+	let tempSharedWith      = sharedWith.map(s => ({ ...s }));
+  
+	// === Distribute each payee’s share across payers ===
+	for (const member of tempSharedWith) {
+	  const originalShare = Number(member.amount);
+	  if (isNaN(originalShare) || originalShare === 0) {
+		console.log(`Skipping payee ${member.payeeID}: no share to allocate.`);
+		continue;
+	  }
+  
+	  console.log(`\nStarting allocation for payee ${member.payeeID}: total share = ${originalShare}`);
+  
+	  for (const payer of tempPaidByAndAmounts) {
+		const paidAmount = Number(payer.amount);
+		if (payer.memberId === member.payeeID || paidAmount <= 0) {
+		  // skip self‐payments or exhausted payers
+		  continue;
 		}
+  
+		// How much this payer can cover
+		const debtAmount = Math.min(member.amount, paidAmount);
+  
+		// Subtract that from payee’s remaining share
+		member.amount = Math.max(0, member.amount - paidAmount);
+		// And subtract it from the payer’s remaining paid amount
+		payer.amount = String(Math.max(paidAmount - debtAmount, 0));
+  
+		console.log(
+		  `  Payer ${payer.memberId} covers ${debtAmount}. ` +
+		  `Remaining payee(${member.payeeID}) = ${member.amount}, ` +
+		  `remaining payer(${payer.memberId}) = ${payer.amount}`
+		);
+  
+		// Record the debt update
+		if (debtAmount > 0) {
+		  const debtKey = reverse
+			? `${payer.memberId}#${member.payeeID}`
+			: `${member.payeeID}#${payer.memberId}`;
+  
+		  updates[`debts.${currency}.${debtKey}`] =
+			(updates[`debts.${currency}.${debtKey}`] || 0) + debtAmount;
+		}
+  
+		// Once this payee is “fully paid,” stop the inner loop
+		if (member.amount === 0) {
+		  console.log(`  Payee ${member.payeeID} fully covered, moving to next payee.`);
+		  break;
+		}
+	  }
 	}
-
-	// Only the payer's amtLeft is reduced by the full paidAmt
-	if (!isNaN(paidAmt)) {  // Add check for NaN
-		updates[`members.${paidById}.amtLeft`] = multiplier * paidAmt;
-		updates[`totalAmtLeft`] = multiplier * paidAmt;
+  
+	// === Update amtLeft for each payer ===
+	let totalPaidAmt = 0;
+	for (const payer of paidByAndAmounts) {
+	  const paidAmount = Number(payer.amount);
+	  if (!isNaN(paidAmount) && paidAmount !== 0) {
+		updates[`members.${payer.memberId}.amtLeft`] =
+		  (updates[`members.${payer.memberId}.amtLeft`] || 0) + multiplier * paidAmount;
+		totalPaidAmt += paidAmount;
+		console.log(
+		  `Payer ${payer.memberId} final amtLeft adjustment = ${multiplier * paidAmount}`
+		);
+	  }
 	}
-
+  
+	// === Update totalAmtLeft ===
+	if (!isNaN(totalPaidAmt)) {
+	  updates[`totalAmtLeft`] =
+		(updates[`totalAmtLeft`] || 0) + multiplier * totalPaidAmt;
+	  console.log(`totalAmtLeft adjustment = ${multiplier * totalPaidAmt}`);
+	}
+  
 	return updates;
-};
-
+  };
+  
 function formatToFirebase(updates: { [key: string]: any }) {
 	const out: { [key: string]: any } = {};
 	for (const [k, v] of Object.entries(updates)) {
@@ -241,8 +292,7 @@ export const subscribeToExpenses = (
 			return {
 				id: doc.id,
 				activityName: raw.activityName,
-				paidById: raw.paidById, // To add paidById later
-				paidAmt: raw.paidAmt,
+				paidByAndAmounts: raw.paidByAndAmounts,
 				sharedWith: raw.sharedWith,
 				// Handle potential Timestamp conversion if you store dates as Timestamps
 				createdAt: raw.createdAt?.toDate ? raw.createdAt.toDate().toLocaleDateString() : 'N/A',
@@ -267,12 +317,6 @@ export const addExpenseAndCalculateDebts = async (
 	profiles: Record<string, string>
 ): Promise<void> => {
 
-	const paidByID = expenseData.paidById;
-
-	if (!paidByID) {
-		throw new Error(`Could not find member ID for payer: ${expenseData.paidById}`);
-	}
-
 	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
 	const tripSnap = await getDoc(tripDocRef);
 	const tripData = tripSnap.data();
@@ -295,7 +339,7 @@ export const addExpenseAndCalculateDebts = async (
 	batch.set(newExpenseRef, expenseDocData);
 
 	let updatesRaw: { [key: string]: number } = {};
-	const convertedPaidAmt = await convertCurrency(expenseData.paidAmt, expenseData.currency, tripData.currency);
+	const convertedPaidAmt = await convertCurrency(getTotalPaid(expenseData.paidByAndAmounts), expenseData.currency, tripData.currency);
 	updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false, profiles, expenseData.id, convertedPaidAmt);
 	updatesRaw['totalAmtLeft'] = -convertedPaidAmt;
 	let updates = formatToFirebase(updatesRaw);
@@ -307,15 +351,16 @@ export const addExpenseAndCalculateDebts = async (
 		console.log("Expense added and debts updated successfully.");
 
 		// Send notifications to all members involved
-		const paidByName = profiles[paidByID] || 'Someone';
-		const amount = expenseData.paidAmt.toFixed(2);
+		const payerNames = expenseData.paidByAndAmounts.map(p => profiles[p.memberId] || 'Someone').join(', ');
+		const amount = getTotalPaid(expenseData.paidByAndAmounts).toFixed(2);
 
-		// Notify everyone who needs to pay
+		// Notify everyone who needs to pay (not a payer)
 		expenseData.sharedWith.forEach(async (shared) => {
-			if (shared.payeeID !== paidByID) { // Don't notify the person who paid
+			const isPayer = expenseData.paidByAndAmounts.some(p => p.memberId === shared.payeeID);
+			if (!isPayer) {
 				await NotificationService.sendExpenseAlert(
 					"New Expense Added",
-					`${paidByName} paid ${amount} for ${expenseData.activityName}`,
+					`${payerNames} paid ${amount} for ${expenseData.activityName}`,
 					{
 						type: NOTIFICATION_TYPES.EXPENSE_ALERT,
 						id: newExpenseRef.id,
@@ -344,7 +389,7 @@ export const deleteExpense = async (tripId: string, expenseId: string, members: 
 		}
 
 		const expenseData = expenseSnap.data() as Expense;
-		const { paidById, sharedWith, currency, paidAmt } = expenseData;
+		const { sharedWith, currency, paidByAndAmounts } = expenseData;
 
 		// Create a batch for atomic operations
 		const batch = writeBatch(db);
@@ -368,37 +413,38 @@ export const deleteExpense = async (tripId: string, expenseId: string, members: 
 		const updates: { [key: string]: any } = {};
 
 		for (const share of sharedWith) {
-			if (share.payeeID === paidById) continue; // Skip if share belongs to payer
-
 			const shareAmount = Number(share.amount);
 			if (isNaN(shareAmount) || shareAmount <= 0) continue;
 
-			// Get the current debt values in both directions
-			const payeeToPayerKey = `${share.payeeID}#${paidById}`;
-			const payerToPayeeKey = `${paidById}#${share.payeeID}`;
-			
-			const currentPayeeToPayer = currencyDebts[payeeToPayerKey] || 0;
+			for (const payer of paidByAndAmounts) {
+				if (share.payeeID === payer.memberId) continue; // Skip if share belongs to payer
+				const payeeToPayerKey = `${share.payeeID}#${payer.memberId}`;
+				const payerToPayeeKey = `${payer.memberId}#${share.payeeID}`;
+				const currentPayeeToPayer = currencyDebts[payeeToPayerKey] || 0;
+				const payerShareAmount = shareAmount * (Number(payer.amount) / getTotalPaid(paidByAndAmounts));
 
-			// If current debt from payee to payer is greater than or equal to share amount
-			// simply decrease that debt
-			if (currentPayeeToPayer >= shareAmount) {
-				updates[`debts.${currency}.${payeeToPayerKey}`] = increment(-shareAmount);
-			} else {
-				// If there was any existing debt, clear it
-				if (currentPayeeToPayer > 0) {
-					updates[`debts.${currency}.${payeeToPayerKey}`] = 0;
+				if (currentPayeeToPayer >= payerShareAmount) {
+					updates[`debts.${currency}.${payeeToPayerKey}`] = increment(-payerShareAmount);
+				} else {
+					if (currentPayeeToPayer > 0) {
+						updates[`debts.${currency}.${payeeToPayerKey}`] = 0;
+					}
+					const remainingAmount = payerShareAmount - currentPayeeToPayer;
+					updates[`debts.${currency}.${payerToPayeeKey}`] = increment(remainingAmount);
 				}
-
-				// Add the remaining amount to the reverse direction
-				const remainingAmount = shareAmount - currentPayeeToPayer;
-				updates[`debts.${currency}.${payerToPayeeKey}`] = increment(remainingAmount);
 			}
 		}
 
-		// Only restore the payer's amtLeft since they were the only one who paid
-		console.log("paidAmt is " + paidAmt)
-		updates[`members.${paidById}.amtLeft`] = increment(paidAmt);
-		updates[`totalAmtLeft`] = increment(paidAmt);
+		// Restore amtLeft for each payer
+		let totalPaidAmt = 0;
+		for (const payer of paidByAndAmounts) {
+			const paidAmount = Number(payer.amount);
+			if (!isNaN(paidAmount) && paidAmount !== 0) {
+				updates[`members.${payer.memberId}.amtLeft`] = increment(paidAmount);
+				totalPaidAmt += paidAmount;
+			}
+		}
+		updates[`totalAmtLeft`] = increment(totalPaidAmt);
 
 		// Apply all updates
 		batch.update(tripRef, updates);
@@ -451,3 +497,8 @@ export const reverseExpensesAndUpdate = async (
 		throw error;
 	}
 };
+
+// Helper to sum total paid from paidByAndAmounts
+function getTotalPaid(paidByAndAmounts: {memberId: string, amount: string}[]): number {
+	return paidByAndAmounts.reduce((sum, p) => sum + Number(p.amount), 0);
+}

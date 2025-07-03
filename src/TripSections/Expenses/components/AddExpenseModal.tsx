@@ -19,11 +19,13 @@ import AvatarRadioSelector from './AvatarRadioSelector';
 const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerId }: AddExpenseModalProps) => {
 	const [expenseName, setExpenseName] = useState('');
 	const [paidAmtStr, setPaidAmtStr] = useState('');
+	const [multiplePaidAmtStr, setMultiplePaidAmtStr] = useState('');
 	const [sharedWithIds, setSharedWithIds] = useState<string[]>([]);
 	const [paidByIds, setPaidByIds] = useState<string[]>([]);
 	const [splitType, setSplitType] = useState<'even' | 'custom'>('even');
 	const [paidType, setPaidType] = useState<'single' | 'multiple'>('multiple');
 	const [customAmounts, setCustomAmounts] = useState<{ [id: string]: string }>({});
+	const [customPaidAmounts, setCustomPaidAmounts] = useState<{ [id: string]: string }>({});
 	const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
 	const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,7 +40,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	const profiles = useMemberProfiles();
 
 	const allMemberIds = Object.keys(members);
-	const initialPayerId = initialData?.paidById
+	const initialPayerIds = initialData?.paidByAndAmounts[0].memberId
 		// if parent passed an explicit payer-id suggestion, use it
 		?? suggestedPayerId
 		// otherwise use the current user
@@ -48,7 +50,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 		?? "";
 
 	// **After**: initialize state with that computed default
-	const [paidById, setPaidByID] = useState<string>(initialPayerId);
+	const [paidById, setPaidByID] = useState<string>(initialPayerIds);
 
 	// Reset form when modal is opened/closed or members change
 	useEffect(() => {
@@ -61,37 +63,45 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			const allMemberIds = Object.keys(members);
 
 			setExpenseName(initialData?.activityName || ''); // Use activityName if present
-			setPaidAmtStr(initialData?.paidAmt?.toString() || ''); // Use paidAmt if present
+			//setPaidAmtStr(initialData?.paidByAndAmounts.map(pba => pba.amount).reduce((sum, amt) => sum + parseFloat(amt), 0).toString() || ''); // Use paidAmt if present
 			setSelectedCurrency(initialData?.currency || 'USD');
 
 			if (isEditingMode && initialData) {
 				// --- Pre-fill specific to EDIT mode ---
-				setPaidByID(initialData.paidById);
-
-				if (initialData.sharedWith && initialData.sharedWith.length > 0) {
+				if (initialData.paidByAndAmounts && initialData.paidByAndAmounts.length === 1) {
+					setPaidByID(initialData.paidByAndAmounts[0].memberId);
+					setPaidType('single');
+					setPaidAmtStr(initialData.paidByAndAmounts[0].amount.toString());
+				} else if (initialData.paidByAndAmounts && initialData.paidByAndAmounts.length 	> 1) {
+					setPaidByIds(initialData.paidByAndAmounts.map(pba => pba.memberId));
+					setPaidType('multiple');
+					const tempCustomPaidAmts: { [id: string]: string } = {};
+					initialData.paidByAndAmounts.forEach(pba => {
+						tempCustomPaidAmts[pba.memberId] = pba.amount.toString();
+					});
+					setCustomPaidAmounts(tempCustomPaidAmts);
+					setMultiplePaidAmtStr(
+						initialData.paidByAndAmounts
+							.reduce((sum, pba) => sum + parseFloat(pba.amount), 0)
+							.toString()
+					);
 					const initialSharedIds = initialData.sharedWith.map(sw => sw.payeeID);
 					setSharedWithIds(initialSharedIds);
 					// Attempt to determine split type based on sharedWith data
 					const firstAmount = initialData.sharedWith[0].amount;
 					let allAmountsEqual = true;
+					setSplitType("even");
 					let customAmountsToSet: { [id: string]: string } = {};
 					for (const sw of initialData.sharedWith) {
 						if (Math.abs(sw.amount - firstAmount) > 0.01) {
 							allAmountsEqual = false;
+							setSplitType("custom")
 						}
 						customAmountsToSet[sw.payeeID] = sw.amount.toString();
 					}
 					const totalSharedAmount = initialData.sharedWith.reduce((sum, sw) => sum + sw.amount, 0);
-					const paidAmount = parseFloat(initialData.paidAmt?.toString() || '0');
-
-					// If all amounts are equal AND their sum (times count) matches paidAmt, assume even. Otherwise, custom.
-					if (allAmountsEqual && Math.abs(totalSharedAmount - paidAmount) < 0.01 * initialData.sharedWith.length) {
-						setSplitType('even');
-						setCustomAmounts({}); // Clear custom amounts for even split
-					} else {
-						setSplitType('custom');
-						setCustomAmounts(customAmountsToSet);
-					}
+					setCustomAmounts(customAmountsToSet);
+					
 				} else {
 					// Default sharing if no sharedWith in initialData (should not happen for edit)
 					const allMemberIds = Object.keys(members);
@@ -135,39 +145,72 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			newErrors.name = "Expense name is required.";
 			isValid = false;
 		}
-		if (!paidById) {
-			newErrors.paidBy = "Select who paid.";
-			isValid = false;
+		if (paidType === 'single') {
+			if (!paidById) {
+				newErrors.paidBy = "Select who paid.";
+				isValid = false;
+			}
+			const amount = parseFloat(paidAmtStr);
+			if (isNaN(amount) || amount <= 0) {
+				newErrors.amount = "Enter a valid positive amount.";
+				isValid = false;
+			}
+			if (splitType === 'custom') {
+				let totalCustomAmount = 0;
+				let hasInvalidCustom = false;
+				sharedWithIds.forEach(id => {
+					const customAmt = parseFloat(customAmounts[id] || '0');
+					if (isNaN(customAmt) || customAmt < 0) {
+						newErrors[`custom_${id}`] = "Invalid amount"; // Error per input
+						hasInvalidCustom = true;
+					}
+					totalCustomAmount += customAmt;
+				});
+	
+				if (hasInvalidCustom) {
+					newErrors.customTotal = "One or more custom amounts are invalid.";
+					isValid = false;
+				} else if (Math.abs(totalCustomAmount - amount) > 0.01) { // Allow for floating point inaccuracies
+					newErrors.customTotal = `Custom amounts must add up to ${amount.toFixed(2)} ${selectedCurrency}. Current total: ${totalCustomAmount.toFixed(2)} ${selectedCurrency}`;
+					isValid = false;
+				}
+			}
 		}
-		const amount = parseFloat(paidAmtStr);
-		if (isNaN(amount) || amount <= 0) {
-			newErrors.amount = "Enter a valid positive amount.";
-			isValid = false;
+		
+		if (paidType === 'multiple') {
+			if (paidByIds.length === 0) {
+				newErrors.paidBy = "Select at least one person to pay.";
+				isValid = false;
+			}
+			const totalPaidAmount = Object.values(customPaidAmounts).reduce((sum, amt) => sum + parseFloat(amt), 0);
+			setMultiplePaidAmtStr(totalPaidAmount.toString());
+			console.log("Total paid amount:", totalPaidAmount);
+			if (splitType === 'custom') {
+				let totalCustomAmount = 0;
+				let hasInvalidCustom = false;
+				sharedWithIds.forEach(id => {
+					const customAmt = parseFloat(customAmounts[id] || '0');
+					if (isNaN(customAmt) || customAmt < 0) {
+						newErrors[`custom_${id}`] = "Invalid amount"; // Error per input
+						hasInvalidCustom = true;
+					}
+					totalCustomAmount += customAmt;
+				});
+
+				if (hasInvalidCustom) {
+					newErrors.customTotal = "One or more custom amounts are invalid.";
+					isValid = false;
+				}
+				if (Math.abs(totalCustomAmount - totalPaidAmount) > 0.01) { // Allow for floating point inaccuracies
+					newErrors.customTotal = `Custom amounts must add up to ${totalPaidAmount.toFixed(2)} ${selectedCurrency}. Current total: ${totalCustomAmount.toFixed(2)} ${selectedCurrency}`;
+					isValid = false;
+				}
+			}
 		}
+
 		if (sharedWithIds.length === 0) {
 			newErrors.sharedWith = "Select at least one person to share with.";
 			isValid = false;
-		}
-
-		if (splitType === 'custom') {
-			let totalCustomAmount = 0;
-			let hasInvalidCustom = false;
-			sharedWithIds.forEach(id => {
-				const customAmt = parseFloat(customAmounts[id] || '0');
-				if (isNaN(customAmt) || customAmt < 0) {
-					newErrors[`custom_${id}`] = "Invalid amount"; // Error per input
-					hasInvalidCustom = true;
-				}
-				totalCustomAmount += customAmt;
-			});
-
-			if (hasInvalidCustom) {
-				newErrors.customTotal = "One or more custom amounts are invalid.";
-				isValid = false;
-			} else if (Math.abs(totalCustomAmount - amount) > 0.01) { // Allow for floating point inaccuracies
-				newErrors.customTotal = `Custom amounts must add up to ${amount.toFixed(2)} ${selectedCurrency}. Current total: ${totalCustomAmount.toFixed(2)} ${selectedCurrency}`;
-				isValid = false;
-			}
 		}
 
 		setErrors(newErrors);
@@ -175,6 +218,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	}
 
 	const handleInternalSubmit = async () => {
+
 		if (!validateForm()) {
 			return;
 		}
@@ -182,40 +226,32 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 		setIsSubmitting(true);
 		setErrors({}); // Clear previous errors
 
-		const paidAmount = parseFloat(paidAmtStr);
+		const paidAmount = paidType === 'single' ? parseFloat(paidAmtStr) : parseFloat(multiplePaidAmtStr);
 		let parsedSharedWith: SharedWith[] = [];
+    let parsedPaidByAndAmounts: {memberId: string, amount: string}[] = []
+
+		if (paidType === 'single') {
+			parsedPaidByAndAmounts = [{memberId: profiles[paidById], amount: paidAmtStr}];
+		} else if (paidType === 'multiple') {
+			parsedPaidByAndAmounts = paidByIds.map(id => ({memberId: id, amount: customPaidAmounts[id]}));
+		}
 
 		try {
-			if (splitType === 'even') {
-				const numShares = sharedWithIds.length;
-				if (numShares === 0) throw new Error("Cannot split evenly among zero people."); // Should be caught by validation
-				const share = parseFloat((paidAmount / numShares).toFixed(2));
-
-				// Adjust for potential rounding errors on the last person
-				let totalCalculated = 0;
-				parsedSharedWith = sharedWithIds.map((id, index) => {
-					let currentShare = share;
-					if (index === numShares - 1) { // Last person gets the remainder
-						const remainder = paidAmount - totalCalculated - share;
-						currentShare = parseFloat((share + remainder).toFixed(2));
-					}
-					totalCalculated += share; // Use the base share for tracking total
-					return {
-						payeeID: id,
-						payeeName: profiles[id] || 'Unknown',
-						amount: currentShare,
-						currency: selectedCurrency,
-					};
-				});
-
-			} else { // Custom split
+			const numOfPpl = setSharedWithIds.length
+			if (splitType === 'custom') {
 				parsedSharedWith = sharedWithIds.map(id => ({
 					payeeID: id,
-					payeeName: profiles[id] || 'Unknown',
 					amount: parseFloat(customAmounts[id] || '0'),
+					currency: selectedCurrency
+				}));
+			} else if (splitType === 'even') { // Even split
+				parsedSharedWith = sharedWithIds.map(id => ({
+					payeeID: id,
+					amount: (parseFloat(paidAmtStr)/numOfPpl || 0),
 					currency: selectedCurrency,
 				}));
 			}
+				
 			const newExpenseRef = doc(
 				collection(db, "trips", tripId, "expenses")
 			);
@@ -224,8 +260,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			const expenseData: Expense = {
 				id: newId,
 				activityName: expenseName.trim(),
-				paidById: paidById, // Get name from selected ID
-				paidAmt: paidAmount,
+				paidByAndAmounts: parsedPaidByAndAmounts,
 				sharedWith: parsedSharedWith,
 				currency: selectedCurrency,
 				// `createdAt` will be added by the service
@@ -263,6 +298,12 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 		setCustomAmounts(prev => ({ ...prev, [id]: cleanedText }));
 	};
 
+	const handleCustomPaidAmountChange = (id: string, text: string) => {
+		// Allow only numbers and one decimal point
+		const cleanedText = text.replace(/[^0-9.]/g, '');
+		setCustomPaidAmounts(prev => ({ ...prev, [id]: cleanedText }));
+	};
+
 	const handleSinglePaidByChange = (val: string | string[]) => {
 		if (typeof val === 'string') setPaidByID(val);
 	};
@@ -277,12 +318,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	return (
 		<>
 			<Portal>
-				<Modal
-					animationType="fade"
-					transparent={true}
-					visible={visible}
-					onRequestClose={onDismiss}
-				>
+				<Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onDismiss}>
 					<View style={styles.modalBackground}>
 						<Card style={styles.modalCard}>
 							<ScrollView>
@@ -296,7 +332,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 										error={!!errors.name}
 									/>
 									{errors.name && <HelperText type="error">{errors.name}</HelperText>}
-
+									{ paidType === 'single' && (
 									<View style={styles.rowInputContainer}>
 										<TextInput
 											label="Amount"
@@ -314,7 +350,9 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 											{selectedCurrency}
 										</Button>
 									</View>
+									)}
 									{errors.amount && <HelperText type="error">{errors.amount}</HelperText>}
+									
 
 									{/* Paid By Type Section */}
 									<IconRadioSelector
@@ -369,10 +407,10 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 															mode="outlined"
 															dense
 															style={[styles.customAmountInput, { backgroundColor: theme.colors.surface }]}
-															value={customAmounts[id] || ''}
+															value={customPaidAmounts[id] || ''}
 															placeholder="0.00"
 															keyboardType="numeric"
-															onChangeText={(text) => handleCustomAmountChange(id, text)}
+															onChangeText={(text) => handleCustomPaidAmountChange(id, text)}
 															error={!!errors[`custom_${id}`]}
 															left={<TextInput.Affix text={selectedCurrency} />}
 														/>
