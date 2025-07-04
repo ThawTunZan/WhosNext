@@ -143,7 +143,6 @@ const styles = StyleSheet.create({
   },
   upgradeButton: {
     marginVertical: 16,
-
   },
   actionButtons: {
     marginTop: 8,

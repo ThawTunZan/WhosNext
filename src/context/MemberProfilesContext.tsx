@@ -36,7 +36,7 @@ export function MemberProfilesProvider({
 			// Add any missing memberUids with their ID as fallback
 			memberUids.forEach(uid => {
 				if (!map[uid]) {
-					map[uid] = uid;
+					// Do nothing, leave as undefined
 				}
 			});
 

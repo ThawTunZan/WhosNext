@@ -21,10 +21,10 @@ export async function getUserPremiumStatus(userId: string) {
     const user = await getUserById(userId);
     if (isPremiumUser(user)) {
         return PremiumStatus.PREMIUM;
-    } else if (isFreeUser(user)) {
-        return PremiumStatus.FREE;
     } else if (isTrialUser(user)) {
         return PremiumStatus.TRIAL;
+    } else {
+        return PremiumStatus.FREE;
     }
 }
 

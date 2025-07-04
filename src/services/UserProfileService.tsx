@@ -4,7 +4,7 @@ import { db } from "@/firebase"
 import { getUserPremiumStatus } from "@/src/utilities/PremiumUtilities"
 import { PremiumStatus } from "@/src/types/DataTypes"
 
-/** The shape we’ll keep in `/users/{userId}` */
+/** The shape we'll keep in `/users/{userId}` */
 export interface UserProfile {
   username: string
   avatarUrl: string
@@ -32,7 +32,7 @@ export async function upsertClerkUserToFirestore(user: {
       email: user.primaryEmailAddress?.emailAddress || "",
       avatarUrl: user.profileImageUrl || "",
       updatedAt: new Date(),
-      premiumStatus: getUserPremiumStatus(user.id) || PremiumStatus.FREE,
+      premiumStatus: await getUserPremiumStatus(user.id) || PremiumStatus.FREE,
     },
     { merge: true }
   )
@@ -56,7 +56,7 @@ export async function fetchOrCreateUserProfile(userId: string): Promise<UserProf
   }
 }
 
-/** Update just these fields on the user’s profile doc */
+/** Update just these fields on the user's profile doc */
 export async function updateUserProfile(
   userId: string,
   updates: Partial<Pick<UserProfile, "username" | "avatarUrl">>

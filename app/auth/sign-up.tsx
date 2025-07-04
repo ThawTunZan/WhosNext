@@ -15,6 +15,8 @@ import {
 import { useSignUp, useUser } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
+import { db } from '../../firebase'
+import { doc, setDoc } from 'firebase/firestore'
 
 export default function SignUpScreen() {
   const { isLoaded, signUp, setActive } = useSignUp()
@@ -134,6 +136,20 @@ export default function SignUpScreen() {
       const attempt = await signUp.attemptEmailAddressVerification({ code })
       if (attempt.status === 'complete') {
         await setActive({ session: attempt.createdSessionId })
+        const userId = attempt.createdUserId;
+        if (userId) {
+          await setDoc(doc(db, 'users', userId), {
+            email: emailAddress,
+            fullName: username,
+            username: username,
+            avatarUrl: '',
+            friends: [],
+            incomingFriendRequests: [],
+            outgoingFriendRequests: [],
+            premiumStatus: "free",
+            updatedAt: new Date().toISOString(),
+          });
+        }
         router.push('/')
       }
     } catch (err: any) {

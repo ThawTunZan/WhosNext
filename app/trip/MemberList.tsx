@@ -132,13 +132,13 @@ export default function MemberList({
 
   const memberCount = Object.keys(members).length;
 
-  const MemberCard = ({ id, member, profile }: { id: string; member: Member; profile: string }) => (
+  const MemberCard = ({ id, member, profileName }: { id: string; member: Member; profileName: string }) => (
     <Surface style={styles.memberCard} elevation={1}>
       <View style={[styles.memberContent, { overflow: 'hidden' }]}>
         <View style={styles.avatarContainer}>
           <Avatar.Text
             size={40}
-            label={profile?.substring(0, 2).toUpperCase() || "??"}
+            label={profileName ? profileName.substring(0, 2).toUpperCase() : ""}
             style={[
               { backgroundColor: member.addMemberType === AddMemberType.MOCK ? 
                 theme.colors.placeholder : 
@@ -149,9 +149,10 @@ export default function MemberList({
         </View>
         
         <View style={styles.memberInfo}>
-          <Text variant="titleMedium" style={[styles.memberName, { color: theme.colors.text }]}>
-            {profile}
-          </Text>
+          {profileName === undefined
+            ? <ActivityIndicator size="small" color={theme.colors.text} />
+            : <Text variant="titleMedium" style={[styles.memberName, { color: theme.colors.text }]}>{profileName}</Text>
+          }
           <Text variant="labelMedium" style={{ color: theme.colors.subtext }}>
             Budget: ${member.budget.toFixed(2)}
           </Text>
@@ -223,7 +224,7 @@ export default function MemberList({
                 key={id}
                 id={id}
                 member={member}
-                profile={profiles[id]}
+                profileName={profiles[id]}
               />
             ))}
           </View>

@@ -9,7 +9,7 @@ import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { useUser } from '@clerk/clerk-expo';
 import { Redirect } from 'expo-router';
 import { db } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, setDoc } from "firebase/firestore";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
 import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
@@ -231,13 +231,24 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
     let parsedPaidByAndAmounts: {memberId: string, amount: string}[] = []
 
 		if (paidType === 'single') {
-			parsedPaidByAndAmounts = [{memberId: profiles[paidById], amount: paidAmtStr}];
+			parsedPaidByAndAmounts = [{memberId: paidById, amount: paidAmtStr}];
 		} else if (paidType === 'multiple') {
 			parsedPaidByAndAmounts = paidByIds.map(id => ({memberId: id, amount: customPaidAmounts[id]}));
 		}
 
 		try {
-			const numOfPpl = setSharedWithIds.length
+			const numOfPpl = sharedWithIds.length
+			let totalPaid = 0;
+
+			
+			if (paidType === 'single') {
+				totalPaid = parseFloat(paidAmtStr);
+			} else if (paidType === 'multiple') {
+				totalPaid = Object.values(customPaidAmounts).reduce((sum, amt) => sum + parseFloat(amt), 0);
+			}
+
+			const perPerson = numOfPpl > 0 ? totalPaid / numOfPpl : 0;
+
 			if (splitType === 'custom') {
 				parsedSharedWith = sharedWithIds.map(id => ({
 					payeeID: id,
@@ -247,7 +258,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			} else if (splitType === 'even') { // Even split
 				parsedSharedWith = sharedWithIds.map(id => ({
 					payeeID: id,
-					amount: (parseFloat(paidAmtStr)/numOfPpl || 0),
+					amount: perPerson,
 					currency: selectedCurrency,
 				}));
 			}
