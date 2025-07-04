@@ -162,7 +162,7 @@ export default function CreateTripScreen() {
                   onChangeText={setTotalBudget}
                   keyboardType="numeric"
                   style={[styles.budgetInput]}
-                  left={<TextInput.Affix text={selectedCurrencyInfo?.symbol} textStyle={{ color: theme.colors.text }} />}
+                  
                   theme={{ 
                     colors: { 
                       primary: theme.colors.primary,
