@@ -28,6 +28,7 @@ import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { Currency, AddMemberType, PremiumStatus } from '@/src/types/DataTypes';
 import { getUserPremiumStatus } from '@/src/utilities/PremiumUtilities';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -49,6 +50,7 @@ export default function CreateTripScreen() {
   const router = useRouter();
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
+  const insets = useSafeAreaInsets();
 
   const selectedCurrencyInfo = CURRENCIES.find(c => c.code === selectedCurrency);
 
@@ -116,18 +118,12 @@ export default function CreateTripScreen() {
     <Wrapper {...(Platform.OS !== 'web' ? { onPress: Keyboard.dismiss } : {})}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, backgroundColor: theme.colors.background }}
+        style={{ flex: 1, backgroundColor: theme.colors.background, paddingBottom: insets.bottom + 60 }}
       >
         <StatusBar style={isDarkMode ? "light" : "dark"} />
         <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
           <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
             <Text style={[styles.logo, { color: theme.colors.text }]}>Who's Next</Text>
-            <Text 
-              style={[styles.skip, { color: theme.colors.subtext }]}
-              onPress={() => router.back()}
-            >
-              Skip
-            </Text>
           </View>
 
           <ScrollView 
@@ -193,12 +189,6 @@ export default function CreateTripScreen() {
               >
                 Get Started
               </Button>
-
-              <View style={styles.progressDots}>
-                <View style={[styles.dot, styles.activeDot, { backgroundColor: theme.colors.primary }]} />
-                <View style={[styles.dot, { backgroundColor: theme.colors.surfaceVariant }]} />
-                <View style={[styles.dot, { backgroundColor: theme.colors.surfaceVariant }]} />
-              </View>
             </View>
           </ScrollView>
 
@@ -244,18 +234,15 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingBottom: 10,
     borderBottomWidth: 1,
   },
   logo: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  skip: {
-    fontSize: 16,
+    fontSize: 32,
+    fontWeight: '700',
   },
   illustrationContainer: {
     flex: 1,
@@ -269,8 +256,8 @@ const styles = StyleSheet.create({
     borderRadius: width * 0.3,
   },
   bottomCard: {
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     padding: 30,
     paddingTop: 40,
   },
@@ -290,7 +277,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   budgetInput: {
-    flex: 1,
+    flex: 1,    
   },
   currencyButton: {
     minWidth: 80,
@@ -311,15 +298,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 30,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
-  },
-  activeDot: {
-    width: 24,
   },
   modal: {
     margin: 20,

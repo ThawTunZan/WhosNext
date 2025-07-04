@@ -194,9 +194,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 40,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
   },
   username: {
     fontSize: 24,

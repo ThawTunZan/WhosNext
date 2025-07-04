@@ -148,6 +148,7 @@ export const addMemberToTrip = async (
 			CNY: 0,
 			SGD: 0
 		},
+		receiptsCount: 0,
 		...(addMemberType === AddMemberType.MOCK ? { claimCode: generateRandomString(8) } : {}),
 		addMemberType: addMemberType,
 	};

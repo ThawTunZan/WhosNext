@@ -15,6 +15,8 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSignIn, useOAuth } from '@clerk/clerk-expo'
 import { Feather } from '@expo/vector-icons'
+import { useTheme as useCustomTheme } from '@/src/context/ThemeContext'
+import { lightTheme, darkTheme } from '@/src/theme/theme'
 // Note: expo-apple-authentication will be added when you install it
 
 export default function SignInScreen() {
@@ -43,6 +45,9 @@ export default function SignInScreen() {
   })
 
   const { redirect_to } = useLocalSearchParams<{ redirect_to?: string }>()
+
+  const { isDarkMode } = useCustomTheme()
+  const theme = isDarkMode ? darkTheme : lightTheme
 
   // Google OAuth Sign-In
   const onGoogleSignIn = async () => {
@@ -125,7 +130,7 @@ export default function SignInScreen() {
         console.log('OAuth completed but no session created:', { signIn, signUp })
         setErrors(prev => ({ 
           ...prev, 
-          general: 'Authentication completed but could not sign in. Please try again.' 
+          general: 'Could not sign in. Please try again.' 
         }))
       }
     } catch (err: any) {
@@ -195,13 +200,18 @@ export default function SignInScreen() {
     }
 
     if (!password) {
-      newErrors.password = 'Password is required'
-      isValid = false
+      newErrors.password = 'Password is required!';
+      isValid = false;
     } else if (password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters'
-      isValid = false
+      newErrors.password = 'Password must be at least 8 characters!';
+      isValid = false;
+    } else if (!/[A-Z]/.test(password)) {
+      newErrors.password = 'Password must contain at least one uppercase letter!';
+      isValid = false;
+    } else if (!/[^a-zA-Z0-9]/.test(password)) {
+      newErrors.password = 'Password must contain at least one special character!';
+      isValid = false;
     }
-
     setErrors(newErrors)
     return isValid
   }
@@ -245,7 +255,7 @@ export default function SignInScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <KeyboardAvoidingView 
         style={styles.avoid} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -255,8 +265,8 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.inner}>
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Sign in to continue to Who's Next</Text>
+            <Text style={styles.title}>Welcome back!</Text>
+            <Text style={styles.subtitle}>Sign in to continue</Text>
 
             {errors.general ? renderError(errors.general) : null}
 
@@ -264,9 +274,12 @@ export default function SignInScreen() {
             <View style={styles.form}>
               <View style={styles.inputContainer}>
                 <TextInput
-                  style={[styles.input, errors.username ? styles.inputError : null]}
+                  style={[
+                    styles.input,
+                    { backgroundColor: theme.colors.surface, color: theme.colors.text }, errors.username ? styles.inputError : null
+                  ]}
                   placeholder="Username or Email"
-                  placeholderTextColor="#E5E7EB"
+                  placeholderTextColor="#8A8A8A"
                   value={username}
                   onChangeText={setUsername}
                   autoCapitalize="none"
@@ -278,9 +291,12 @@ export default function SignInScreen() {
               <View style={styles.inputContainer}>
                 <View style={styles.passwordWrapper}>
                   <TextInput
-                    style={[styles.input, errors.password ? styles.inputError : null]}
+                    style={[
+                      styles.input,
+                      { backgroundColor: theme.colors.surface, color: theme.colors.text }
+                    ]}
                     placeholder="Password"
-                    placeholderTextColor="#E5E7EB"
+                    placeholderTextColor="#8A8A8A"
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={hidePassword}
@@ -396,12 +412,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#2563EB',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#4B5563',
+    color: '#2563EB',
     marginBottom: 24,
     textAlign: 'center',
   },
@@ -414,14 +430,12 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   input: {
-    backgroundColor: '#FFFFFF',
     borderColor: '#E5E7EB',
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#111111',
     width: '100%',
   },
   inputError: {

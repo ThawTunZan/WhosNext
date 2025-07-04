@@ -6,22 +6,8 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import {
-  Text,
-  Card,
-  Button,
-  Searchbar,
-  List,
-  Avatar,
-  IconButton,
-  Portal,
-  Modal,
-  TextInput,
-  Divider,
-  Surface,
-  FAB,
-  SegmentedButtons,
-  Menu,
+import {Text, Button, Searchbar, Avatar, IconButton, Portal, Modal,
+  TextInput, Divider, Surface, FAB, SegmentedButtons, Menu,
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/context/ThemeContext';
@@ -40,8 +26,6 @@ import {
   getUserByUsername,
 } from '@/src/services/FirebaseServices';
 
-const { width } = Dimensions.get('window');
-
 type Friend = {
   id: string;
   name: string;
@@ -56,7 +40,7 @@ type FirebaseUser = {
 };
 
 export default function FriendsScreen() {
-  const router = useRouter();
+
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const { isLoaded, isSignedIn, user } = useUser();
@@ -431,12 +415,12 @@ export default function FriendsScreen() {
       <StatusBar style={isDarkMode ? "light" : "dark"} />
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         {/* Header */}
-        <Surface style={[styles.header, { backgroundColor: theme.colors.surface }]} elevation={1}>
+        <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Friends</Text>
           <Text style={[styles.subtitle, { color: theme.colors.subtext }]}>
             {friends.length} friends • {incomingFriendRequests.length} incoming • {outgoingFriendRequests.length} outgoing
           </Text>
-        </Surface>
+        </View>
 
         {/* Tab Buttons */}
         <View style={styles.tabContainer}>
@@ -625,16 +609,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 20,
-    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
   },
   title: {
-    fontSize: 34,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontSize: 32,
+    fontWeight: '700',
   },
   subtitle: {
     fontSize: 16,
+    paddingBottom: 0
   },
   searchBar: {
     marginTop: 8,
@@ -687,11 +672,6 @@ const styles = StyleSheet.create({
   requestActions: {
     flexDirection: 'row',
     gap: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
   },
   fab: {
     position: 'absolute',

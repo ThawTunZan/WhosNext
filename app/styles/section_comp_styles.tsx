@@ -1,6 +1,18 @@
 import { StyleSheet } from 'react-native';
 
+export const HEADER_HEIGHT = 56;           // adjust to taste
+export const HEADER_HORIZONTAL_PADDING = 20;
+
 export const sectionStyles = StyleSheet.create({
+  header: {
+    height: HEADER_HEIGHT,                 // fixed height
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: HEADER_HORIZONTAL_PADDING,
+    borderBottomWidth: 1,
+    // borderBottomColor will come from theme.colors.border
+  },
   container: {
     flex: 1,
     padding: 0,
@@ -18,13 +30,6 @@ export const sectionStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    marginLeft: 5,
-    marginTop: 10,
   },
   errorText: {
     textAlign: 'center',

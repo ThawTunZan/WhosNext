@@ -15,8 +15,8 @@ import {
 import { useSignUp, useUser } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { Feather } from '@expo/vector-icons'
-import { db } from '../../firebase'
-import { doc, setDoc } from 'firebase/firestore'
+import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
+import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 export default function SignUpScreen() {
   const { isLoaded, signUp, setActive } = useSignUp()
@@ -37,6 +37,8 @@ export default function SignUpScreen() {
     code: '',
     general: '',
   })
+  const { isDarkMode } = useCustomTheme()
+  const theme = isDarkMode ? darkTheme : lightTheme
 
   const validateForm = () => {
     let isValid = true
@@ -136,20 +138,7 @@ export default function SignUpScreen() {
       const attempt = await signUp.attemptEmailAddressVerification({ code })
       if (attempt.status === 'complete') {
         await setActive({ session: attempt.createdSessionId })
-        const userId = attempt.createdUserId;
-        if (userId) {
-          await setDoc(doc(db, 'users', userId), {
-            email: emailAddress,
-            fullName: username,
-            username: username,
-            avatarUrl: '',
-            friends: [],
-            incomingFriendRequests: [],
-            outgoingFriendRequests: [],
-            premiumStatus: "free",
-            updatedAt: new Date().toISOString(),
-          });
-        }
+
         router.push('/')
       }
     } catch (err: any) {
@@ -170,7 +159,7 @@ export default function SignUpScreen() {
 
   if (pendingVerification) {
     return (
-      <SafeAreaView style={styles.safeWhite}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
         <KeyboardAvoidingView
           style={styles.avoid}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -229,7 +218,7 @@ export default function SignUpScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <KeyboardAvoidingView
         style={styles.avoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -240,7 +229,7 @@ export default function SignUpScreen() {
         >
           <View style={styles.inner}>
             <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Sign up to join Who's Next</Text>
+            <Text style={styles.subtitle}>Sign up to join</Text>
 
             {renderError(errors.general)}
 
@@ -252,7 +241,7 @@ export default function SignUpScreen() {
                     errors.username ? styles.inputError : null,
                   ]}
                   placeholder="Username"
-                  placeholderTextColor="#E5E7EB"
+                  placeholderTextColor="#8A8A8A"
                   autoCapitalize="none"
                   value={username}
                   onChangeText={(text) => {
@@ -272,7 +261,7 @@ export default function SignUpScreen() {
                     errors.email ? styles.inputError : null,
                   ]}
                   placeholder="Email address"
-                  placeholderTextColor="#E5E7EB"
+                  placeholderTextColor="#8A8A8A"
                   autoCapitalize="none"
                   keyboardType="email-address"
                   value={emailAddress}
@@ -295,7 +284,7 @@ export default function SignUpScreen() {
                       errors.password ? styles.inputError : null,
                     ]}
                     placeholder="Password"
-                    placeholderTextColor="#E5E7EB"
+                    placeholderTextColor="#8A8A8A"
                     secureTextEntry={hidePassword}
                     value={password}
                     onChangeText={(text) => {
@@ -372,12 +361,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#2563EB',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#4B5563',
+    color: '#2563EB',
     marginBottom: 24,
     textAlign: 'center',
   },

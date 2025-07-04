@@ -21,6 +21,7 @@ import { useTrips } from '@/src/hooks/useTrips';
 import { useUser } from '@clerk/clerk-expo';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 const { width } = Dimensions.get('window');
@@ -34,6 +35,7 @@ export default function TripsScreen() {
   const { isLoaded, isSignedIn } = useUser();
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
+  const insets = useSafeAreaInsets();
 
   // Memoize the renderItem function to prevent unnecessary re-renders
   const renderTripCard = useCallback(({ item }) => (
@@ -95,7 +97,7 @@ export default function TripsScreen() {
     <>
       <StatusBar style={isDarkMode ? "light" : "dark"} />
       <SafeAreaView 
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        style={[{ backgroundColor: theme.colors.background, paddingBottom: insets.bottom + 60 }]}
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Your Trips</Text>
@@ -147,16 +149,13 @@ export default function TripsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
+    paddingBottom: 0,
+    borderBottomWidth: 1,
   },
   title: {
     fontSize: 32,
@@ -177,7 +176,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
   },
   destinationContainer: {
     flexDirection: 'row',
@@ -220,7 +218,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 200,
   },
   emptyStateIcon: {
     width: 80,
@@ -244,7 +242,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   createButton: {
-    borderRadius: 30,
+    borderRadius: 20,
   },
   buttonContent: {
     paddingVertical: 8,
