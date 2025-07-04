@@ -297,7 +297,14 @@ export default function ContactUsScreen() {
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* FAQ Section */}
       <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
-        <Card.Title title="Frequently Asked Questions" />
+      <Card.Title
+          title="Frequently Asked Questions"
+          titleStyle={{
+            fontSize: 20,
+            fontWeight: 'bold',
+            color: theme.colors.text,
+          }}
+        />
         <Card.Content>
           <List.AccordionGroup>
             {FAQs.map((faq, index) => (
@@ -307,14 +314,19 @@ export default function ContactUsScreen() {
                 id={index.toString()}
                 expanded={expandedFaq === index.toString()}
                 onPress={() => setExpandedFaq(expandedFaq === index.toString() ? false : index.toString())}
-                titleStyle={{ color: theme.colors.text }}
+                titleStyle={{
+                  color: theme.colors.primary,
+                  fontWeight: 'bold',
+                }}
                 descriptionStyle={{ color: theme.colors.subtext }}
                 style={{ backgroundColor: theme.colors.surface }}
               >
                 <List.Item 
                   title={faq.answer} 
                   titleNumberOfLines={0}
-                  titleStyle={{ color: theme.colors.text }}
+                  titleStyle={{
+                    color: theme.colors.subtext,
+                  }}
                   style={{ backgroundColor: theme.colors.surface }}
                 />
               </List.Accordion>
@@ -327,9 +339,15 @@ export default function ContactUsScreen() {
 
       {/* Contact Form Section */}
       <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
-        <Card.Title title="Send us a message" />
+        <Card.Title
+          title="Send us a message"
+          titleStyle={{
+            fontSize: 20,
+            fontWeight: 'bold',
+            color: theme.colors.text,
+          }}
+        />
         <Card.Content>
-          <Text style={[styles.label, { color: theme.colors.text }]}>Category</Text>
           <SegmentedButtons
             value={category}
             onValueChange={value => {

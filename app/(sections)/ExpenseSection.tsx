@@ -145,11 +145,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
         Add Expense
       </Button>
 
-      <CommonModal
-        visible={modalVisible}
-        onDismiss={() => setModalVisible(false)}
-        title="Add New Expense"
-      >
+
         <AddExpenseModal
           visible={modalVisible}
           onDismiss={() => setModalVisible(false)}
@@ -157,7 +153,6 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
           members={members}
           tripId={tripId}
         />
-      </CommonModal>
 
       <Snackbar
         visible={snackbarVisible}

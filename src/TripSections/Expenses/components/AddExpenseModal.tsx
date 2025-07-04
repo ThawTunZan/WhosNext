@@ -583,7 +583,8 @@ const styles = StyleSheet.create({
 		padding: 20,
 	},
 	modalCard: {
-		maxHeight: '80%',
+		height: 700,
+		maxHeight: '100%',
 	},
 	input: {
 		marginBottom: 10,

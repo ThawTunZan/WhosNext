@@ -196,7 +196,7 @@ export default function ExpenseCard({
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 16,
+    marginHorizontal: 0,
     marginVertical: 8,
     borderRadius: 12,
     elevation: 2,

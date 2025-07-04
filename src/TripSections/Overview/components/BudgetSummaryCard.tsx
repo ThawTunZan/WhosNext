@@ -59,7 +59,10 @@ export default function BudgetSummaryCard({
             {currencySymbol}{totalBudget.toFixed(2)}
           </Text>
           <Text variant="titleSmall" style={[styles.remaining, { color: theme.colors.subtext }]}>
-            {currencySymbol}{totalAmtLeft.toFixed(2)} remaining
+            Remaining
+          </Text>
+          <Text variant="titleSmall" style={[styles.remainingAmt, { color: theme.colors.subtext }]}>
+            {currencySymbol}{totalAmtLeft.toFixed(2)}
           </Text>
           <ProgressBar 
             progress={Math.min(1, Math.max(0, totalProgress))} 
@@ -115,8 +118,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   remaining: {
+    marginTop: 15,
+  },
+  remainingAmt: {
     marginTop: 4,
-    marginBottom: 12,
   },
   totalProgress: {
     height: 8,

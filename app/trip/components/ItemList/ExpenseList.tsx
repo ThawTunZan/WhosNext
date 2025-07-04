@@ -40,7 +40,7 @@ const ExpenseList = memo(({
 
   const searchFields = (expense: Expense) => [
     expense.activityName,
-    profiles[expense.paidById] || ''
+    profiles[expense.paidByAndAmounts[0]?.memberId] || ''
   ];
 
   return (

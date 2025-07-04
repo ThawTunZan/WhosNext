@@ -25,21 +25,23 @@ export default function TripHeader({ destination }: TripHeaderProps) {
       elevation={1}
     >
       <View style={styles.contentContainer}>
-        <Text 
-          variant="headlineMedium" 
-          style={[styles.emoji, { color: isDarkMode ? '#FFFFFF' : theme.colors.text }]}
-        >
-          🏝️
-        </Text>
-        <Text 
-          variant="headlineMedium" 
-          style={[
-            styles.title, 
-            { color: isDarkMode ? '#FFFFFF' : theme.colors.text }
-          ]}
-        >
-          Trip to {destination}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text 
+            variant="headlineMedium" 
+            style={[styles.emoji, { color: isDarkMode ? '#FFFFFF' : theme.colors.text }]}
+          >
+            🏝️
+          </Text>
+          <Text 
+            variant="headlineMedium" 
+            style={[
+              styles.title, 
+              { color: isDarkMode ? '#FFFFFF' : theme.colors.text }
+            ]}
+          >
+            Trip to {destination}
+          </Text>
+        </View>
       </View>
     </Surface>
   );
@@ -50,6 +52,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 12,
     marginHorizontal: 16,
+    marginTop:10
   },
   contentContainer: {
     paddingVertical: 24,
@@ -57,8 +60,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emoji: {
-    fontSize: 40,
-    marginBottom: 12,
+    fontSize:30,
+    marginBottom: 0,
   },
   title: {
     fontWeight: '600',

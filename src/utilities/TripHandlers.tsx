@@ -191,10 +191,18 @@ export function useTripHandlers({
 	const handleAddExpenseFromActivity = useCallback(
 		(activity: ProposedActivity) =>
 			openAddExpenseModal(
-				{ activityName: activity.name, paidAmt: activity.estCost ?? 0 },
+				{
+				  activityName: activity.name,
+				  paidByAndAmounts: [
+					{
+					  memberId: currentUserId,
+					  amount: activity.estCost ? String(activity.estCost) : "0",
+					},
+				  ],
+				},
 				false
-			),
-		[openAddExpenseModal]
+			  ),
+		[openAddExpenseModal, currentUserId]
 	);
 
 	const handleLeaveTrip = useCallback(async () => {
