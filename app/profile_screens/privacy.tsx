@@ -45,13 +45,6 @@ export default function PrivacySettingsScreen() {
       icon: 'location-outline',
     },
     {
-      id: 'dataAnalytics',
-      title: 'Usage Analytics',
-      subtitle: 'Help improve the app by sharing usage data',
-      value: true,
-      icon: 'analytics-outline',
-    },
-    {
       id: 'personalizedAds',
       title: 'Personalized Ads',
       subtitle: 'Show ads based on your interests and activity',
@@ -72,7 +65,19 @@ export default function PrivacySettingsScreen() {
       value: notificationPermissions,
       icon: 'notifications-outline',
     },
+    {
+      id: 'dataAnalytics',
+      title: 'Usage Analytics',
+      subtitle: 'Help improve the app by sharing usage data',
+      value: true,
+      icon: 'analytics-outline',
+    },
   ]);
+
+  const profileSettings = privacySettings.slice(0, 2); // 0 and 1
+  const notificationSettings = privacySettings.slice(2, 4); // 2 and 3
+  const dataSettings = privacySettings.slice(4); // 4
+
 
   useEffect(() => {
     checkNotificationPermissions();
@@ -192,10 +197,6 @@ export default function PrivacySettingsScreen() {
       ))}
     </SettingSection>
   );
-
-  const profileSettings = privacySettings.slice(0, 4);
-  const dataSettings = privacySettings.slice(4, 7);
-  const notificationSettings = privacySettings.slice(7);
 
   return (
     <>

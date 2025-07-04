@@ -39,11 +39,6 @@ const LANGUAGE_OPTIONS = [
   { code: 'pt', label: 'Português' },
 ];
 
-const PRIVACY_SETTINGS = [
-  { key: 'shareAnalytics', label: 'Share Analytics', description: 'Help improve the app by sharing usage data' },
-  { key: 'locationServices', label: 'Location Services', description: 'Enable location-based features' },
-  { key: 'tripSharing', label: 'Trip Sharing', description: 'Allow others to find your public trips' },
-];
 
 const SOUND_SETTINGS = [
   { key: 'inAppSounds', label: 'In-App Sounds', description: 'Play sounds for actions and notifications' },
@@ -75,11 +70,6 @@ export default function SettingsScreen() {
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
-  const [privacySettings, setPrivacySettings] = useState({
-    shareAnalytics: true,
-    locationServices: true,
-    tripSharing: false,
-  });
   const [soundSettings, setSoundSettings] = useState({
     inAppSounds: true,
     vibration: true,
@@ -249,34 +239,6 @@ export default function SettingsScreen() {
           </Surface>
 
           <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Privacy</Text>
-            <View style={styles.settingsList}>
-              {PRIVACY_SETTINGS.map((setting, index) => (
-                <React.Fragment key={setting.key}>
-                  <View style={styles.settingItem}>
-                    <View style={styles.settingInfo}>
-                      <Text style={[styles.settingLabel, isDarkMode && styles.darkText]}>{setting.label}</Text>
-                      <Text style={[styles.settingDescription, isDarkMode && styles.darkSubtext]}>
-                        {setting.description}
-                      </Text>
-                    </View>
-                    <Switch
-                      value={privacySettings[setting.key as keyof typeof privacySettings]}
-                      onValueChange={() => {
-                        setPrivacySettings(prev => ({
-                          ...prev,
-                          [setting.key]: !prev[setting.key as keyof typeof privacySettings],
-                        }));
-                      }}
-                    />
-                  </View>
-                  {index < PRIVACY_SETTINGS.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </View>
-          </Surface>
-
-          <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
             <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Sound & Haptics</Text>
             <View style={styles.settingsList}>
               {SOUND_SETTINGS.map((setting, index) => (
@@ -358,7 +320,7 @@ export default function SettingsScreen() {
 
           <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
             <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Export Data</Text>
-            <View style={styles.settingsList}>
+            <View style={{ paddingHorizontal: 16, paddingBottom: 8  }}>
               <Button 
                 mode="outlined" 
                 icon="file-export"
@@ -406,7 +368,7 @@ export default function SettingsScreen() {
 
           <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
             <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Data & Storage</Text>
-            <View style={styles.settingsList}>
+            <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
               <Button 
                 mode="outlined" 
                 onPress={clearAppData}
