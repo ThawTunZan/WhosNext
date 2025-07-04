@@ -3,7 +3,6 @@ import {
   View,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -15,14 +14,14 @@ import {
   Modal,
   TextInput,
   SegmentedButtons,
-  Divider,
   List,
-  Switch,
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import ProfileHeader from './ProfileHeader';
+import { StatusBar } from 'expo-status-bar';
 
 type PaymentMethod = {
   id: string;
@@ -93,188 +92,188 @@ export default function PaymentMethodsScreen() {
   };
 
   return (
-    <ScrollView 
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      contentContainerStyle={{ paddingBottom: insets.bottom }}
-    >
-      {/* Header Section */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Payment Methods</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.subtext }]}>
-          Add and manage your payment methods
-        </Text>
-      </View>
-
-      {/* Default Payment Method */}
-      <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
-        <Card.Title
-          title="Default Payment Method"
-          left={(props) => (
-            <MaterialCommunityIcons
-              name="star-circle"
-              size={30}
-              color="#FFD700"
-              {...props}
-            />
-          )}
-        />
-        <Card.Content>
-          {paymentMethods.find(m => m.isDefault) ? (
-            <List.Item
-              title={paymentMethods.find(m => m.isDefault)?.name}
-              description={paymentMethods.find(m => m.isDefault)?.lastFour ? 
-                `•••• ${paymentMethods.find(m => m.isDefault)?.lastFour}` : undefined}
-              left={props => (
-                <MaterialCommunityIcons
-                  {...props}
-                  name={renderPaymentMethodIcon(paymentMethods.find(m => m.isDefault)?.type || 'card')}
-                  size={24}
-                  color="#666"
-                />
-              )}
-            />
-          ) : (
-            <Text>No default payment method set</Text>
-          )}
-        </Card.Content>
-      </Card>
-
-      {/* All Payment Methods */}
-      <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
-        <Card.Title title="All Payment Methods" />
-        <Card.Content>
-          {paymentMethods.map((method) => (
-            <List.Item
-              key={method.id}
-              title={method.name}
-              description={method.lastFour ? `•••• ${method.lastFour}` : undefined}
-              left={props => (
-                <MaterialCommunityIcons
-                  {...props}
-                  name={renderPaymentMethodIcon(method.type)}
-                  size={24}
-                  color="#666"
-                />
-              )}
-              right={props => (
-                <View style={styles.methodActions}>
-                  {method.isDefault && (
-                    <Text style={[styles.defaultLabel, { color: theme.colors.primary }]}>Default</Text>
-                  )}
-                  <IconButton
+    <>
+      <StatusBar style={isDarkMode ? "dark" : "light"} />
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+            <ProfileHeader title="Payment Methods" subtitle='' />
+          </View>
+      <ScrollView 
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        contentContainerStyle={{ paddingBottom: insets.bottom }}
+      >
+        {/* Default Payment Method */}
+        <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
+          <Card.Title
+            title="Default Payment Method"
+            left={(props) => (
+              <MaterialCommunityIcons
+                name="star-circle"
+                size={30}
+                color="#FFD700"
+                {...props}
+              />
+            )}
+          />
+          <Card.Content>
+            {paymentMethods.find(m => m.isDefault) ? (
+              <List.Item
+                title={paymentMethods.find(m => m.isDefault)?.name}
+                description={paymentMethods.find(m => m.isDefault)?.lastFour ? 
+                  `•••• ${paymentMethods.find(m => m.isDefault)?.lastFour}` : undefined}
+                left={props => (
+                  <MaterialCommunityIcons
                     {...props}
-                    icon="dots-vertical"
-                    onPress={() => {}}
+                    name={renderPaymentMethodIcon(paymentMethods.find(m => m.isDefault)?.type || 'card')}
+                    size={24}
+                    color="#666"
+                  />
+                )}
+              />
+            ) : (
+              <Text>No default payment method set</Text>
+            )}
+          </Card.Content>
+        </Card>
+          
+        {/* All Payment Methods */}
+        <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
+          <Card.Title title="All Payment Methods" />
+          <Card.Content>
+            {paymentMethods.map((method) => (
+              <List.Item
+                key={method.id}
+                title={method.name}
+                description={method.lastFour ? `•••• ${method.lastFour}` : undefined}
+                left={props => (
+                  <MaterialCommunityIcons
+                    {...props}
+                    name={renderPaymentMethodIcon(method.type)}
+                    size={24}
+                    color="#666"
+                  />
+                )}
+                right={props => (
+                  <View style={styles.methodActions}>
+                    {method.isDefault && (
+                      <Text style={[styles.defaultLabel, { color: theme.colors.primary }]}>Default</Text>
+                    )}
+                    <IconButton
+                      {...props}
+                      icon="dots-vertical"
+                      onPress={() => {}}
+                    />
+                  </View>
+                )}
+              />
+            ))}
+          </Card.Content>
+        </Card>
+          
+        {/* Add Payment Method Button */}
+        <Button
+          mode="contained"
+          onPress={() => setModalVisible(true)}
+          style={styles.addButton}
+          icon="plus"
+        >
+          Add Payment Method
+        </Button>
+          
+        {/* Add Payment Method Modal */}
+        <Portal>
+          <Modal
+            visible={modalVisible}
+            onDismiss={() => setModalVisible(false)}
+            contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}
+          >
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Add Payment Method</Text>
+          
+            <SegmentedButtons
+              value={selectedType}
+              onValueChange={value => setSelectedType(value as any)}
+              buttons={[
+                { value: 'card', label: 'Card' },
+                { value: 'bank', label: 'Bank' },
+                { value: 'paypal', label: 'PayPal' },
+                { value: 'venmo', label: 'Venmo' },
+              ]}
+              style={styles.segmentedButtons}
+            />
+  
+            {selectedType === 'card' && (
+              <>
+                <TextInput
+                  label="Card Number"
+                  mode="outlined"
+                  style={styles.input}
+                  keyboardType="numeric"
+                />
+                <View style={styles.row}>
+                  <TextInput
+                    label="Expiry Date"
+                    mode="outlined"
+                    style={[styles.input, styles.halfInput]}
+                    placeholder="MM/YY"
+                  />
+                  <TextInput
+                    label="CVV"
+                    mode="outlined"
+                    style={[styles.input, styles.halfInput]}
+                    keyboardType="numeric"
+                    maxLength={4}
                   />
                 </View>
-              )}
-            />
-          ))}
-        </Card.Content>
-      </Card>
-
-      {/* Add Payment Method Button */}
-      <Button
-        mode="contained"
-        onPress={() => setModalVisible(true)}
-        style={styles.addButton}
-        icon="plus"
-      >
-        Add Payment Method
-      </Button>
-
-      {/* Add Payment Method Modal */}
-      <Portal>
-        <Modal
-          visible={modalVisible}
-          onDismiss={() => setModalVisible(false)}
-          contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}
-        >
-          <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Add Payment Method</Text>
-
-          <SegmentedButtons
-            value={selectedType}
-            onValueChange={value => setSelectedType(value as any)}
-            buttons={[
-              { value: 'card', label: 'Card' },
-              { value: 'bank', label: 'Bank' },
-              { value: 'paypal', label: 'PayPal' },
-              { value: 'venmo', label: 'Venmo' },
-            ]}
-            style={styles.segmentedButtons}
-          />
-
-          {selectedType === 'card' && (
-            <>
-              <TextInput
-                label="Card Number"
-                mode="outlined"
-                style={styles.input}
-                keyboardType="numeric"
-              />
-              <View style={styles.row}>
+              </>
+            )}
+  
+            {selectedType === 'bank' && (
+              <>
                 <TextInput
-                  label="Expiry Date"
+                  label="Account Number"
                   mode="outlined"
-                  style={[styles.input, styles.halfInput]}
-                  placeholder="MM/YY"
-                />
-                <TextInput
-                  label="CVV"
-                  mode="outlined"
-                  style={[styles.input, styles.halfInput]}
+                  style={styles.input}
                   keyboardType="numeric"
-                  maxLength={4}
                 />
-              </View>
-            </>
-          )}
-
-          {selectedType === 'bank' && (
-            <>
+                <TextInput
+                  label="Routing Number"
+                  mode="outlined"
+                  style={styles.input}
+                  keyboardType="numeric"
+                />
+              </>
+            )}
+  
+            {(selectedType === 'paypal' || selectedType === 'venmo') && (
               <TextInput
-                label="Account Number"
+                label="Email or Username"
                 mode="outlined"
                 style={styles.input}
-                keyboardType="numeric"
+                keyboardType="email-address"
               />
-              <TextInput
-                label="Routing Number"
+            )}
+  
+            <View style={styles.modalActions}>
+              <Button
                 mode="outlined"
-                style={styles.input}
-                keyboardType="numeric"
-              />
-            </>
-          )}
-
-          {(selectedType === 'paypal' || selectedType === 'venmo') && (
-            <TextInput
-              label="Email or Username"
-              mode="outlined"
-              style={styles.input}
-              keyboardType="email-address"
-            />
-          )}
-
-          <View style={styles.modalActions}>
-            <Button
-              mode="outlined"
-              onPress={() => setModalVisible(false)}
-              style={styles.modalButton}
-            >
-              Cancel
-            </Button>
-            <Button
-              mode="contained"
-              onPress={() => setModalVisible(false)}
-              style={styles.modalButton}
-            >
-              Add
-            </Button>
-          </View>
-        </Modal>
-      </Portal>
-    </ScrollView>
+                onPress={() => setModalVisible(false)}
+                style={styles.modalButton}
+              >
+                Cancel
+              </Button>
+              <Button
+                mode="contained"
+                onPress={() => setModalVisible(false)}
+                style={styles.modalButton}
+              >
+                Add
+              </Button>
+            </View>
+          </Modal>
+        </Portal>
+      </ScrollView>
+      </View>
+    </>
   );
 }
 
@@ -284,8 +283,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    padding: 20,
-    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
   },
   title: {
     fontWeight: 'bold',

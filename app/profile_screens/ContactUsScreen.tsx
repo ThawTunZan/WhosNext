@@ -29,6 +29,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import ProfileHeader from './ProfileHeader';
+import { StatusBar } from 'expo-status-bar';
 
 // FAQ data
 const FAQs = [
@@ -286,15 +288,13 @@ export default function ContactUsScreen() {
   ];
 
   return (
+    <>
+      <StatusBar style={isDarkMode ? "dark" : "light"} />
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+            <ProfileHeader title="Contact Us" subtitle="We're here to help! Send us a message."/>
+          </View>
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header Section */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Contact Us</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.subtext }]}>
-          We're here to help! Send us a message.
-        </Text>
-      </View>
-
       {/* FAQ Section */}
       <Card style={[styles.section, { backgroundColor: theme.colors.surface }]}>
         <Card.Title title="Frequently Asked Questions" />
@@ -471,6 +471,8 @@ export default function ContactUsScreen() {
         </Card.Content>
       </Card>
     </ScrollView>
+    </View>
+    </>
   );
 }
 
@@ -478,16 +480,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  subtitle: {
+    color: '#BDBDBD'
+  },
   header: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
   },
   section: {
     margin: 16,

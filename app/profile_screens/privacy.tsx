@@ -19,6 +19,8 @@ import { SettingItem, SettingSection } from '@/src/components/SettingItem';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NotificationService } from '@/src/services/notification/NotificationService';
+import ProfileHeader from './ProfileHeader';
+import { StatusBar } from 'expo-status-bar';
 
 interface PrivacyOption {
   id: string;
@@ -196,14 +198,16 @@ export default function PrivacySettingsScreen() {
   const notificationSettings = privacySettings.slice(7);
 
   return (
+    <>
+      <StatusBar style={isDarkMode ? "dark" : "light"} />
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+            <ProfileHeader title="Privacy Settings" subtitle='Control who can see your information and how your data is used'/>
+          </View>
     <ScrollView 
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={{ paddingBottom: insets.bottom }}
     >
-      <ScreenHeader
-        title="Privacy Settings"
-        subtitle="Control who can see your information and how your data is used"
-      />
 
       <View style={styles.content}>
         {renderSection('Profile & Visibility', profileSettings)}
@@ -227,12 +231,22 @@ export default function PrivacySettingsScreen() {
         </Surface>
       </View>
     </ScrollView>
+    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flex: 1000,
+    backgroundColor: '#f5f5f5',
+  },
+  subtitle: {
+    color: '#BDBDBD'
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
   },
   content: {
     padding: 16,

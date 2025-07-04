@@ -3,11 +3,9 @@ import React, { useState } from "react"
 import {
   View,
   ScrollView,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  Platform,
   Alert,
 } from "react-native"
 import { Text, Surface, Button, Avatar, IconButton } from "react-native-paper"
@@ -17,11 +15,9 @@ import { useClerk, useUser } from "@clerk/clerk-expo"
 import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from '@/src/context/ThemeContext'
 import { lightTheme, darkTheme } from '@/src/theme/theme'
-
 import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService"
 import { useProfileActions } from "@/src/utilities/profileAction"
 
-const { width } = Dimensions.get('window')
 
 const SECTIONS = [
   {
@@ -120,7 +116,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
-        <Text style={[styles.username, { color: theme.colors.text }]}>{user?.username || 'testacc'}</Text>
+        <Text style={[styles.username, { color: theme.colors.text }]}>{user?.username || 'Unknown username'}</Text>
         <Text style={[styles.email, { color: theme.colors.subtext }]}>{user?.emailAddresses[0].emailAddress}</Text>
 
         <View style={styles.stats}>

@@ -16,23 +16,10 @@ export default function ProfileScreensLayout() {
     <Stack
       screenOptions={{
         header: ({ route }) => (
-          <Appbar.Header style={[
-            styles.header,
-            { 
-              backgroundColor: theme.colors.background,
-              paddingTop: insets.top,
-              height: (Platform.OS === 'ios' ? 44 : 56) + insets.top
-            }
-          ]}>
-            <Appbar.BackAction 
-              onPress={() => router.back()} 
-              color={theme.colors.text}
-            />
             <Appbar.Content 
               title={''} 
               color={theme.colors.text}
             />
-          </Appbar.Header>
         ),
         contentStyle: {
           backgroundColor: theme.colors.background
