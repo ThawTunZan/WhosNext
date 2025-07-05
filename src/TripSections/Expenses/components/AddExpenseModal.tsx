@@ -18,18 +18,19 @@ import AvatarRadioSelector from './AvatarRadioSelector';
 
 const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerId }: AddExpenseModalProps) => {
 	const [expenseName, setExpenseName] = useState('');
-	const [paidAmtStr, setPaidAmtStr] = useState('');
-	const [multiplePaidAmtStr, setMultiplePaidAmtStr] = useState('');
-	const [sharedWithIds, setSharedWithIds] = useState<string[]>([]);
+	const [expenseAmt, setexpenseAmt] = useState('');
+	const [expenseType, setExpenseType] = useState<'group' | 'personal'>('group');
+	const [multiplePaidAmtMap, setmultiplePaidAmtMap] = useState('');
 	const [paidByIds, setPaidByIds] = useState<string[]>([]);
+	const [customPaidAmount, setCustomPaidAmount] = useState<{ [id: string]: string }>({});
 	const [splitType, setSplitType] = useState<'even' | 'custom'>('even');
-	const [paidType, setPaidType] = useState<'single' | 'multiple'>('multiple');
-	const [customAmounts, setCustomAmounts] = useState<{ [id: string]: string }>({});
-	const [customPaidAmounts, setCustomPaidAmounts] = useState<{ [id: string]: string }>({});
+	const [sharedWithIds, setSharedWithIds] = useState<string[]>([]);
+	const [customSplitAmount, setcustomSplitAmount] = useState<{ [id: string]: string }>({});
 	const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
 	const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [errors, setErrors] = useState<{ [key: string]: string }>({});
+	
 
 	const memberEntries = React.useMemo(() => Object.entries(members), [members]);
 
@@ -38,19 +39,6 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	if (!isSignedIn) return <Redirect href="/auth/sign-in" />
 	const currentUserId = user.id
 	const profiles = useMemberProfiles();
-
-	const allMemberIds = Object.keys(members);
-	const initialPayerIds = initialData?.paidByAndAmounts[0].memberId
-		// if parent passed an explicit payer-id suggestion, use it
-		?? suggestedPayerId
-		// otherwise use the current user
-		?? currentUserId
-		// if even that is missing (unlikely), pick the first member in the list
-		?? allMemberIds[0]
-		?? "";
-
-	// **After**: initialize state with that computed default
-	const [paidById, setPaidByID] = useState<string>(initialPayerIds);
 
 	// Reset form when modal is opened/closed or members change
 	useEffect(() => {
@@ -63,24 +51,23 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			const allMemberIds = Object.keys(members);
 
 			setExpenseName(initialData?.activityName || ''); // Use activityName if present
-			//setPaidAmtStr(initialData?.paidByAndAmounts.map(pba => pba.amount).reduce((sum, amt) => sum + parseFloat(amt), 0).toString() || ''); // Use paidAmt if present
+			//setexpenseAmt(initialData?.paidByAndAmounts.map(pba => pba.amount).reduce((sum, amt) => sum + parseFloat(amt), 0).toString() || ''); // Use paidAmt if present
 			setSelectedCurrency(initialData?.currency || 'USD');
 
 			if (isEditingMode && initialData) {
 				// --- Pre-fill specific to EDIT mode ---
-				if (initialData.paidByAndAmounts && initialData.paidByAndAmounts.length === 1) {
-					setPaidByID(initialData.paidByAndAmounts[0].memberId);
-					setPaidType('single');
-					setPaidAmtStr(initialData.paidByAndAmounts[0].amount.toString());
-				} else if (initialData.paidByAndAmounts && initialData.paidByAndAmounts.length 	> 1) {
+				if (!initialData.sharedWith || initialData.sharedWith.length < 1) {
+					setExpenseType('personal');
+					setexpenseAmt(initialData.paidByAndAmounts[0].amount.toString());
+				} else if (initialData.paidByAndAmounts && initialData.paidByAndAmounts.length > 0) {
+					setExpenseType('group')
 					setPaidByIds(initialData.paidByAndAmounts.map(pba => pba.memberId));
-					setPaidType('multiple');
 					const tempCustomPaidAmts: { [id: string]: string } = {};
 					initialData.paidByAndAmounts.forEach(pba => {
 						tempCustomPaidAmts[pba.memberId] = pba.amount.toString();
 					});
-					setCustomPaidAmounts(tempCustomPaidAmts);
-					setMultiplePaidAmtStr(
+					setCustomPaidAmount(tempCustomPaidAmts);
+					setmultiplePaidAmtMap(
 						initialData.paidByAndAmounts
 							.reduce((sum, pba) => sum + parseFloat(pba.amount), 0)
 							.toString()
@@ -91,23 +78,23 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 					const firstAmount = initialData.sharedWith[0].amount;
 					let allAmountsEqual = true;
 					setSplitType("even");
-					let customAmountsToSet: { [id: string]: string } = {};
+					let customSplitAmountToSet: { [id: string]: string } = {};
 					for (const sw of initialData.sharedWith) {
 						if (Math.abs(sw.amount - firstAmount) > 0.01) {
 							allAmountsEqual = false;
 							setSplitType("custom")
 						}
-						customAmountsToSet[sw.payeeID] = sw.amount.toString();
+						customSplitAmountToSet[sw.payeeID] = sw.amount.toString();
 					}
 					const totalSharedAmount = initialData.sharedWith.reduce((sum, sw) => sum + sw.amount, 0);
-					setCustomAmounts(customAmountsToSet);
+					setcustomSplitAmount(customSplitAmountToSet);
 					
 				} else {
-					// Default sharing if no sharedWith in initialData (should not happen for edit)
-					const allMemberIds = Object.keys(members);
-					setSharedWithIds(allMemberIds);
+					setExpenseType('group')
+					setPaidByIds([])
+					setSharedWithIds([]);
 					setSplitType('even');
-					setCustomAmounts({});
+					setcustomSplitAmount({});
 				}
 			} else {
 				// --- Defaults for ADD mode (or if initialData is minimal) ---
@@ -117,19 +104,19 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 				let defaultPayerId = suggestedPayerId;
 				if (!defaultPayerId) defaultPayerId = currentUserId;
 				if (!defaultPayerId && allMemberIds.length) defaultPayerId = allMemberIds[0];
-				setPaidByID(defaultPayerId);
-
+				setPaidByIds([defaultPayerId]);
+				setCustomPaidAmount({ [defaultPayerId]: '' });
 				setSplitType('even');
-				setCustomAmounts({});
+				setcustomSplitAmount({});
 			}
 		} else {
 			// Reset all fields on close (already handled well)
 			setExpenseName('');
-			setPaidAmtStr('');
-			setPaidByID('');
+			setexpenseAmt('');
+			setPaidByIds([]);
 			setSharedWithIds([]);
 			setSplitType('even');
-			setCustomAmounts({});
+			setcustomSplitAmount({});
 			setSelectedCurrency('USD');
 			setErrors({});
 			setIsSubmitting(false);
@@ -145,51 +132,50 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			newErrors.name = "Expense name is required.";
 			isValid = false;
 		}
-		if (paidType === 'single') {
-			if (!paidById) {
-				newErrors.paidBy = "Select who paid.";
-				isValid = false;
-			}
-			const amount = parseFloat(paidAmtStr);
-			if (isNaN(amount) || amount <= 0) {
-				newErrors.amount = "Enter a valid positive amount.";
-				isValid = false;
-			}
-			if (splitType === 'custom') {
-				let totalCustomAmount = 0;
-				let hasInvalidCustom = false;
-				sharedWithIds.forEach(id => {
-					const customAmt = parseFloat(customAmounts[id] || '0');
-					if (isNaN(customAmt) || customAmt < 0) {
-						newErrors[`custom_${id}`] = "Invalid amount"; // Error per input
-						hasInvalidCustom = true;
-					}
-					totalCustomAmount += customAmt;
-				});
-	
-				if (hasInvalidCustom) {
-					newErrors.customTotal = "One or more custom amounts are invalid.";
-					isValid = false;
-				} else if (Math.abs(totalCustomAmount - amount) > 0.01) { // Allow for floating point inaccuracies
-					newErrors.customTotal = `Custom amounts must add up to ${amount.toFixed(2)} ${selectedCurrency}. Current total: ${totalCustomAmount.toFixed(2)} ${selectedCurrency}`;
-					isValid = false;
+
+		if (expenseType === 'group' && (!paidByIds || paidByIds.length < 1)) {
+			newErrors.paidBy = "Select who paid.";
+			isValid = false;
+		}
+		const amount = parseFloat(expenseAmt);
+		if (isNaN(amount) || amount <= 0) {
+			newErrors.amount = "Enter a valid positive amount.";
+			isValid = false;
+		}
+		if (splitType === 'custom') {
+			let totalCustomAmount = 0;
+			let hasInvalidCustom = false;
+			sharedWithIds.forEach(id => {
+				const customAmt = parseFloat(customSplitAmount[id] || '0');
+				if (isNaN(customAmt) || customAmt < 0) {
+					newErrors[`custom_${id}`] = "Invalid amount"; // Error per input
+					hasInvalidCustom = true;
 				}
+				totalCustomAmount += customAmt;
+			});
+
+			if (hasInvalidCustom) {
+				newErrors.customTotal = "One or more custom amounts are invalid.";
+				isValid = false;
+			} else if (Math.abs(totalCustomAmount - amount) > 0.01) { // Allow for floating point inaccuracies
+				newErrors.customTotal = `Custom amounts must add up to ${amount.toFixed(2)} ${selectedCurrency}. Current total: ${totalCustomAmount.toFixed(2)} ${selectedCurrency}`;
+				isValid = false;
 			}
 		}
 		
-		if (paidType === 'multiple') {
+		
+		if (expenseType === 'group') {
 			if (paidByIds.length === 0) {
 				newErrors.paidBy = "Select at least one person to pay.";
 				isValid = false;
 			}
-			const totalPaidAmount = Object.values(customPaidAmounts).reduce((sum, amt) => sum + parseFloat(amt), 0);
-			setMultiplePaidAmtStr(totalPaidAmount.toString());
-			console.log("Total paid amount:", totalPaidAmount);
+			const totalPaidAmount = Object.values(customPaidAmount).reduce((sum, amt) => sum + parseFloat(amt), 0);
+			setmultiplePaidAmtMap(totalPaidAmount.toString());
 			if (splitType === 'custom') {
 				let totalCustomAmount = 0;
 				let hasInvalidCustom = false;
 				sharedWithIds.forEach(id => {
-					const customAmt = parseFloat(customAmounts[id] || '0');
+					const customAmt = parseFloat(customSplitAmount[id] || '0');
 					if (isNaN(customAmt) || customAmt < 0) {
 						newErrors[`custom_${id}`] = "Invalid amount"; // Error per input
 						hasInvalidCustom = true;
@@ -226,66 +212,61 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 		setIsSubmitting(true);
 		setErrors({}); // Clear previous errors
 
-		const paidAmount = paidType === 'single' ? parseFloat(paidAmtStr) : parseFloat(multiplePaidAmtStr);
 		let parsedSharedWith: SharedWith[] = [];
     let parsedPaidByAndAmounts: {memberId: string, amount: string}[] = []
 
-		if (paidType === 'single') {
-			parsedPaidByAndAmounts = [{memberId: paidById, amount: paidAmtStr}];
-		} else if (paidType === 'multiple') {
-			parsedPaidByAndAmounts = paidByIds.map(id => ({memberId: id, amount: customPaidAmounts[id]}));
-		}
-
 		try {
-			const numOfPpl = sharedWithIds.length
-			let totalPaid = 0;
+				const numOfPpl = sharedWithIds.length
+				let totalPaid = 0;
 
-			
-			if (paidType === 'single') {
-				totalPaid = parseFloat(paidAmtStr);
-			} else if (paidType === 'multiple') {
-				totalPaid = Object.values(customPaidAmounts).reduce((sum, amt) => sum + parseFloat(amt), 0);
-			}
+				if (expenseType === 'personal') {
+					totalPaid = parseFloat(expenseAmt);
+					parsedPaidByAndAmounts = [{memberId: user.id, amount: expenseAmt}];
+					parsedSharedWith = []
+				} else if (expenseType === 'group') {
+					totalPaid = Object.values(customPaidAmount).reduce((sum, amt) => sum + parseFloat(amt), 0);
+					parsedPaidByAndAmounts = paidByIds.map(id => ({memberId: id, amount: customPaidAmount[id]}));
 
-			const perPerson = numOfPpl > 0 ? totalPaid / numOfPpl : 0;
+					const perPerson = numOfPpl > 0 ? totalPaid / numOfPpl : 0;
 
-			if (splitType === 'custom') {
-				parsedSharedWith = sharedWithIds.map(id => ({
-					payeeID: id,
-					amount: parseFloat(customAmounts[id] || '0'),
-					currency: selectedCurrency
-				}));
-			} else if (splitType === 'even') { // Even split
-				parsedSharedWith = sharedWithIds.map(id => ({
-					payeeID: id,
-					amount: perPerson,
-					currency: selectedCurrency,
-				}));
-			}
-				
+					if (splitType === 'custom') {
+						parsedSharedWith = sharedWithIds.map(id => ({
+							payeeID: id,
+							amount: parseFloat(customSplitAmount[id] || '0'),
+							currency: selectedCurrency
+						}));
+					} else if (splitType === 'even') { // Even split
+						parsedSharedWith = sharedWithIds.map(id => ({
+							payeeID: id,
+							amount: perPerson,
+							currency: selectedCurrency,
+						}));
+					}
+				}
+					
 			const newExpenseRef = doc(
 				collection(db, "trips", tripId, "expenses")
 			);
 			const newId = newExpenseRef.id;
-
+		
 			const expenseData: Expense = {
 				id: newId,
 				activityName: expenseName.trim(),
 				paidByAndAmounts: parsedPaidByAndAmounts,
-				sharedWith: parsedSharedWith,
+				sharedWith: parsedSharedWith,		// TO DO SEE WHAT HAPPEN IF NULL WHEN EXPENSE TYPE IS PERSONAL
 				currency: selectedCurrency,
 				// `createdAt` will be added by the service
 			};
-
 			await onSubmit(expenseData, editingExpenseId); // Call the onSubmit prop passed from parent
 			onDismiss(); // Close modal on success
-
+			
 		} catch (error) {
 			console.error("Error creating expense:", error);
 			setErrors({ submit: `Failed to add expense: ${error instanceof Error ? error.message : 'Unknown error'}` });
 		} finally {
 			setIsSubmitting(false);
 		}
+		
 	};
 
 	const toggleSharedMember = (id: string) => {
@@ -293,7 +274,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			const newSelection = prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id];
 			// When removing a member from custom split, clear their amount
 			if (splitType === 'custom' && !newSelection.includes(id)) {
-				setCustomAmounts(current => {
+				setcustomSplitAmount(current => {
 					const updated = { ...current };
 					delete updated[id];
 					return updated;
@@ -306,18 +287,15 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	const handleCustomAmountChange = (id: string, text: string) => {
 		// Allow only numbers and one decimal point
 		const cleanedText = text.replace(/[^0-9.]/g, '');
-		setCustomAmounts(prev => ({ ...prev, [id]: cleanedText }));
+		setcustomSplitAmount(prev => ({ ...prev, [id]: cleanedText }));
 	};
 
 	const handleCustomPaidAmountChange = (id: string, text: string) => {
 		// Allow only numbers and one decimal point
 		const cleanedText = text.replace(/[^0-9.]/g, '');
-		setCustomPaidAmounts(prev => ({ ...prev, [id]: cleanedText }));
+		setCustomPaidAmount(prev => ({ ...prev, [id]: cleanedText }));
 	};
 
-	const handleSinglePaidByChange = (val: string | string[]) => {
-		if (typeof val === 'string') setPaidByID(val);
-	};
 	const handleMultiplePaidByChange = (val: string | string[]) => {
 		if (Array.isArray(val)) setPaidByIds(val);
 	};
@@ -343,12 +321,12 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 										error={!!errors.name}
 									/>
 									{errors.name && <HelperText type="error">{errors.name}</HelperText>}
-									{ paidType === 'single' && (
+									{ expenseType === 'personal' && (
 									<View style={styles.rowInputContainer}>
 										<TextInput
 											label="Amount"
-											value={paidAmtStr}
-											onChangeText={setPaidAmtStr}
+											value={expenseAmt}
+											onChangeText={setexpenseAmt}
 											keyboardType="numeric"
 											style={[styles.input, styles.amountInput]}
 											error={!!errors.amount}
@@ -364,170 +342,181 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 									)}
 									{errors.amount && <HelperText type="error">{errors.amount}</HelperText>}
 									
-
-									{/* Paid By Type Section */}
-									<IconRadioSelector
-										title="Paid By Type"
-										value={paidType}
-										onValueChange={v => setPaidType(v as 'single' | 'multiple')}
-										options={[
-											{ value: 'single', label: 'Single Payer', icon: 'equal-box' },
-											{ value: 'multiple', label: 'Multiple Payers', icon: 'calculator-variant' },
-										]}
-										containerStyle={{ backgroundColor: theme.colors.background }}
-									/>
-
-									{/* Paid By Section */}
-									{paidType === 'single' ? (
-										<AvatarRadioSelector
-											title="Paid by"
-											value={paidById}
-											onValueChange={handleSinglePaidByChange}
-											options={memberEntries.map(([id, member]) => ({ value: id, label: profiles[id] }))}
-											containerStyle={{ backgroundColor: theme.colors.background }}
-											multiple={false}
-										/>
-									) : (
-										<AvatarRadioSelector
-											title="Paid by"
-											value={paidByIds}
-											onValueChange={handleMultiplePaidByChange}
-											options={memberEntries.map(([id, member]) => ({ value: id, label: profiles[id] }))}
-											containerStyle={{ backgroundColor: theme.colors.background }}
-											multiple={true}
-										/>
-									)}
-									{suggestedPayerId && (
-										<Caption style={[styles.suggestionText, { color: theme.colors.primary }]}>💡 Suggestion: {profiles[suggestedPayerId]} is next to pay</Caption>
-									)}
-									{errors.paidBy && <HelperText type="error">{errors.paidBy}</HelperText>}
-
-									{/* Custom Paid Amounts Section */}
-									{paidType === 'multiple' && (
-										<Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
-											<Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
-												Paid Amounts
-											</Text>
-											<View style={styles.customAmountsContainer}>
-												{paidByIds.map(id => (
-													<View key={id} style={styles.customAmountRow}>
-														<Text style={[styles.customAmountLabel, { color: theme.colors.text }]}>
-															{profiles[id]}
-														</Text>
-														<TextInput
-															mode="outlined"
-															dense
-															style={[styles.customAmountInput, { backgroundColor: theme.colors.surface }]}
-															value={customPaidAmounts[id] || ''}
-															placeholder="0.00"
-															keyboardType="numeric"
-															onChangeText={(text) => handleCustomPaidAmountChange(id, text)}
-															error={!!errors[`custom_${id}`]}
-															left={<TextInput.Affix text={selectedCurrency} />}
-														/>
-													</View>
-												))}
-											</View>
-											{errors.customTotal && (
-												<HelperText type="error" style={styles.customTotalError}>
-													{errors.customTotal}
-												</HelperText>
-											)}
-										</Surface>
-									)}
-
-									{/* Split Type Section */}
-									<IconRadioSelector
-										title="Split Type"
-										value={splitType}
-										onValueChange={v => setSplitType(v as 'even' | 'custom')}
-										options={[
-											{ value: 'even', label: 'Split Evenly', icon: 'equal-box' },
-											{ value: 'custom', label: 'Custom Split', icon: 'calculator-variant' },
-										]}
-										containerStyle={{ backgroundColor: theme.colors.background }}
-									/>
-
-									{/* Shared With Section */}
-									<Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
-										<Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
-											Shared With
+									<Surface style={[styles.section, { backgroundColor: theme.colors.background, marginVertical: 8 }]}>
+										<Text
+											variant="titleMedium"
+											style={[
+												styles.sectionTitle,
+												{ color: theme.colors.text, textAlign: 'left', marginBottom: 16 }
+											]}
+										>
+											Expense Type
 										</Text>
-										{memberEntries.length > 0 ? (
-											<View style={styles.sharedWithContainer}>
-												{memberEntries.map(([id, member]) => (
-													<TouchableOpacity
-														key={id}
-														onPress={() => toggleSharedMember(id)}
-														style={[
-															styles.sharedOption,
-															sharedWithIds.includes(id) && styles.sharedOptionSelected,
-															{
-																backgroundColor: sharedWithIds.includes(id)
-																	? paperTheme.colors.primaryContainer
-																	: theme.colors.surface,
-																borderColor: theme.colors.border
-															}
-														]}
-													>
-														<MaterialCommunityIcons
-															name={sharedWithIds.includes(id) ? "checkbox-marked" : "checkbox-blank-outline"}
-															size={24}
-															color={sharedWithIds.includes(id) ? paperTheme.colors.primary : theme.colors.text}
-														/>
-														<Text style={[
-															styles.sharedOptionText,
-															{
-																color: sharedWithIds.includes(id)
-																	? paperTheme.colors.onPrimaryContainer
-																	: theme.colors.text
-															}
-														]}>
-															{profiles[id]}
-														</Text>
-													</TouchableOpacity>
-												))}
-											</View>
-										) : (
-											<Text style={[styles.infoText, { color: theme.colors.error }]}>
-												No members available
-											</Text>
-										)}
-										{errors.sharedWith && <HelperText type="error">{errors.sharedWith}</HelperText>}
+										<View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+											<Button
+												mode={expenseType === 'personal' ? 'contained' : 'outlined'}
+												onPress={() => setExpenseType('personal')}
+												style={{ marginRight: 8, width: 150 }}
+											>
+												Personal
+											</Button>
+											<Button
+												mode={expenseType === 'group' ? 'contained' : 'outlined'}
+												onPress={() => setExpenseType('group')}
+												style={{ width: 150 }}
+											>
+												Group Expense
+											</Button>
+										</View>
 									</Surface>
+									
 
-									{/* Custom Amounts Section */}
-									{splitType === 'custom' && sharedWithIds.length > 0 && (
-										<Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
-											<Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
-												Custom Amounts
-											</Text>
-											<View style={styles.customAmountsContainer}>
-												{sharedWithIds.map(id => (
-													<View key={id} style={styles.customAmountRow}>
-														<Text style={[styles.customAmountLabel, { color: theme.colors.text }]}>
-															{profiles[id]}
-														</Text>
-														<TextInput
-															mode="outlined"
-															dense
-															style={[styles.customAmountInput, { backgroundColor: theme.colors.surface }]}
-															value={customAmounts[id] || ''}
-															placeholder="0.00"
-															keyboardType="numeric"
-															onChangeText={(text) => handleCustomAmountChange(id, text)}
-															error={!!errors[`custom_${id}`]}
-															left={<TextInput.Affix text={selectedCurrency} />}
-														/>
-													</View>
-												))}
-											</View>
-											{errors.customTotal && (
-												<HelperText type="error" style={styles.customTotalError}>
-													{errors.customTotal}
-												</HelperText>
+									{expenseType === 'group' && (
+										<>
+										{/* Paid By Section */}
+
+											<AvatarRadioSelector
+												title="Paid by"
+												value={paidByIds}
+												onValueChange={handleMultiplePaidByChange}
+												options={memberEntries.map(([id, member]) => ({ value: id, label: profiles[id] }))}
+												containerStyle={{ backgroundColor: theme.colors.background }}
+												multiple={true}
+											/>
+											
+											{suggestedPayerId && (
+												<Caption style={[styles.suggestionText, { color: theme.colors.primary }]}>💡 Suggestion: {profiles[suggestedPayerId]} is next to pay</Caption>
 											)}
-										</Surface>
+											{errors.paidBy && <HelperText type="error">{errors.paidBy}</HelperText>}
+
+											{/* Custom Paid Amounts Section */}
+											
+											<Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
+												<Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+													Paid Amounts
+												</Text>
+												<View style={styles.customSplitAmountContainer}>
+													{paidByIds.map(id => (
+														<View key={id} style={styles.customAmountRow}>
+															<Text style={[styles.customAmountLabel, { color: theme.colors.text }]}>
+																{profiles[id]}
+															</Text>
+															<TextInput
+																mode="outlined"
+																dense
+																style={[styles.customAmountInput, { backgroundColor: theme.colors.surface }]}
+																value={customPaidAmount[id] || ''}
+																placeholder="0.00"
+																keyboardType="numeric"
+																onChangeText={(text) => handleCustomPaidAmountChange(id, text)}
+																error={!!errors[`custom_${id}`]}
+																left={<TextInput.Affix text={selectedCurrency} />}
+															/>
+														</View>
+													))}
+												</View>
+												{errors.customTotal && (
+													<HelperText type="error" style={styles.customTotalError}>
+														{errors.customTotal}
+													</HelperText>
+												)}
+											</Surface>
+											
+
+											{/* Split Type Section */}
+											<IconRadioSelector
+												title="Split Type"
+												value={splitType}
+												onValueChange={v => setSplitType(v as 'even' | 'custom')}
+												options={[
+													{ value: 'even', label: 'Split Evenly', icon: 'equal-box' },
+													{ value: 'custom', label: 'Custom Split', icon: 'calculator-variant' },
+												]}
+												containerStyle={{ backgroundColor: theme.colors.background }}
+											/>
+
+											{/* Shared With Section */}
+											<Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
+												<Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+													Shared With
+												</Text>
+												{memberEntries.length > 0 ? (
+													<View style={styles.sharedWithContainer}>
+														{memberEntries.map(([id, member]) => (
+															<TouchableOpacity
+																key={id}
+																onPress={() => toggleSharedMember(id)}
+																style={[
+																	styles.sharedOption,
+																	sharedWithIds.includes(id) && styles.sharedOptionSelected,
+																	{
+																		backgroundColor: sharedWithIds.includes(id)
+																			? paperTheme.colors.primaryContainer
+																			: theme.colors.surface,
+																		borderColor: theme.colors.border
+																	}
+																]}
+															>
+																<MaterialCommunityIcons
+																	name={sharedWithIds.includes(id) ? "checkbox-marked" : "checkbox-blank-outline"}
+																	size={24}
+																	color={sharedWithIds.includes(id) ? paperTheme.colors.primary : theme.colors.text}
+																/>
+																<Text style={[
+																	styles.sharedOptionText,
+																	{
+																		color: sharedWithIds.includes(id)
+																			? paperTheme.colors.onPrimaryContainer
+																			: theme.colors.text
+																	}
+																]}>
+																	{profiles[id]}
+																</Text>
+															</TouchableOpacity>
+														))}
+													</View>
+												) : (
+													<Text style={[styles.infoText, { color: theme.colors.error }]}>
+														No members available
+													</Text>
+												)}
+												{errors.sharedWith && <HelperText type="error">{errors.sharedWith}</HelperText>}
+											</Surface>
+
+											{/* Custom Amounts Section */}
+											{splitType === 'custom' && sharedWithIds.length > 0 && (
+												<Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
+													<Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+														Custom Amounts
+													</Text>
+													<View style={styles.customSplitAmountContainer}>
+														{sharedWithIds.map(id => (
+															<View key={id} style={styles.customAmountRow}>
+																<Text style={[styles.customAmountLabel, { color: theme.colors.text }]}>
+																	{profiles[id]}
+																</Text>
+																<TextInput
+																	mode="outlined"
+																	dense
+																	style={[styles.customAmountInput, { backgroundColor: theme.colors.surface }]}
+																	value={customSplitAmount[id] || '0'}
+																	placeholder="0.00"
+																	keyboardType="numeric"
+																	onChangeText={(text) => handleCustomAmountChange(id, text)}
+																	error={!!errors[`custom_${id}`]}
+																	left={<TextInput.Affix text={selectedCurrency} />}
+																/>
+															</View>
+														))}
+													</View>
+													{errors.customTotal && (
+														<HelperText type="error" style={styles.customTotalError}>
+															{errors.customTotal}
+														</HelperText>
+													)}
+												</Surface>
+											)}
+										</>
 									)}
 
 									{errors.submit && (
@@ -623,7 +612,7 @@ const styles = StyleSheet.create({
 		marginTop: 8,
 		textAlign: 'center',
 	},
-	customAmountsContainer: {
+	customSplitAmountContainer: {
 		gap: 12,
 	},
 	customAmountRow: {

@@ -31,7 +31,10 @@ export default function ExpenseCard({
   const paidByNames = expense.paidByAndAmounts.map(p => profiles[p.memberId] || 'Someone').join(',  ');
 
   // Calculate total shared amount
-  const totalShared = expense.sharedWith.reduce((sum, share) => sum + share.amount, 0);
+  const totalShared = expense.paidByAndAmounts.reduce(
+    (sum, object) => sum + (typeof object.amount === 'number' ? object.amount : parseFloat(object.amount) || 0),
+    0
+  );
   
   // Improved date formatting logic
   const formatDate = (dateValue: Date | Timestamp | string | null | undefined) => {
