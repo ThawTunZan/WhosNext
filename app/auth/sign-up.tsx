@@ -73,8 +73,14 @@ export default function SignUpScreen() {
       newErrors.password = 'Password is required'
       isValid = false
     } else if (password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters'
-      isValid = false
+      newErrors.password = 'Password must be at least 8 characters!';
+      isValid = false;
+    } else if (!/[A-Z]/.test(password)) {
+      newErrors.password = 'Password must contain at least one uppercase letter!';
+      isValid = false;
+    } else if (!/[^a-zA-Z0-9]/.test(password)) {
+      newErrors.password = 'Password must contain at least one special character!';
+      isValid = false;
     }
 
     setErrors(newErrors)
@@ -175,8 +181,8 @@ export default function SignUpScreen() {
               >
                 <Feather name="arrow-left" size={24} color={theme.colors.text} />
               </TouchableOpacity>
-              <Text style={styles.headerVerify}>Verify your email</Text>
-              <Text style={styles.verifySubtitle}>
+              <Text style={[styles.headerVerify, { color: theme.colors.text }]}>Verify your email</Text>
+              <Text style={[styles.verifySubtitle, { color: theme.colors.subtext }]}>
                 We sent a code to {emailAddress}
               </Text>
 

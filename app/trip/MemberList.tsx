@@ -151,7 +151,21 @@ export default function MemberList({
         <View style={styles.memberInfo}>
           {profileName === undefined
             ? <ActivityIndicator size="small" color={theme.colors.text} />
-            : <Text variant="titleMedium" style={[styles.memberName, { color: theme.colors.text }]}>{profileName}</Text>
+            : (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text variant="titleMedium" style={[styles.memberName, { color: theme.colors.text }]}>
+                  {profileName}
+                </Text>
+                {user && id === user.id && (
+                  <Text
+                    variant="labelMedium"
+                    style={{ color: theme.colors.primary, marginLeft: 8, fontWeight: 'bold' }}
+                  >
+                    (You)
+                  </Text>
+                )}
+              </View>
+            )
           }
           <Text variant="labelMedium" style={{ color: theme.colors.subtext }}>
             Budget: ${member.budget.toFixed(2)}

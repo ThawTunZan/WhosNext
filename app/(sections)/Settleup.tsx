@@ -96,7 +96,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   const groupDebts = useCallback((debts: Debt[]) => {
     // Group by currency
     const grouped = debts.reduce((acc, debt) => {
-      const fromName = profiles[debt.fromUserId] || debt.fromUserId;
+      const fromName = profiles[debt.fromUserId] || 'Unknown';
       if (!acc[fromName]) {
         acc[fromName] = [];
       }

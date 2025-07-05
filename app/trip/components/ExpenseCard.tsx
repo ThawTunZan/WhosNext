@@ -92,7 +92,6 @@ export default function ExpenseCard({
         
         <View style={styles.detailRow}>
           <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Paid by</Text>
-          <Text style={[styles.detailValue, { color: theme.colors.text }]}>{paidByNames}</Text>
         </View>
 
         {getPayerNames(expense.paidByAndAmounts).map((payer, index) => (

@@ -101,14 +101,6 @@ export default function TripsScreen() {
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Your Trips</Text>
-          <IconButton
-            icon="plus"
-            mode="contained"
-            containerColor={theme.colors.primary}
-            iconColor={theme.colors.text}
-            size={24}
-            onPress={() => router.push('/create-trip')}
-          />
         </View>
 
         {trips.length === 0 ? (

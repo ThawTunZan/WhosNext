@@ -202,15 +202,6 @@ export default function SignInScreen() {
     if (!password) {
       newErrors.password = 'Password is required!';
       isValid = false;
-    } else if (password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters!';
-      isValid = false;
-    } else if (!/[A-Z]/.test(password)) {
-      newErrors.password = 'Password must contain at least one uppercase letter!';
-      isValid = false;
-    } else if (!/[^a-zA-Z0-9]/.test(password)) {
-      newErrors.password = 'Password must contain at least one special character!';
-      isValid = false;
     }
     setErrors(newErrors)
     return isValid

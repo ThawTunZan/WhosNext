@@ -17,6 +17,7 @@ import {
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
 import { type Expense, type ProposedActivity, type AddMemberType, type Currency, ErrorType } from "@/src/types/DataTypes";
+import { getFirestore, collection, getDocs, updateDoc, doc, getDoc } from "firebase/firestore";
 
 interface UseTripHandlersParams {
 	tripId: string;
@@ -74,6 +75,8 @@ export function useTripHandlers({
 			if (!tripId || !currentUserId) return;
 			try {
 				await claimMockUser(tripId, mockUserId, claimCode, currentUserId);
+				// call a function that update firebase database expenses and activity and settle debt
+				await updateFirebaseAfterClaiming(mockUserId, currentUserId, tripId);
 				setSnackbarMessage("Successfully claimed mock profile!");
 				setSnackbarVisible(true);
 			} catch (err: any) {
@@ -250,3 +253,89 @@ export function useTripHandlers({
 		isDeletingTrip,
 	};
 }
+
+async function updateFirebaseAfterClaiming(mockUserId: string, currentUserId: string, tripId: string) {
+	const db = getFirestore();
+
+	// 1. Update Expenses
+	const expensesRef = collection(db, "trips", tripId, "expenses");
+	const expensesSnap = await getDocs(expensesRef);
+	for (const expenseDoc of expensesSnap.docs) {
+		const expense = expenseDoc.data();
+		let updated = false;
+
+		// Update paidByAndAmounts
+		if (expense.paidByAndAmounts) {
+			expense.paidByAndAmounts = expense.paidByAndAmounts.map(pba =>
+				pba.memberId === mockUserId ? { ...pba, memberId: currentUserId } : pba
+			);
+			updated = true;
+		}
+
+		// Update sharedWith
+		if (expense.sharedWith) {
+			expense.sharedWith = expense.sharedWith.map(sw =>
+				sw.payeeID === mockUserId ? { ...sw, payeeID: currentUserId } : sw
+			);
+			updated = true;
+		}
+
+		if (updated) {
+			await updateDoc(expenseDoc.ref, {
+				paidByAndAmounts: expense.paidByAndAmounts,
+				sharedWith: expense.sharedWith,
+			});
+		}
+	}
+
+	// 2. Update Proposed Activities
+	const activitiesRef = collection(db, "trips", tripId, "proposed_activities");
+	const activitiesSnap = await getDocs(activitiesRef);
+	for (const activityDoc of activitiesSnap.docs) {
+		const activity = activityDoc.data();
+		let updated = false;
+
+		if (activity.suggestedByID === mockUserId) {
+			activity.suggestedByID = currentUserId;
+			updated = true;
+		}
+
+		// If there are other fields referencing the mock user, update them here
+
+		if (updated) {
+			await updateDoc(activityDoc.ref, activity);
+		}
+	}
+
+	// 3. Update Debts
+	const tripRef = doc(db, "trips", tripId);
+    const tripSnap = await getDoc(tripRef);
+    const tripData = tripSnap.data();
+	if (tripData) {
+		console.log("TRIP DATA EXIST!!")
+		let updated = false;
+		const newDebts = {};
+
+		for (const [currency, currencyDebts] of Object.entries(tripData.debts)) {
+			const newCurrencyDebts = {};
+			for (const [key, value] of Object.entries(currencyDebts)) {
+				let newKey = key;
+				if (key.includes(mockUserId)) {
+					console.log("FOUND DEBT WITH MOCKUSERID")
+					newKey = key.replace(mockUserId, currentUserId);
+					console.log("NEW KEY IS "+newKey)
+					updated = true;
+				}		
+				newCurrencyDebts[newKey] = value;		//remains old value if mockUserId is not found
+			}
+			newDebts[currency] = newCurrencyDebts;
+		}
+
+		if (updated) {
+			await updateDoc(tripRef, {
+				debts: newDebts,
+			});
+		}
+	}
+}
+
