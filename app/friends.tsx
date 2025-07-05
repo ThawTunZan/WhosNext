@@ -435,7 +435,7 @@ export default function FriendsScreen() {
               },
               {
                 value: 'requests',
-                label: 'Requests',
+                label: `Requests (${incomingFriendRequests.length + outgoingFriendRequests.length})`,
                 icon: 'account-plus',
               },
             ]}
@@ -452,12 +452,12 @@ export default function FriendsScreen() {
               buttons={[
                 {
                   value: 'incoming',
-                  label: 'Incoming',
+                  label: `Incoming (${incomingFriendRequests.length})`,
                   icon: 'arrow-down',
                 },
                 {
                   value: 'outgoing',
-                  label: 'Outgoing',
+                  label: `Outgoing (${outgoingFriendRequests.length})`,
                   icon: 'arrow-up',
                 },
               ]}
