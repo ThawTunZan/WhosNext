@@ -173,7 +173,10 @@ export default function CreateTripScreen() {
                 />
                 <Button
                   mode="outlined"
-                  onPress={() => setShowCurrencyModal(true)}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowCurrencyModal(true);
+                  }}
                   style={styles.currencyButton}
                 >
                   {selectedCurrency}
