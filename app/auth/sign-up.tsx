@@ -169,6 +169,12 @@ export default function SignUpScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.inner}>
+              <TouchableOpacity
+                onPress={() => router.push('/auth/sign-in')}
+                style={{ alignSelf: 'flex-start', marginBottom: 16 }}
+              >
+                <Feather name="arrow-left" size={24} color={theme.colors.text} />
+              </TouchableOpacity>
               <Text style={styles.headerVerify}>Verify your email</Text>
               <Text style={styles.verifySubtitle}>
                 We sent a code to {emailAddress}
@@ -228,6 +234,12 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.inner}>
+            <TouchableOpacity
+              onPress={() => router.push('/auth/sign-in')}
+              style={{ alignSelf: 'flex-start', marginBottom: 16 }}
+            >
+              <Feather name="arrow-left" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Sign up to join</Text>
 
@@ -353,7 +365,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 32,
-    justifyContent: 'center',
   },
   inner: {
     alignItems: 'center',
