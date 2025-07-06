@@ -26,6 +26,7 @@ import { calculateNextPayer } from "@/src/services/expenseService";
 import { useTripHandlers } from "@/src/utilities/TripHandlers";
 import { useTripState } from "@/src/hooks/useTripState";
 import { AddMemberType } from "@/src/types/DataTypes";
+import TripPaymentDashboard from "../(sections)/TripPaymentDashboard";
 
 export default function TripDetailPage() {
   const { id: routeIdParam, showChooseModal: showChooseModalParam } = useLocalSearchParams<{ 
@@ -225,6 +226,8 @@ export default function TripDetailPage() {
             {selectedTab === "receipts" && <ReceiptSection tripId={tripId!} />}
 
             {selectedTab === "invite" && <InviteSection tripId={tripId!} />}
+
+            {selectedTab === "leaderboard" && <TripPaymentDashboard />}
 
             <Portal>
               <BudgetDialog
