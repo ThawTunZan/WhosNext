@@ -42,7 +42,7 @@ export const updateExpense = async (expenseId: string, tripId: string, updatedEx
 
 		const expenseUpdatePayload = {
 			...updatedExpenseData,
-			updatedAt: Timestamp.now(),
+			// TODO
 		};
 		batch.update(expenseDocRef, expenseUpdatePayload); // Update the expense document itself
 		updateBalanceAndDebts(batch, tripId, combinedUpdates, expenseId);
@@ -331,7 +331,7 @@ export const addExpenseAndCalculateDebts = async (
 
 	const expenseDocData = {
 		...expenseData,
-		createdAt: Timestamp.now(),
+		createdAt: expenseData.createdAt,
 	};
 
 	const batch = writeBatch(db);

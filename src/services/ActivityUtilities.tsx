@@ -117,6 +117,7 @@ export const addProposedActivity = async (
 
     const docData = {
         ...activityData,
+        // TODO
         createdAt: Timestamp.now(),
         votes: {}, // Initialize empty votes map
         votesUp: 0,

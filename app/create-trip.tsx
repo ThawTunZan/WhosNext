@@ -101,6 +101,7 @@ export default function CreateTripScreen() {
         userId,
         members: initialMembers,
         debts: [],
+        // TODO
         createdAt: Timestamp.now(),
         isTripPremium,
         expensesCount: 0,

@@ -96,7 +96,7 @@ export type Expense = {
   activityName: string;
   paidByAndAmounts: {memberId: string, amount: string}[];
   sharedWith: SharedWith[];
-  createdAt?: string; // Firestore Timestamp type for consistency
+  createdAt?: Timestamp; // Firestore Timestamp type for consistency
   currency: Currency;
 };
 

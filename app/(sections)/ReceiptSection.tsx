@@ -162,6 +162,7 @@ export default function ReceiptSection({ tripId }: Props) {
         expenseId: selectedExpense,
         url,
         path: fileRef.fullPath,
+        // TODO
         createdAt: Timestamp.now(),
         createdById: currentUserId,
         paidById: expense.paidById

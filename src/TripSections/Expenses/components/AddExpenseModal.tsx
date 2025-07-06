@@ -9,12 +9,13 @@ import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { useUser } from '@clerk/clerk-expo';
 import { Redirect } from 'expo-router';
 import { db } from "@/firebase";
-import { collection, doc, setDoc } from "firebase/firestore";
+import { collection, doc, setDoc, Timestamp } from "firebase/firestore";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
 import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
 import IconRadioSelector from './IconRadioSelector';
 import AvatarRadioSelector from './AvatarRadioSelector';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerId }: AddExpenseModalProps) => {
 	const [expenseName, setExpenseName] = useState('');
@@ -30,6 +31,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [errors, setErrors] = useState<{ [key: string]: string }>({});
+	const [expenseDate, setExpenseDate] = useState<Date>(new Date());
 	
 
 	const memberEntries = React.useMemo(() => Object.entries(members), [members]);
@@ -53,6 +55,16 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			setExpenseName(initialData?.activityName || ''); // Use activityName if present
 			//setexpenseAmt(initialData?.paidByAndAmounts.map(pba => pba.amount).reduce((sum, amt) => sum + parseFloat(amt), 0).toString() || ''); // Use paidAmt if present
 			setSelectedCurrency(initialData?.currency || 'USD');
+			setExpenseDate(
+				initialData?.createdAt
+					? (typeof initialData.createdAt === 'string'
+						? new Date(initialData.createdAt)
+						: (typeof ((initialData.createdAt as any)).toDate === 'function'
+							? (initialData.createdAt as any).toDate()
+							: new Date())
+					)
+					: new Date()
+			);
 
 			if (isEditingMode && initialData) {
 				// --- Pre-fill specific to EDIT mode ---
@@ -120,6 +132,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			setSelectedCurrency('USD');
 			setErrors({});
 			setIsSubmitting(false);
+			setExpenseDate(new Date());
 		}
 	}, [visible, members, initialData, editingExpenseId, suggestedPayerId, currentUserId]); // Reset on visibility change or if members list changes
 
@@ -232,7 +245,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 				paidByAndAmounts: parsedPaidByAndAmounts,
 				sharedWith: parsedSharedWith,		// TO DO SEE WHAT HAPPEN IF NULL WHEN EXPENSE TYPE IS PERSONAL
 				currency: selectedCurrency,
-				// `createdAt` will be added by the service
+				createdAt: Timestamp.fromDate(expenseDate), // store as string
 			};
 			await onSubmit(expenseData, editingExpenseId); // Call the onSubmit prop passed from parent
 			onDismiss(); // Close modal on success
@@ -495,6 +508,19 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 											)}
 										</>
 									)}
+
+									{/* Date Picker Section */}
+									<View style={{ marginBottom: 16 }}>
+										<Text style={{ marginBottom: 8 }}>Date</Text>
+										<DateTimePicker
+											value={expenseDate}
+											mode="date"
+											display="default"
+											onChange={(event, selectedDate) => {
+												if (selectedDate) setExpenseDate(selectedDate);
+											}}
+										/>
+									</View>
 
 									{errors.submit && (
 										<HelperText type="error" style={styles.submitError}>

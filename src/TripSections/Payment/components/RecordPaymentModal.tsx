@@ -201,6 +201,7 @@ export default function RecordPaymentModal({
       note,
       tripId,
       createdTime: serverTimestamp(),
+      //TODO
       createdDate: Timestamp.now()
     };
 
