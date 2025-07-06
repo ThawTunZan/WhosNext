@@ -550,3 +550,23 @@ interface ExpenseShare {
   userId: string;
   amount: number;
 }
+
+export async function cancelFriendRequest(senderId, receiverId) {
+  // Remove from sender's outgoingFriendRequests
+  const senderRef = doc(db, "users", senderId);
+  const senderSnap = await getDoc(senderRef);
+  if (senderSnap.exists()) {
+    const outgoing = senderSnap.data().outgoingFriendRequests || [];
+    const updatedOutgoing = outgoing.filter(req => req.receiverId !== receiverId);
+    await updateDoc(senderRef, { outgoingFriendRequests: updatedOutgoing });
+  }
+
+  // Remove from receiver's incomingFriendRequests
+  const receiverRef = doc(db, "users", receiverId);
+  const receiverSnap = await getDoc(receiverRef);
+  if (receiverSnap.exists()) {
+    const incoming = receiverSnap.data().incomingFriendRequests || [];
+    const updatedIncoming = incoming.filter(req => req.senderId !== senderId);
+    await updateDoc(receiverRef, { incomingFriendRequests: updatedIncoming });
+  }
+}

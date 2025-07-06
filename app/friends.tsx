@@ -24,6 +24,7 @@ import {
   blockUser,
   searchUsers,
   getUserByUsername,
+  cancelFriendRequest,
 } from '@/src/services/FirebaseServices';
 
 type Friend = {
@@ -58,6 +59,7 @@ export default function FriendsScreen() {
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [newFriendUsername, setNewFriendUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [cancelingRequestId, setCancelingRequestId] = useState<string | null>(null);
 
   // Load friends and friend requests
   useEffect(() => {
@@ -297,6 +299,23 @@ export default function FriendsScreen() {
     buttonRefs.current[id] = ref;
   }, []);
 
+  const handleCancelRequest = async (receiverId: string) => {
+    if (!user) return;
+    try {
+      setCancelingRequestId(receiverId);
+      setIsLoading(true);
+      await cancelFriendRequest(user.id, receiverId);
+      setOutgoingFriendRequests(prev => prev.filter(request => request.id !== receiverId));
+      Alert.alert('Success', 'Friend request cancelled');
+    } catch (error) {
+      console.error('Error cancelling friend request:', error);
+      Alert.alert('Error', 'Failed to cancel friend request');
+    } finally {
+      setIsLoading(false);
+      setCancelingRequestId(null);
+    }
+  };
+
   const renderFriendCard = (friend: Friend) => (
     <Surface style={[styles.friendCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
       <View style={styles.friendCardContent}>
@@ -373,13 +392,15 @@ export default function FriendsScreen() {
           ) : (
             <Button 
               mode="outlined" 
-              onPress={() => {/* Handle cancel request */}}
+              onPress={() => handleCancelRequest(friend.id)}
               style={[
                 styles.actionButton,
                 { borderColor: theme.colors.error }
               ]}
               contentStyle={styles.buttonContent}
               labelStyle={styles.buttonLabel}
+              loading={isLoading && cancelingRequestId === friend.id}
+              disabled={isLoading && cancelingRequestId === friend.id}
             >
               Cancel Request
             </Button>
@@ -593,6 +614,8 @@ export default function FriendsScreen() {
                 mode="contained"
                 onPress={handleSendFriendRequest}
                 style={styles.modalButton}
+                loading={isLoading}
+                disabled={isLoading}
               >
                 Send Request
               </Button>

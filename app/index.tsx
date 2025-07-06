@@ -1,5 +1,5 @@
 // File: app/index.tsx
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -14,6 +14,7 @@ import {
   Button,
   Surface,
   IconButton,
+  ActivityIndicator,
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -89,7 +90,9 @@ export default function TripsScreen() {
 
   const keyExtractor = useCallback((item) => item.id, []);
 
-  if (!isLoaded || !isSignedIn) {
+  const isLoading = !isLoaded;
+
+  if (!isSignedIn) {
     return null;
   }
 
@@ -97,13 +100,18 @@ export default function TripsScreen() {
     <>
       <StatusBar style={isDarkMode ? "light" : "dark"} />
       <SafeAreaView 
-        style={[{ backgroundColor: theme.colors.background, paddingBottom: insets.bottom + 60 }]}
+        style={[{flex: 1, backgroundColor: theme.colors.background, paddingBottom: insets.bottom + 60 }]}
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Your Trips</Text>
         </View>
 
-        {trips.length === 0 ? (
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={{color: theme.colors.text, margin: 32 }}>Loading your trips...</Text>
+          </View>
+        ) : trips.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={[styles.emptyStateIcon, { backgroundColor: theme.colors.surfaceVariant }]}>
               <Text style={styles.emptyStateEmoji}>🌎</Text>
@@ -210,7 +218,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 200,
   },
   emptyStateIcon: {
     width: 80,
@@ -240,5 +247,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 24,
     height: 56,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60,
   },
 });

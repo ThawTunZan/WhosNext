@@ -365,7 +365,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 												onPress={() => setExpenseType('group')}
 												style={{ width: 150 }}
 											>
-												Group Expense
+												Group
 											</Button>
 										</View>
 									</Surface>
