@@ -96,7 +96,7 @@ export type Expense = {
   activityName: string;
   paidByAndAmounts: {memberId: string, amount: string}[];
   sharedWith: SharedWith[];
-  createdAt?: Timestamp; // Firestore Timestamp type for consistency
+  createdAt: Timestamp; // Firestore Timestamp type for consistency
   currency: Currency;
 };
 
@@ -159,7 +159,7 @@ export type ProposedActivity = {
   suggestedByID: string | null;
   estCost?: number | null;
   currency: Currency;
-  createdAt: Timestamp; // Firestore Timestamp
+  createdAt: Timestamp;  // Firestore Timestamp
   votes: {
       [userId: string]: VoteType; // Map of UserID -> 'up' or 'down'
   };
@@ -170,7 +170,7 @@ export type ProposedActivity = {
 // Type for data needed to CREATE a new proposed activity
 // Excludes fields generated automatically (id, createdAt, votes, votesUp, votesDown)
 export type NewProposedActivityData = Omit<ProposedActivity,
-    'id' | 'createdAt' | 'votes' | 'votesUp' | 'votesDown'
+    'id' | 'votes' | 'votesUp' | 'votesDown'
 >;
 
 export type ProposeActivityModalProps = {

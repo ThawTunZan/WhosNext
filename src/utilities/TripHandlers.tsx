@@ -15,7 +15,7 @@ import {
 	addExpenseAndCalculateDebts,
 	editExpense,
 } from "@/src/services/expenseService";
-import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
+import { deleteProposedActivity } from "@/src/TripSections/Activity/utilities/ActivityUtilities";
 import { type Expense, type ProposedActivity, type AddMemberType, type Currency, ErrorType } from "@/src/types/DataTypes";
 import { getFirestore, collection, getDocs, updateDoc, doc, getDoc, deleteDoc } from "firebase/firestore";
 import {
@@ -233,8 +233,9 @@ export function useTripHandlers({
 					{
 					  memberId: currentUserId,
 					  amount: activity.estCost ? String(activity.estCost) : "0",
-					},
+					}
 				  ],
+				  createdAt: activity.createdAt,
 				},
 				false
 			  ),
@@ -287,6 +288,10 @@ export function useTripHandlers({
 	};
 }
 
+/*
+ * Function is called when new user join in and claims a mock member
+ * To update in the backend the expenses, activities and other stuff the mockmember participated in 
+ */
 async function updateFirebaseAfterClaiming(mockUserId: string, currentUserId: string, tripId: string) {
 	const db = getFirestore();
 

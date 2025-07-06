@@ -18,7 +18,7 @@ import {
   addProposedActivity,
   deleteProposedActivity,
   updateProposedActivity,
-} from '@/src/services/ActivityUtilities'
+} from '@/src/TripSections/Activity/utilities/ActivityUtilities'
 import ProposeActivityModal from '@/src/TripSections/Activity/components/ProposeActivityModal'
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'

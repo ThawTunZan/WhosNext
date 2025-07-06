@@ -15,7 +15,7 @@ import CurrencyModal from '@/app/trip/components/CurrencyModal';
 import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
 import IconRadioSelector from './IconRadioSelector';
 import AvatarRadioSelector from './AvatarRadioSelector';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateButton from '@/src/trip/components/DateButton';
 
 const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerId }: AddExpenseModalProps) => {
 	const [expenseName, setExpenseName] = useState('');
@@ -189,6 +189,12 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			isValid = false;
 		}
 
+		// Date validation
+		if (!expenseDate || !(expenseDate instanceof Date) || isNaN(expenseDate.getTime())) {
+			newErrors.date = 'Please select a valid date.';
+			isValid = false;
+		}
+
 		setErrors(newErrors);
 		return isValid;
 	}
@@ -311,6 +317,20 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 										error={!!errors.name}
 									/>
 									{errors.name && <HelperText type="error">{errors.name}</HelperText>}
+									{/* Date Picker Section */}
+									<DateButton
+										value={expenseDate}
+										onChange={setExpenseDate}
+										label="Date"
+										style={{ marginBottom: 16 }}
+									/>
+									{errors.date && <HelperText type="error">{errors.date}</HelperText>}
+
+									{errors.submit && (
+										<HelperText type="error" style={styles.submitError}>
+											{errors.submit}
+										</HelperText>
+									)}
 									{ expenseType === 'personal' && (
 									<View style={styles.rowInputContainer}>
 										<TextInput
@@ -507,25 +527,6 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 												</Surface>
 											)}
 										</>
-									)}
-
-									{/* Date Picker Section */}
-									<View style={{ marginBottom: 16 }}>
-										<Text style={{ marginBottom: 8 }}>Date</Text>
-										<DateTimePicker
-											value={expenseDate}
-											mode="date"
-											display="default"
-											onChange={(event, selectedDate) => {
-												if (selectedDate) setExpenseDate(selectedDate);
-											}}
-										/>
-									</View>
-
-									{errors.submit && (
-										<HelperText type="error" style={styles.submitError}>
-											{errors.submit}
-										</HelperText>
 									)}
 								</Card.Content>
 							</ScrollView>

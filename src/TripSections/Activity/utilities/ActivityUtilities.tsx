@@ -86,7 +86,7 @@ export const updateProposedActivity = async (
     await updateDoc(docRef, {
       ...updatedData,
       // you may or may not want to bump a `lastEditedAt` timestamp here
-      updatedAt: Timestamp.now(),
+      updatedAt: updatedData.createdAt,
     })
     console.log(`Activity ${activityId} updated.`)
   } catch (err) {
@@ -117,8 +117,7 @@ export const addProposedActivity = async (
 
     const docData = {
         ...activityData,
-        // TODO
-        createdAt: Timestamp.now(),
+        createdAt: activityData.createdAt,
         votes: {}, // Initialize empty votes map
         votesUp: 0,
         votesDown: 0,

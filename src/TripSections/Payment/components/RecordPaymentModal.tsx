@@ -1,6 +1,6 @@
 import React, { useState, memo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableWithoutFeedback, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
-import { Modal, Portal, TextInput, Button, List, Text } from 'react-native-paper';
+import { Modal, Portal, TextInput, Button, List, Text, HelperText } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -151,6 +151,7 @@ export default function RecordPaymentModal({
   const [selectedPayee, setSelectedPayee] = useState('');
   const [amount, setAmount] = useState('');
   const [selectedCurrency, setSelectedCurrency] = useState<Currency>(defaultCurrency);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Get list of all members who can be payers or payees
   const membersList = React.useMemo(() => {
@@ -186,11 +187,16 @@ export default function RecordPaymentModal({
   };
 
   const handleSubmit = async () => {
+    // Date validation
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+      setErrors({ date: 'Please select a valid date.' });
+      return;
+    }
     if (!selectedPayer || !selectedPayee || !amount) {
       // Show error or validation message
       return;
     }
-
+    setErrors({});
     const payment: Payment = {
       fromUserId: selectedPayer,
       toUserId: selectedPayee,
@@ -204,7 +210,6 @@ export default function RecordPaymentModal({
       //TODO
       createdDate: Timestamp.now()
     };
-
     await onSubmit(payment);
     onDismiss();
   };
@@ -352,6 +357,7 @@ export default function RecordPaymentModal({
                         }
                       }}
                     />
+                  {errors.date && <HelperText type="error">{errors.date}</HelperText>}
                 </View>
 
                 {/* Note Input */}

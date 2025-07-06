@@ -29,6 +29,7 @@ import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { Currency, AddMemberType, PremiumStatus } from '@/src/types/DataTypes';
 import { getUserPremiumStatus } from '@/src/utilities/PremiumUtilities';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateButton from '@/src/trip/components/DateButton';
 
 const { width } = Dimensions.get('window');
 
@@ -51,6 +52,7 @@ export default function CreateTripScreen() {
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const insets = useSafeAreaInsets();
+  const [tripDate, setTripDate] = useState<Date>(new Date());
 
   const selectedCurrencyInfo = CURRENCIES.find(c => c.code === selectedCurrency);
 
@@ -101,8 +103,7 @@ export default function CreateTripScreen() {
         userId,
         members: initialMembers,
         debts: [],
-        // TODO
-        createdAt: Timestamp.now(),
+        createdAt: Timestamp.fromDate(tripDate),
         isTripPremium,
         expensesCount: 0,
         activitiesCount: 0,
@@ -183,6 +184,13 @@ export default function CreateTripScreen() {
                   {selectedCurrency}
                 </Button>
               </View>
+
+              <DateButton
+                value={tripDate}
+                onChange={setTripDate}
+                label="Trip Start Date"
+                style={{ marginBottom: 16 }}
+              />
 
               <Button 
                 mode="contained" 

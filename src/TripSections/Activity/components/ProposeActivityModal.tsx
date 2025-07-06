@@ -17,6 +17,8 @@ import {
 } from '@/src/types/DataTypes';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
 import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
+import DateButton from '@/src/trip/components/DateButton';
+import { Timestamp } from 'firebase/firestore';
 
 const ProposeActivityModal = ({
     visible,
@@ -33,6 +35,7 @@ const ProposeActivityModal = ({
     const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
+    const [activityDate, setActivityDate] = useState<Date>(new Date());
 
     // Reset form when modal visibility changes
     useEffect(() => {
@@ -62,6 +65,12 @@ const ProposeActivityModal = ({
             isValid = false;
         }
 
+        // Date validation
+        if (!activityDate || !(activityDate instanceof Date) || isNaN(activityDate.getTime())) {
+            newErrors.date = 'Please select a valid date.';
+            isValid = false;
+        }
+
         setErrors(newErrors);
         return isValid;
     };
@@ -81,6 +90,7 @@ const ProposeActivityModal = ({
             estCost: !isNaN(cost) && cost > 0 ? cost : null,
             currency: selectedCurrency,
             suggestedByID: currentUserId,
+            createdAt: Timestamp.fromDate(activityDate),
         };
 
         try {
@@ -98,6 +108,24 @@ const ProposeActivityModal = ({
         const cleanedText = text.replace(/[^0-9.]/g, '');
         setEstCostStr(cleanedText);
     };
+
+    useEffect(() => {
+        if (visible) {
+            if (initialData && initialData.createdAt) {
+                // If editing, set to the activity's date
+                setActivityDate(
+                    typeof initialData.createdAt === 'string'
+                        ? new Date(initialData.createdAt)
+                        : (typeof (initialData.createdAt as any).toDate === 'function'
+                            ? (initialData.createdAt as any).toDate()
+                            : new Date())
+                );
+            } else {
+                // If adding new, set to today
+                setActivityDate(new Date());
+            }
+        }
+    }, [visible, initialData]);
 
     return (
         <Portal>
@@ -151,6 +179,15 @@ const ProposeActivityModal = ({
                                     </Button>
                                 </View>
                                 {errors.cost && <HelperText type="error">{errors.cost}</HelperText>}
+
+                                <DateButton
+                                    value={activityDate}
+                                    onChange={setActivityDate}
+                                    label="Date"
+                                    style={{ marginBottom: 16 }}
+                                />
+
+                                {errors.date && <HelperText type="error">{errors.date}</HelperText>}
 
                                 {errors.submit && (
                                     <HelperText type="error" style={styles.submitError}>
