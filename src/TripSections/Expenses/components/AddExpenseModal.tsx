@@ -133,36 +133,13 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			isValid = false;
 		}
 
-		if (expenseType === 'group' && (!paidByIds || paidByIds.length < 1)) {
-			newErrors.paidBy = "Select who paid.";
-			isValid = false;
-		}
-		const amount = parseFloat(expenseAmt);
-		if (isNaN(amount) || amount <= 0) {
-			newErrors.amount = "Enter a valid positive amount.";
-			isValid = false;
-		}
-		if (splitType === 'custom') {
-			let totalCustomAmount = 0;
-			let hasInvalidCustom = false;
-			sharedWithIds.forEach(id => {
-				const customAmt = parseFloat(customSplitAmount[id] || '0');
-				if (isNaN(customAmt) || customAmt < 0) {
-					newErrors[`custom_${id}`] = "Invalid amount"; // Error per input
-					hasInvalidCustom = true;
-				}
-				totalCustomAmount += customAmt;
-			});
-
-			if (hasInvalidCustom) {
-				newErrors.customTotal = "One or more custom amounts are invalid.";
-				isValid = false;
-			} else if (Math.abs(totalCustomAmount - amount) > 0.01) { // Allow for floating point inaccuracies
-				newErrors.customTotal = `Custom amounts must add up to ${amount.toFixed(2)} ${selectedCurrency}. Current total: ${totalCustomAmount.toFixed(2)} ${selectedCurrency}`;
+		if (expenseType === 'personal') { 
+			const amount = parseFloat(expenseAmt);
+			if (isNaN(amount) || amount <= 0) {
+				newErrors.amount = "Enter a valid positive amount.";
 				isValid = false;
 			}
 		}
-		
 		
 		if (expenseType === 'group') {
 			if (paidByIds.length === 0) {

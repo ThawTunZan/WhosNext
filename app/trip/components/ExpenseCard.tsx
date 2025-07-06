@@ -68,7 +68,7 @@ export default function ExpenseCard({
   const getPayeeNames = (sharedWith: SharedWith[]) => {
     return sharedWith
       .map(share => ({
-        name: profiles[share.payeeID] || share.payeeID,
+        name: profiles[share.payeeID] || "Unknown",
         amount: share.amount
       }))
       .sort((a, b) => b.amount - a.amount);

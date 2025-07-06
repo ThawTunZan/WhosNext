@@ -7,16 +7,16 @@ import { TripData } from '@/src/types/DataTypes';
 export function useTrips() {
   const { user } = useUser();
   const [trips, setTrips] = useState<TripData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isTripsLoading, setIsTripsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!user?.id) {
-      setLoading(false);
+      setIsTripsLoading(false);
       return;
     }
 
-    setLoading(true);
+    setIsTripsLoading(true);
     setError(null);
 
     const q = query(
@@ -33,17 +33,17 @@ export function useTrips() {
             ...(doc.data() as TripData),
           }))
         );
-        setLoading(false);
+        setIsTripsLoading(false);
       },
       (err) => {
         console.error('Error fetching trips:', err);
         setError(err);
-        setLoading(false);
+        setIsTripsLoading(false);
       }
     );
 
     return () => unsubscribe();
   }, [user?.id]);
 
-  return { trips, loading, error };
+  return { trips, isTripsLoading, error };
 } 

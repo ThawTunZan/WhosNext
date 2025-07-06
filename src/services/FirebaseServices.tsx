@@ -570,3 +570,71 @@ export async function cancelFriendRequest(senderId, receiverId) {
     await updateDoc(receiverRef, { incomingFriendRequests: updatedIncoming });
   }
 }
+
+// Check if member is part of any expense (payer or payee)
+export async function checkIfPartOfExpenses(queryMemberId, tripId) {
+  const expensesRef = collection(db, "trips", tripId, "expenses");
+  const expensesSnap = await getDocs(expensesRef);
+  for (const docSnap of expensesSnap.docs) {
+    const expense = docSnap.data();
+    if (
+      expense.paidByAndAmounts?.some(pba => pba.memberId === queryMemberId) ||
+      expense.sharedWith?.some(sw => sw.payeeID === queryMemberId)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Check if member is part of any activity (as proposer or participant)
+export async function checkIfPartOfActivities(queryMemberId, tripId) {
+  const activitiesRef = collection(db, "trips", tripId, "proposed_activities");
+  const activitiesSnap = await getDocs(activitiesRef);
+  for (const docSnap of activitiesSnap.docs) {
+    const activity = docSnap.data();
+    if (activity.suggestedByID === queryMemberId) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Check if member uploaded any receipts
+// TODO: CHECK AGAIN
+export async function checkIfUploadedReceipts(queryMemberId, tripId) {
+  const receiptsRef = collection(db, "trips", tripId, "receipts");
+  const receiptsSnap = await getDocs(receiptsRef);
+  for (const docSnap of receiptsSnap.docs) {
+    const receipt = docSnap.data();
+    if (receipt.uploaderId === queryMemberId) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Check if member is part of any debts (as debtor or creditor)
+export async function checkIfPartOfDebts(queryMemberId, tripId) {
+  const tripRef = doc(db, "trips", tripId);
+  const tripSnap = await getDoc(tripRef);
+  const tripData = tripSnap.data();
+  if (tripData && tripData.debts) {
+    for (const [currency, currencyDebts] of Object.entries(tripData.debts)) {
+      for (const [key, value] of Object.entries(currencyDebts)) {
+        // Only consider if the value is not 0
+        if (key.includes(queryMemberId) && value !== 0) {
+          return true;
+        }
+        if (typeof value === "object" && value !== null) {
+          for (const k of Object.keys(value)) {
+            if (k === queryMemberId && value[k] !== 0) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return false;
+}

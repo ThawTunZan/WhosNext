@@ -137,11 +137,12 @@ export async function checkApiHealth(): Promise<boolean> {
         const data = await response.json();
         return data.status === 'ok' && data.ratesAvailable;
     } catch (error) {
-        console.error('Error checking API health:', error);
+        // TODO: Uncomment this
+        //console.error('Error checking API health:', error);
         // Add more detailed error logging
         if (error instanceof Error) {
-            console.error('Error name:', error.name);
-            console.error('Error message:', error.message);
+            //console.error('Error name:', error.name);
+            //console.error('Error message:', error.message);
         }
         return false;
     }

@@ -32,7 +32,7 @@ const CARD_WIDTH = width - (CARD_PADDING * 2);
 
 export default function TripsScreen() {
   const router = useRouter();
-  const { trips } = useTrips();
+  const { trips, isTripsLoading } = useTrips();
   const { isLoaded, isSignedIn } = useUser();
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
@@ -90,7 +90,7 @@ export default function TripsScreen() {
 
   const keyExtractor = useCallback((item) => item.id, []);
 
-  const isLoading = !isLoaded;
+  const isLoading = !isLoaded || isTripsLoading;
 
   if (!isSignedIn) {
     return null;

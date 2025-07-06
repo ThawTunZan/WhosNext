@@ -17,7 +17,13 @@ import {
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/services/ActivityUtilities";
 import { type Expense, type ProposedActivity, type AddMemberType, type Currency, ErrorType } from "@/src/types/DataTypes";
-import { getFirestore, collection, getDocs, updateDoc, doc, getDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, updateDoc, doc, getDoc, deleteDoc } from "firebase/firestore";
+import {
+	checkIfPartOfExpenses,
+	checkIfPartOfActivities,
+	checkIfUploadedReceipts,
+	checkIfPartOfDebts,
+} from '@/src/services/FirebaseServices';
 
 interface UseTripHandlersParams {
 	tripId: string;
@@ -89,6 +95,18 @@ export function useTripHandlers({
 		[tripId, currentUserId]
 	);
 
+	async function canBeRemoved(memberId: string) {
+		if (
+			await checkIfPartOfExpenses(memberId, tripId) ||
+			await checkIfPartOfActivities(memberId, tripId) ||
+			await checkIfUploadedReceipts(memberId, tripId) ||
+			await checkIfPartOfDebts(memberId, tripId)
+		) {
+			return false;
+		}
+		return true;
+	}
+
 	const handleRemoveMember = useCallback(
 		async (memberIdToRemove: string) => {
 			if (!tripId || !trip?.members?.[memberIdToRemove]) {
@@ -96,33 +114,48 @@ export function useTripHandlers({
 				setSnackbarVisible(true);
 				return;
 			}
-			const name = profiles[memberIdToRemove];
-			Alert.alert(
-				"Remove Member",
-				`Are you sure you want to remove ${name}?`,
-				[
-					{ text: "Cancel", style: "cancel" },
-					{
-						text: "Remove",
-						style: "destructive",
-						onPress: async () => {
-							try {
-								await removeMemberFromTrip(
-									tripId,
-									memberIdToRemove,
-									trip.members[memberIdToRemove]
-								);
-								setSnackbarMessage(`${name} removed.`);
-								setSnackbarVisible(true);
-							} catch (err: any) {
-								console.error(err);
-								setSnackbarMessage(`Error removing member: ${err.message}`);
-								setSnackbarVisible(true);
-							}
+			const name = profiles[memberIdToRemove] || "This member";
+			console.log("PROFILES OBJECT:", profiles);
+			console.log("PROFILE KEYS:", Object.keys(profiles));
+			console.log("memberIdToRemove:", memberIdToRemove);
+			console.log("profiles[memberIdToRemove]:", profiles[memberIdToRemove]);
+			if (await canBeRemoved(memberIdToRemove)) {
+				Alert.alert(
+					"Remove Member",
+					`Are you sure you want to remove ${name}?`,
+					[
+						{ text: "Cancel", style: "cancel" },
+						{
+							text: "Remove",
+							style: "destructive",
+							onPress: async () => {
+								try {
+									await removeMemberFromTrip(
+										tripId,
+										memberIdToRemove,
+										trip.members[memberIdToRemove]
+									);
+									setSnackbarMessage(`${name} removed.`);
+									setSnackbarVisible(true);
+								} catch (err: any) {
+									console.error(err);
+									setSnackbarMessage(`Error removing member: ${err.message}`);
+									setSnackbarVisible(true);
+								}
+							},
 						},
-					},
-				]
-			);
+					]
+				);
+			} else {
+				console.log("PROFILES OBJECT:", profiles);
+				console.log("PROFILE KEYS:", Object.keys(profiles));
+				console.log("memberIdToRemove:", memberIdToRemove);
+				console.log("profiles[memberIdToRemove]:", profiles[memberIdToRemove]);
+				Alert.alert(
+					"Cannot Remove Member",
+					`${name} cannot be removed because they are still part of an expense, activity, receipt, or debt.`
+				);
+			}
 		},
 		[tripId, trip, profiles]
 	);
@@ -337,5 +370,9 @@ async function updateFirebaseAfterClaiming(mockUserId: string, currentUserId: st
 			});
 		}
 	}
+
+	// 4. Remove the mock user document from the users collection
+	const mockUserDocRef = doc(db, "users", mockUserId);
+	await deleteDoc(mockUserDocRef);
 }
 

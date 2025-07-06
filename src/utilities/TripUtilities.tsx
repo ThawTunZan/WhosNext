@@ -320,6 +320,7 @@ export const removeMemberFromTrip = async (
 
 		const tripSnap = await getDoc(docRef);
 		const tripData = tripSnap.data();
+		// TODO: IMPLEMENT THIS
 		const memberConvertedAmtLeft = await convertCurrency(memberToRemoveData.amtLeft, memberToRemoveData.currency, tripData.currency);
 		const memberConvertedBudget = await convertCurrency(memberToRemoveData.budget, memberToRemoveData.currency, tripData.currency);
 
@@ -329,6 +330,12 @@ export const removeMemberFromTrip = async (
 			[`members.${memberIdToRemove}`]: deleteField(),
 		});
 		console.log(`Member ${memberIdToRemove} removed from trip ${tripId}`);
+
+		// Remove from users collection if mock member
+		if (memberToRemoveData.addMemberType === AddMemberType.MOCK) {
+			await deleteDoc(userRef);
+			console.log(`Mock member ${memberIdToRemove} deleted from users collection`);
+		}
 
 		// Get remaining members and notify them
 		if (tripData && tripData.members) {
