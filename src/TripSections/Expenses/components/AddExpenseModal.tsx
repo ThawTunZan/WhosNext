@@ -55,16 +55,17 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			setExpenseName(initialData?.activityName || ''); // Use activityName if present
 			//setexpenseAmt(initialData?.paidByAndAmounts.map(pba => pba.amount).reduce((sum, amt) => sum + parseFloat(amt), 0).toString() || ''); // Use paidAmt if present
 			setSelectedCurrency(initialData?.currency || 'USD');
-			setExpenseDate(
-				initialData?.createdAt
-					? (typeof initialData.createdAt === 'string'
-						? new Date(initialData.createdAt)
-						: (typeof ((initialData.createdAt as any)).toDate === 'function'
-							? (initialData.createdAt as any).toDate()
-							: new Date())
-					)
-					: new Date()
-			);
+			let editDate: Date | null = null;
+			if (initialData?.createdAt) {
+				if (typeof (initialData.createdAt as any).toDate === 'function') {
+					editDate = (initialData.createdAt as any).toDate();
+				} else if (initialData.createdAt instanceof Date) {
+					editDate = initialData.createdAt;
+				} else if (typeof initialData.createdAt === 'string' || typeof initialData.createdAt === 'number') {
+					editDate = new Date(initialData.createdAt);
+				}
+			}
+			setExpenseDate(editDate && !isNaN(editDate.getTime()) ? editDate : new Date());
 
 			if (isEditingMode && initialData) {
 				// --- Pre-fill specific to EDIT mode ---
@@ -117,7 +118,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 				if (!defaultPayerId) defaultPayerId = currentUserId;
 				if (!defaultPayerId && allMemberIds.length) defaultPayerId = allMemberIds[0];
 				setPaidByIds([defaultPayerId]);
-				setCustomPaidAmount({ [defaultPayerId]: '' });
+				setCustomPaidAmount({ [defaultPayerId]: '0' });
 				setSplitType('even');
 				setcustomSplitAmount({});
 			}
@@ -159,7 +160,14 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 				newErrors.paidBy = "Select at least one person to pay.";
 				isValid = false;
 			}
-			const totalPaidAmount = Object.values(customPaidAmount).reduce((sum, amt) => sum + parseFloat(amt), 0);
+			const totalPaidAmount = Object.values(customPaidAmount)
+			.map(amt => parseFloat(amt || '0')) // Default to '0' if undefined or empty
+			.reduce((sum, val) => isNaN(val) ? sum : sum + val, 0);
+
+			if (!totalPaidAmount || totalPaidAmount <= 0) {
+				newErrors.paidAmount = "Enter a valid paid amount.";
+				isValid = false;
+			}
 			setmultiplePaidAmtMap(totalPaidAmount.toString());
 			if (splitType === 'custom') {
 				let totalCustomAmount = 0;
@@ -220,11 +228,9 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 					parsedPaidByAndAmounts = [{memberId: user.id, amount: expenseAmt}];
 					parsedSharedWith = []
 				} else if (expenseType === 'group') {
-					totalPaid = Object.values(customPaidAmount).reduce((sum, amt) => sum + parseFloat(amt), 0);
+					
 					parsedPaidByAndAmounts = paidByIds.map(id => ({memberId: id, amount: customPaidAmount[id]}));
-
-					const perPerson = numOfPpl > 0 ? totalPaid / numOfPpl : 0;
-
+					
 					if (splitType === 'custom') {
 						parsedSharedWith = sharedWithIds.map(id => ({
 							payeeID: id,
@@ -232,6 +238,11 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 							currency: selectedCurrency
 						}));
 					} else if (splitType === 'even') { // Even split
+						totalPaid = Object.values(customPaidAmount)
+							.map(amt => parseFloat(amt || '0'))
+							.reduce((sum, val) => isNaN(val) ? sum : sum + val, 0);
+						console.log("TOTAL PAID IS " + totalPaid)
+						const perPerson = numOfPpl > 0 ? totalPaid / numOfPpl : 0;
 						parsedSharedWith = sharedWithIds.map(id => ({
 							payeeID: id,
 							amount: perPerson,

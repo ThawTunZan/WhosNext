@@ -2,11 +2,12 @@
 import { useState, useEffect } from 'react';
 import { doc, collection, onSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { TripData, Expense } from '@/src/types/DataTypes';
+import { TripData, Expense, Payment } from '@/src/types/DataTypes';
 
 export const useTripData = (tripId: string | null | undefined) => {
     const [trip, setTrip] = useState<TripData | null>(null);
     const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [payments, setPayments] = useState<Payment[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
@@ -15,6 +16,7 @@ export const useTripData = (tripId: string | null | undefined) => {
             setLoading(false);
             setTrip(null);
             setExpenses([]);
+            setPayments([]);
             setError(new Error("No Trip ID provided to useTripData."));
             return;
         }
@@ -54,13 +56,27 @@ export const useTripData = (tripId: string | null | undefined) => {
             // Potentially set a specific expensesError state
         });
 
+        // Subscribe to Payments Subcollection
+        const paymentsColRef = collection(db, "trips", tripId, "payments");
+        const unsubscribePayments = onSnapshot(paymentsColRef, (snapshot) => {
+            const paymentsData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }) as Payment);
+            setPayments(paymentsData);
+        }, (err) => {
+            console.error("Error fetching payments subcollection:", err);
+            // Optionally set a paymentsError state
+        });
+
         // Cleanup function
         return () => {
             console.log(`useTripData: Unsubscribing from trip ${tripId}`);
             unsubscribeTrip();
             unsubscribeExpenses();
+            unsubscribePayments();
         };
     }, [tripId]);
 
-    return { trip, expenses, loading, error };
+    return { trip, expenses, payments, loading, error };
 };

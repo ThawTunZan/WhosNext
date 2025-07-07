@@ -53,6 +53,8 @@ export default function CreateTripScreen() {
   const theme = isDarkMode ? darkTheme : lightTheme;
   const insets = useSafeAreaInsets();
   const [tripDate, setTripDate] = useState<Date>(new Date());
+  const [tripEndDate, setTripEndDate] = useState<Date>(new Date());
+  const [errors, setErrors] = useState<{ name?: string; budget?: string; date?: string }>({});
 
   const selectedCurrencyInfo = CURRENCIES.find(c => c.code === selectedCurrency);
 
@@ -61,14 +63,31 @@ export default function CreateTripScreen() {
   const Wrapper = Platform.OS === 'web' ? React.Fragment : TouchableWithoutFeedback;
 
   const handleCreateTrip = async () => {
-    if (!destination) {
-      alert("Please enter a destination.");
-      return;
+    let hasError = false;
+    const newErrors: { name?: string; budget?: string; date?: string } = {};
+    if (!destination.trim()) {
+      newErrors.name = "Please enter a destination.";
+      hasError = true;
+    } else if (destination.length > 25) {
+      newErrors.name = "Trip name must be 25 characters or less.";
+      hasError = true;
     }
-
     const parsedBudget = parseFloat(totalBudget) || 0;
-    const userId = user.id;
+    if (!totalBudget || isNaN(parsedBudget) || parsedBudget <= 0) {
+      newErrors.budget = "Please enter a valid budget.";
+      hasError = true;
+    } else if (parsedBudget > 1000000) {
+      newErrors.budget = "Budget cannot exceed $1,000,000.";
+      hasError = true;
+    }
+    if (!tripDate || !tripEndDate || tripEndDate < tripDate) {
+      newErrors.date = "End date must be after start date.";
+      hasError = true;
+    }
+    setErrors(newErrors);
+    if (hasError) return;
 
+    const userId = user.id;
     let isTripPremium = false;
     const userPremiumStatus = await getUserPremiumStatus(userId);
     if (userPremiumStatus === PremiumStatus.PREMIUM || userPremiumStatus === PremiumStatus.TRIAL) {
@@ -103,7 +122,8 @@ export default function CreateTripScreen() {
         userId,
         members: initialMembers,
         debts: [],
-        createdAt: Timestamp.fromDate(tripDate),
+        startDate: Timestamp.fromDate(tripDate),
+        endDate: Timestamp.fromDate(tripEndDate),
         isTripPremium,
         expensesCount: 0,
         activitiesCount: 0,
@@ -145,7 +165,7 @@ export default function CreateTripScreen() {
                 mode="flat"
                 placeholder="Where are you going?"
                 value={destination}
-                onChangeText={setDestination}
+                onChangeText={text => text.length <= 25 ? setDestination(text) : null}
                 style={[styles.input]}
                 theme={{ 
                   colors: { 
@@ -154,7 +174,10 @@ export default function CreateTripScreen() {
                     placeholder: theme.colors.subtext,
                   }
                 }}
+                maxLength={25}
+                error={!!errors.name}
               />
+              {errors.name && <Text style={{ color: theme.colors.error, marginBottom: 8 }}>{errors.name}</Text>}
 
               <View style={styles.budgetContainer}>
                 <TextInput
@@ -164,7 +187,6 @@ export default function CreateTripScreen() {
                   onChangeText={setTotalBudget}
                   keyboardType="numeric"
                   style={[styles.budgetInput]}
-                  
                   theme={{ 
                     colors: { 
                       primary: theme.colors.primary,
@@ -172,6 +194,7 @@ export default function CreateTripScreen() {
                       placeholder: theme.colors.subtext,
                     }
                   }}
+                  error={!!errors.budget}
                 />
                 <Button
                   mode="outlined"
@@ -184,6 +207,7 @@ export default function CreateTripScreen() {
                   {selectedCurrency}
                 </Button>
               </View>
+              {errors.budget && <Text style={{ color: theme.colors.error, marginBottom: 8 }}>{errors.budget}</Text>}
 
               <DateButton
                 value={tripDate}
@@ -191,6 +215,13 @@ export default function CreateTripScreen() {
                 label="Trip Start Date"
                 style={{ marginBottom: 16 }}
               />
+              <DateButton
+                value={tripEndDate}
+                onChange={setTripEndDate}
+                label="Trip End Date"
+                style={{ marginBottom: 16 }}
+              />
+              {errors.date && <Text style={{ color: theme.colors.error, marginBottom: 8 }}>{errors.date}</Text>}
 
               <Button 
                 mode="contained" 

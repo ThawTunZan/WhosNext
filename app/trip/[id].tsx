@@ -26,7 +26,7 @@ import { calculateNextPayer } from "@/src/services/expenseService";
 import { useTripHandlers } from "@/src/utilities/TripHandlers";
 import { useTripState } from "@/src/hooks/useTripState";
 import { AddMemberType } from "@/src/types/DataTypes";
-import TripPaymentDashboard from "../(sections)/TripPaymentDashboard";
+import TripLeaderboard from "../(sections)/TripLeaderboard";
 
 export default function TripDetailPage() {
   const { id: routeIdParam, showChooseModal: showChooseModalParam } = useLocalSearchParams<{ 
@@ -38,7 +38,7 @@ export default function TripDetailPage() {
   const { isLoaded, isSignedIn, user } = useUser();
   const currentUserId = user?.id;
 
-  const { trip, loading, error: dataError } = useTripData(tripId);
+  const { trip, expenses, payments, loading, error: dataError } = useTripData(tripId);
   const profiles = useMemberProfiles();
 
   const [nextPayer, setNextPayer] = React.useState<string | null>(null);
@@ -227,7 +227,7 @@ export default function TripDetailPage() {
 
             {selectedTab === "invite" && <InviteSection tripId={tripId!} />}
 
-            {selectedTab === "leaderboard" && <TripPaymentDashboard />}
+            {selectedTab === "leaderboard" && <TripLeaderboard trip={trip} expenses={expenses} payments={payments} nextPayerId={nextPayer}  />}
 
             <Portal>
               <BudgetDialog

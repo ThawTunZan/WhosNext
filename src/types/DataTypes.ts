@@ -215,5 +215,7 @@ export interface TripData {
   userId: string;
   currency: Currency;
   premiumStatus: PremiumStatus;
+  startDate: Timestamp
+  endDate: Timestamp
 }
 

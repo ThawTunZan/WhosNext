@@ -30,6 +30,15 @@ const CARD_PADDING = 20;
 const CARD_MARGIN = 8;
 const CARD_WIDTH = width - (CARD_PADDING * 2);
 
+const CURRENCIES = [
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+  { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
+  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
+];
+
 export default function TripsScreen() {
   const router = useRouter();
   const { trips, isTripsLoading } = useTrips();
@@ -38,55 +47,90 @@ export default function TripsScreen() {
   const theme = isDarkMode ? darkTheme : lightTheme;
   const insets = useSafeAreaInsets();
 
+  // Sort trips by startDate descending (latest first)
+  const sortedTrips = [...trips].sort((a, b) => {
+    const getDate = (trip) => {
+      const d = trip.startDate || trip.createdAt;
+      if (!d) return 0;
+      if (typeof d.toDate === 'function') return d.toDate().getTime();
+      if (d instanceof Date) return d.getTime();
+      return new Date(d).getTime();
+    };
+    return getDate(b) - getDate(a);
+  });
+
   // Memoize the renderItem function to prevent unnecessary re-renders
-  const renderTripCard = useCallback(({ item }) => (
-    <Pressable onPress={() => router.push(`/trip/${item.id}`)}>
-      <Surface style={styles.cardContainer} elevation={2}>
-        <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-          <View style={styles.cardHeader}>
-            <View style={styles.destinationContainer}>
-              <Text style={styles.emoji}>✈️</Text>
-              <Text style={[styles.destination, { color: theme.colors.text }]}>
-                {item.destination}
-              </Text>
+  const renderTripCard = useCallback(({ item }) => {
+    // Format trip dates
+    const getDateObj = (d) => {
+      if (!d) return null;
+      if (typeof d.toDate === 'function') return d.toDate();
+      if (d instanceof Date) return d;
+      return new Date(d);
+    };
+    const start = getDateObj(item.startDate);
+    const end = getDateObj(item.endDate);
+    let dateLabel = '';
+    if (start && end) {
+      dateLabel = `${start.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} - ${end.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    } else if (start) {
+      dateLabel = start.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+    const currencySymbol = (CURRENCIES.find(c => c.code === item.currency)?.symbol) || '$';
+    return (
+      <Pressable onPress={() => router.push(`/trip/${item.id}`)}>
+        <Surface style={styles.cardContainer} elevation={2}>
+          <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+            <View style={styles.cardHeader}>
+              <View style={styles.destinationContainer}>
+                <Text style={styles.emoji}>✈️</Text>
+                <View>
+                  <Text style={[styles.destination, { color: theme.colors.text }]}>
+                    {item.destination}
+                  </Text>
+                  {dateLabel && (
+                    <Text style={{ color: theme.colors.subtext, fontSize: 13, marginTop: 2 }}>{dateLabel}</Text>
+                  )}
+                </View>
+              </View>
+              <IconButton
+                icon="chevron-right"
+                size={24}
+                iconColor={theme.colors.subtext}
+              />
             </View>
-            <IconButton
-              icon="chevron-right"
-              size={24}
-              iconColor={theme.colors.subtext}
-            />
-          </View>
 
-          <View style={styles.cardContent}>
-            <View style={styles.budgetInfo}>
-              <Text style={[styles.label, { color: theme.colors.subtext }]}>Total Budget</Text>
-              <Text style={[styles.amount, { color: theme.colors.text }]}>
-                ${item.totalBudget.toFixed(2)}
-              </Text>
+            <View style={styles.cardContent}>
+              <View style={styles.budgetInfo}>
+                <Text style={[styles.label, { color: theme.colors.subtext }]}>Total Budget</Text>
+                <Text style={[styles.amount, { color: theme.colors.text }]}>
+                  {currencySymbol}{item.totalBudget.toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.budgetInfo}>
+                <Text style={[styles.label, { color: theme.colors.subtext }]}>Amount Left</Text>
+                <Text style={[styles.amount, { color: theme.colors.success }]}>
+                  {currencySymbol}{item.totalAmtLeft.toFixed(2)}
+                </Text>
+              </View>
             </View>
-            <View style={styles.budgetInfo}>
-              <Text style={[styles.label, { color: theme.colors.subtext }]}>Amount Left</Text>
-              <Text style={[styles.amount, { color: theme.colors.success }]}>
-                ${item.totalAmtLeft.toFixed(2)}
-              </Text>
-            </View>
-          </View>
 
-          <View style={[styles.progressBar, { backgroundColor: theme.colors.surfaceVariant }]}>
-            <View 
-              style={[
-                styles.progressFill,
-                { 
-                  width: `${(item.totalAmtLeft / item.totalBudget) * 100}%`,
-                  backgroundColor: theme.colors.success 
-                }
-              ]} 
-            />
+            <View style={[styles.progressBar, { backgroundColor: theme.colors.surfaceVariant }]}>
+              <View 
+                style={[
+                  styles.progressFill,
+                  { 
+                    width: `${(item.totalAmtLeft / item.totalBudget) * 100}%`,
+                    backgroundColor: theme.colors.success 
+                  }
+                ]} 
+              />
+            </View>
           </View>
-        </View>
-      </Surface>
-    </Pressable>
-  ), [theme.colors, router]);
+        </Surface>
+      </Pressable>
+    );
+  }, [theme.colors, router]);
 
   const keyExtractor = useCallback((item) => item.id, []);
 
@@ -132,7 +176,7 @@ export default function TripsScreen() {
           </View>
         ) : (
           <FlatList
-            data={trips}
+            data={sortedTrips}
             renderItem={renderTripCard}
             keyExtractor={keyExtractor}
             contentContainerStyle={styles.listContent}
