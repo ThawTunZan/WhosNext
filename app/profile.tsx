@@ -5,10 +5,9 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   Alert,
 } from "react-native"
-import { Text, Surface, Button, Avatar, IconButton } from "react-native-paper"
+import { Text, Surface, } from "react-native-paper"
 import { Ionicons } from "@expo/vector-icons"
 import { useFocusEffect, useRouter } from "expo-router"
 import { useClerk, useUser } from "@clerk/clerk-expo"
@@ -17,6 +16,8 @@ import { useTheme } from '@/src/context/ThemeContext'
 import { lightTheme, darkTheme } from '@/src/theme/theme'
 import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService"
 import { useProfileActions } from "@/src/utilities/profileAction"
+import { useTrips } from '@/src/hooks/useTrips'
+import { getFriendsList } from "@/src/services/FirebaseServices"
 
 
 const SECTIONS = [
@@ -24,15 +25,14 @@ const SECTIONS = [
     title: 'Account',
     items: [
       { label: 'App Settings', icon: 'settings-outline', route: '/profile_screens/AppSettings' },
-      { label: 'Edit Profile', icon: 'pencil-outline', action: 'onEditProfile' },
+      { label: 'Edit Profile', icon: 'pencil-outline', route: '/profile_screens/EditProfileScreen' },
       { label: 'Payment Methods', icon: 'card-outline', route: '/profile_screens/PaymentMethodsScreen' },
-      { label: 'Change Password', icon: 'key-outline', action: 'onChangePassword' },
     ],
   },
   {
     title: 'Support',
     items: [
-      { label: 'Privacy Settings', icon: 'lock-closed-outline', route: '/profile_screens/privacy' },
+      { label: 'Notification Settings', icon: 'lock-closed-outline', route: '/profile_screens/NotificationSettingsScreen' },
       { label: 'Rate Who\'s Next', icon: 'star-outline', route: '/profile_screens/rate' },
       { label: 'Contact Us', icon: 'call-outline', route: '/profile_screens/ContactUsScreen' },
       { label: 'Logout', icon: 'log-out-outline', action: 'onLogout', danger: true },
@@ -48,6 +48,9 @@ export default function ProfileScreen() {
   const [uploading, setUploading] = useState(false)
   const { isDarkMode } = useTheme()
   const theme = isDarkMode ? darkTheme : lightTheme
+  const { trips } = useTrips()
+  const [friendCount, setFriendCount] = useState<number>(0);
+
 
   if (!isLoaded || !isSignedIn) {
     return null
@@ -57,6 +60,9 @@ export default function ProfileScreen() {
     React.useCallback(() => {
       if (user) {
         upsertClerkUserToFirestore(user).catch(console.error);
+        getFriendsList(user.id)
+          .then(friends => setFriendCount(friends.length))
+          .catch(console.error);
       }
     }, [user])
   );
@@ -98,20 +104,13 @@ export default function ProfileScreen() {
       case 'onEditProfile':
         onEditProfile()
         break
-      case 'onChangePassword':
-        onChangePassword()
-        break
       case 'onLogout':
         onLogout()
         break
     }
   }
 
-  const stats = [
-    { label: 'Trips', value: '12' },
-    { label: 'Friends', value: '48' },
-    { label: 'Expenses', value: '256' },
-  ]
+  const tripCount = trips ? trips.length : 0;
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -121,16 +120,12 @@ export default function ProfileScreen() {
 
         <View style={styles.stats}>
           <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: theme.colors.text }]}>12</Text>
+            <Text style={[styles.statNumber, { color: theme.colors.text }]}>{tripCount}</Text>
             <Text style={[styles.statLabel, { color: theme.colors.subtext }]}>Trips</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: theme.colors.text }]}>48</Text>
+            <Text style={[styles.statNumber, { color: theme.colors.text }]}>{friendCount}</Text>
             <Text style={[styles.statLabel, { color: theme.colors.subtext }]}>Friends</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: theme.colors.text }]}>256</Text>
-            <Text style={[styles.statLabel, { color: theme.colors.subtext }]}>Expenses</Text>
           </View>
         </View>
       </View>

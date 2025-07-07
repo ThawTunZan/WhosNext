@@ -4,41 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text, Switch, Surface, Divider, List, Button, RadioButton, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NotificationService, NotificationSettings } from '@/src/services/notification/NotificationService';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { StatusBar } from 'expo-status-bar';
 import ProfileHeader from './ProfileHeader';
 
-const NOTIFICATION_SETTINGS = [
-  { key: 'tripUpdates', label: 'Trip Updates', description: 'Get notified about changes to your trips' },
-  { key: 'expenseAlerts', label: 'Expense Alerts', description: 'Receive alerts about new expenses and payments' },
-  { key: 'friendRequests', label: 'Friend Requests', description: 'Get notified about new friend requests' },
-  { key: 'tripReminders', label: 'Trip Reminders', description: 'Receive reminders about upcoming trips' },
-];
-
 const APPEARANCE_SETTINGS = [
   { key: 'darkMode', label: 'Dark Mode', description: 'Enable dark mode appearance' },
 ];
-
-const CURRENCY_OPTIONS = [
-  'USD - US Dollar',
-  'EUR - Euro',
-  'GBP - British Pound',
-  'JPY - Japanese Yen',
-  'AUD - Australian Dollar',
-  'CAD - Canadian Dollar',
-];
-
-const LANGUAGE_OPTIONS = [
-  { code: 'en', label: 'English' },
-  { code: 'es', label: 'Español' },
-  { code: 'fr', label: 'Français' },
-  { code: 'de', label: 'Deutsch' },
-  { code: 'it', label: 'Italiano' },
-  { code: 'pt', label: 'Português' },
-];
-
 
 const SOUND_SETTINGS = [
   { key: 'inAppSounds', label: 'In-App Sounds', description: 'Play sounds for actions and notifications' },
@@ -56,76 +29,19 @@ export default function SettingsScreen() {
   const { isDarkMode, setDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const insets = useSafeAreaInsets();
-  const [notifications, setNotifications] = useState<NotificationSettings>({
-    tripUpdates: true,
-    expenseAlerts: true,
-    friendRequests: true,
-    tripReminders: true,
-  });
   const [appearance, setAppearance] = useState({
     darkMode: isDarkMode,
     compactView: false,
   });
-  const [selectedCurrency, setSelectedCurrency] = useState('USD - US Dollar');
-  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState('en');
-  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+
   const [soundSettings, setSoundSettings] = useState({
     inAppSounds: true,
     vibration: true,
   });
   const [showBackupOptions, setShowBackupOptions] = useState(false);
 
-  useEffect(() => {
-    loadNotificationSettings();
-    checkNotificationPermissions();
-  }, []);
-
-  const loadNotificationSettings = async () => {
-    try {
-      const settings = await NotificationService.getSettings();
-      setNotifications(settings);
-    } catch (error) {
-      console.error('Error loading notification settings:', error);
-    }
-  };
-
-  const checkNotificationPermissions = async () => {
-    const hasPermission = await NotificationService.requestPermissions();
-    if (!hasPermission) {
-      Alert.alert(
-        'Notifications Disabled',
-        'To receive important updates, please enable notifications in your device settings.',
-        [
-          { text: 'Not Now', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => {/* TODO: Open device settings */} }
-        ]
-      );
-    }
-  };
-
-  const toggleNotification = async (key: keyof NotificationSettings) => {
-    try {
-      await NotificationService.updateSettings({
-        [key]: !notifications[key],
-      });
-      setNotifications(prev => ({
-        ...prev,
-        [key]: !prev[key],
-      }));
-    } catch (error) {
-      console.error('Error updating notification setting:', error);
-      Alert.alert('Error', 'Failed to update notification settings');
-    }
-  };
-
-  const toggleSetting = async (section: 'notifications' | 'appearance', key: string) => {
-    if (section === 'notifications') {
-      setNotifications(prev => ({
-        ...prev,
-        [key]: !prev[key as keyof typeof notifications],
-      }));
-    } else if (section === 'appearance') {
+  const toggleSetting = async (section: 'appearance', key: string) => {
+    if (section === 'appearance') {
       if (key === 'darkMode') {
         const newValue = !appearance.darkMode;
         setAppearance(prev => ({
@@ -142,52 +58,17 @@ export default function SettingsScreen() {
     }
   };
 
-  const clearAppData = async () => {
-    try {
-      await AsyncStorage.clear();
-      // Additional cleanup if needed
-    } catch (error) {
-      console.error('Error clearing app data:', error);
-    }
-  };
-
   return (
     <>
       <StatusBar style={isDarkMode ? "light" : "dark"} />
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
-          <ProfileHeader title="App Settings" subtitle='' />
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}> 
+        <View style={[styles.header, { borderBottomColor: theme.colors.border }]}> 
+          <ProfileHeader title="App Settings" subtitle='' /> 
         </View>
         <ScrollView 
           style={[styles.container, isDarkMode && styles.darkContainer]}
           contentContainerStyle={{ paddingBottom: insets.bottom }}
         >
-          
-          <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
-            {/* Header */}
-            
-            <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Notifications</Text>
-            <View style={styles.settingsList}>
-              {NOTIFICATION_SETTINGS.map((setting, index) => (
-                <React.Fragment key={setting.key}>
-                  <View style={styles.settingItem}>
-                    <View style={styles.settingInfo}>
-                      <Text style={[styles.settingLabel, isDarkMode && styles.darkText]}>{setting.label}</Text>
-                      <Text style={[styles.settingDescription, isDarkMode && styles.darkSubtext]}>
-                        {setting.description}
-                      </Text>
-                    </View>
-                    <Switch
-                      value={notifications[setting.key as keyof NotificationSettings]}
-                      onValueChange={() => toggleNotification(setting.key as keyof NotificationSettings)}
-                    />
-                  </View>
-                  {index < NOTIFICATION_SETTINGS.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </View>
-          </Surface>
-
           <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
             <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Appearance</Text>
             <View style={styles.settingsList}>
@@ -210,34 +91,6 @@ export default function SettingsScreen() {
               ))}
             </View>
           </Surface>
-
-          <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Language</Text>
-            <List.Accordion
-              title={LANGUAGE_OPTIONS.find(lang => lang.code === selectedLanguage)?.label || 'English'}
-              expanded={showLanguagePicker}
-              onPress={() => setShowLanguagePicker(!showLanguagePicker)}
-              style={[styles.pickerStyle, { backgroundColor: theme.colors.surface }]}
-              titleStyle={{ color: theme.colors.text }}
-              descriptionStyle={{ color: theme.colors.subtext }}
-            >
-              {LANGUAGE_OPTIONS.map((language) => (
-                <RadioButton.Item
-                  key={language.code}
-                  label={language.label}
-                  value={language.code}
-                  status={selectedLanguage === language.code ? 'checked' : 'unchecked'}
-                  onPress={() => {
-                    setSelectedLanguage(language.code);
-                    setShowLanguagePicker(false);
-                  }}
-                  labelStyle={{ color: theme.colors.text }}
-                  style={{ backgroundColor: theme.colors.surface }}
-                />
-              ))}
-            </List.Accordion>
-          </Surface>
-
           <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
             <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Sound & Haptics</Text>
             <View style={styles.settingsList}>
@@ -283,103 +136,6 @@ export default function SettingsScreen() {
               ))}
             </View>
           </Surface>
-
-          <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Backup & Sync</Text>
-            <List.Accordion
-              title="Backup Options"
-              expanded={showBackupOptions}
-              onPress={() => setShowBackupOptions(!showBackupOptions)}
-              style={[styles.pickerStyle, { backgroundColor: theme.colors.surface }]}
-              titleStyle={{ color: theme.colors.text }}
-              descriptionStyle={{ color: theme.colors.subtext }}
-            >
-              <List.Item
-                title="Backup Now"
-                left={props => <List.Icon {...props} icon="cloud-upload" color={theme.colors.text} />}
-                onPress={() => {/* TODO: Implement backup */}}
-                titleStyle={{ color: theme.colors.text }}
-                style={{ backgroundColor: theme.colors.surface }}
-              />
-              <List.Item
-                title="Restore from Backup"
-                left={props => <List.Icon {...props} icon="cloud-download" color={theme.colors.text} />}
-                onPress={() => {/* TODO: Implement restore */}}
-                titleStyle={{ color: theme.colors.text }}
-                style={{ backgroundColor: theme.colors.surface }}
-              />
-              <List.Item
-                title="Auto-Backup"
-                left={props => <List.Icon {...props} icon="clock-outline" color={theme.colors.text} />}
-                right={() => <Switch value={true} onValueChange={() => {}} />}
-                titleStyle={{ color: theme.colors.text }}
-                style={{ backgroundColor: theme.colors.surface }}
-              />
-            </List.Accordion>
-          </Surface>
-
-          <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Export Data</Text>
-            <View style={{ paddingHorizontal: 16, paddingBottom: 8  }}>
-              <Button 
-                mode="outlined" 
-                icon="file-export"
-                onPress={() => {/* TODO: Implement export */}}
-                style={styles.exportButton}
-              >
-                Export as CSV
-              </Button>
-              <Button 
-                mode="outlined" 
-                icon="file-pdf-box"
-                onPress={() => {/* TODO: Implement export */}}
-                style={[styles.exportButton, styles.topMargin]}
-              >
-                Export as PDF
-              </Button>
-            </View>
-          </Surface>
-
-          <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Currency</Text>
-            <List.Accordion
-              title={selectedCurrency}
-              expanded={showCurrencyPicker}
-              onPress={() => setShowCurrencyPicker(!showCurrencyPicker)}
-              style={[styles.currencyPicker, { backgroundColor: theme.colors.surface }]}
-              titleStyle={{ color: theme.colors.text }}
-              descriptionStyle={{ color: theme.colors.subtext }}
-            >
-              {CURRENCY_OPTIONS.map((currency) => (
-                <List.Item
-                  key={currency}
-                  title={currency}
-                  onPress={() => {
-                    setSelectedCurrency(currency);
-                    setShowCurrencyPicker(false);
-                  }}
-                  left={() => <List.Icon icon="currency-usd" color={theme.colors.text} />}
-                  titleStyle={{ color: theme.colors.text }}
-                  style={{ backgroundColor: theme.colors.surface }}
-                />
-              ))}
-            </List.Accordion>
-          </Surface>
-
-          <Surface style={[styles.section, isDarkMode && styles.darkSection]}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Data & Storage</Text>
-            <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-              <Button 
-                mode="outlined" 
-                onPress={clearAppData}
-                style={styles.dangerButton}
-                textColor="#EF4444"
-              >
-                Clear App Data
-              </Button>
-            </View>
-          </Surface>
-
           <View style={styles.versionContainer}>
             <Text style={[styles.versionText, isDarkMode && styles.darkText]}>Version 1.0.0</Text>
           </View>

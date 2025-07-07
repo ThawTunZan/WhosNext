@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { Appbar } from 'react-native-paper';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ProfileScreensLayout() {
@@ -13,6 +13,7 @@ export default function ProfileScreensLayout() {
   const insets = useSafeAreaInsets();
 
   return (
+    
     <Stack
       screenOptions={{
         header: ({ route }) => (
@@ -39,21 +40,15 @@ export default function ProfileScreensLayout() {
         }}
       />
       <Stack.Screen
-        name="ChangePasswordScreen"
-        options={{
-          title: "Change Password"
-        }}
-      />
-      <Stack.Screen
         name="AppSettings"
         options={{
           title: "Settings"
         }}
       />
       <Stack.Screen
-        name="privacy"
+        name="NotificationSettingsScreen"
         options={{
-          title: "Privacy Settings"
+          title: "Notification Settings"
         }}
       />
     </Stack>

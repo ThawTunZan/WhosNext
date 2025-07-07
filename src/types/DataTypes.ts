@@ -219,3 +219,31 @@ export interface TripData {
   endDate: Timestamp
 }
 
+//------------------- Notifications -------------------
+export interface NotificationSettings {
+  emailNotification: boolean,
+  pushNotifications: boolean,
+  tripUpdates: boolean;
+  expenseAlerts: boolean;
+  friendRequests: boolean;
+  tripReminders: boolean;
+}
+
+export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  emailNotification: true,
+  pushNotifications: true,
+  tripUpdates: true,
+  expenseAlerts: true,
+  friendRequests: true,
+  tripReminders: true,
+};
+
+export type NotificationChannel = 'default' | 'trips' | 'expenses' | 'social';
+
+export interface NotificationData {
+  type: string;
+  id?: string;
+  route?: string;
+  [key: string]: any;
+} 
+

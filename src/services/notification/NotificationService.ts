@@ -2,7 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NotificationBehavior } from 'expo-notifications';
-import { NotificationSettings, DEFAULT_SETTINGS } from '@/src/services/notification/types';
+import { NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS } from '@/src/types/DataTypes';
 import { STORAGE_KEYS } from '@/src/services/notification/constants';
 
 // Configure default notification behavior
@@ -74,10 +74,10 @@ export class NotificationService {
   static async getSettings(): Promise<NotificationSettings> {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATION_SETTINGS);
-      return stored ? JSON.parse(stored) : DEFAULT_SETTINGS;
+      return stored ? JSON.parse(stored) : DEFAULT_NOTIFICATION_SETTINGS;
     } catch (error) {
       console.error('Error getting notification settings:', error);
-      return DEFAULT_SETTINGS;
+      return DEFAULT_NOTIFICATION_SETTINGS;
     }
   }
 
@@ -98,6 +98,7 @@ export class NotificationService {
       return;
     }
     const settings = await this.getSettings();
+    // if trip updates alerts are enabled
     if (settings.tripUpdates) {
       await this.sendNotification(title, body, 'trips', data);
     }
@@ -109,9 +110,10 @@ export class NotificationService {
       return;
     }
     const settings = await this.getSettings();
+    // if expense alerts are enabled
     if (settings.expenseAlerts) {
       await this.sendNotification(title, body, 'expenses', data);
-    }
+    } 
   }
 
   static async sendFriendRequest(title: string, body: string, data?: Record<string, any>) {
@@ -120,6 +122,7 @@ export class NotificationService {
       return;
     }
     const settings = await this.getSettings();
+    // if friend requests alerts are enabled
     if (settings.friendRequests) {
       await this.sendNotification(title, body, 'social', data);
     }
@@ -131,6 +134,7 @@ export class NotificationService {
       return;
     }
     const settings = await this.getSettings();
+    // if trip reminders alerts are enabled
     if (settings.tripReminders) {
       await this.sendNotification(title, body, 'trips', data);
     }

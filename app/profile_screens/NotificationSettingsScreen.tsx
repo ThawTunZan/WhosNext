@@ -9,6 +9,8 @@ import {
 import {
   Text,
   Surface,
+  Switch,
+  Divider,
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
@@ -16,13 +18,13 @@ import * as Linking from 'expo-linking';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { SettingItem, SettingSection } from '@/src/components/SettingItem';
-import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NotificationService } from '@/src/services/notification/NotificationService';
+import { NotificationService, NotificationSettings } from '@/src/services/notification/NotificationService';
 import ProfileHeader from './ProfileHeader';
 import { StatusBar } from 'expo-status-bar';
+import { DEFAULT_NOTIFICATION_SETTINGS } from '@/src/types/DataTypes';
 
-interface PrivacyOption {
+interface NotificationOption {
   id: string;
   title: string;
   subtitle: string;
@@ -30,27 +32,13 @@ interface PrivacyOption {
   icon: React.ComponentProps<typeof Ionicons>['name'];
 }
 
-export default function PrivacySettingsScreen() {
+export default function NotificationSettingsScreen() {
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const insets = useSafeAreaInsets();
   const [notificationPermissions, setNotificationPermissions] = useState<boolean>(false);
 
-  const [privacySettings, setPrivacySettings] = useState<PrivacyOption[]>([
-    {
-      id: 'shareLocation',
-      title: 'Share Location',
-      subtitle: 'Share your location during active trips',
-      value: false,
-      icon: 'location-outline',
-    },
-    {
-      id: 'personalizedAds',
-      title: 'Personalized Ads',
-      subtitle: 'Show ads based on your interests and activity',
-      value: false,
-      icon: 'megaphone-outline',
-    },
+  const [notificationOption, setNotificationOption] = useState<NotificationOption[]>([
     {
       id: 'emailNotifications',
       title: 'Email Notifications',
@@ -66,49 +54,77 @@ export default function PrivacySettingsScreen() {
       icon: 'notifications-outline',
     },
     {
-      id: 'dataAnalytics',
-      title: 'Usage Analytics',
-      subtitle: 'Help improve the app by sharing usage data',
-      value: true,
-      icon: 'analytics-outline',
+      id: 'tripUpdates',
+      title: 'Trip Updates',
+      subtitle: 'Get notified about changes to your trips',
+      value: notificationPermissions,
+      icon: 'notifications-outline',
     },
+    {
+      id: 'expenseAlerts',
+      title: 'Expense Alerts',
+      subtitle: 'Receive alerts about new expenses and payments',
+      value: notificationPermissions,
+      icon: 'notifications-outline',
+    },
+    {
+      id: 'friendRequests',
+      title: 'Friend Requests',
+      subtitle: 'Get notified about new friend requests',
+      value: notificationPermissions,
+      icon: 'notifications-outline',
+    },
+    {
+      id: 'tripReminders',
+      title: 'Trip Reminders',
+      subtitle: 'Receive reminders about upcoming trips',
+      value: notificationPermissions,
+      icon: 'notifications-outline',
+    },
+
   ]);
 
-  const profileSettings = privacySettings.slice(0, 2); // 0 and 1
-  const notificationSettings = privacySettings.slice(2, 4); // 2 and 3
-  const dataSettings = privacySettings.slice(4); // 4
+  const generalNotificationSettings = notificationOption.slice(0,2);
+  const tripNotificationSettings = notificationOption.slice(2,6)
 
 
   useEffect(() => {
+    loadNotificationSettings();
     checkNotificationPermissions();
   }, []);
 
-  const checkNotificationPermissions = async () => {
-    if (Platform.OS === 'web') {
-      setNotificationPermissions(true);
-      return;
-    }
-
+  const loadNotificationSettings = async () => {
     try {
-      const { status } = await Notifications.getPermissionsAsync();
-      const hasPermission = status === 'granted';
-      setNotificationPermissions(hasPermission);
-      
-      // Update the push notifications setting to reflect actual permission
-      setPrivacySettings(prev =>
-        prev.map(setting =>
-          setting.id === 'pushNotifications' 
-            ? { ...setting, value: hasPermission }
-            : setting
+      const settings = await NotificationService.getSettings();
+      setNotificationOption(prev =>
+        prev.map(option =>
+          settings.hasOwnProperty(option.id)
+            ? { ...option, value: settings[option.id as keyof typeof settings] }
+            : option
         )
       );
     } catch (error) {
-      console.error('Error checking notification permissions:', error);
-      setNotificationPermissions(false);
+      console.error('Error loading notification settings:', error);
     }
   };
 
-  const handleNotificationToggle = async () => {
+  const checkNotificationPermissions = async () => {
+    const hasPermission = await NotificationService.requestPermissions();
+    setNotificationPermissions(hasPermission);
+    if (!hasPermission) {
+      Alert.alert(
+        'Notifications Disabled',
+        'To receive important updates, please enable notifications in your device settings.',
+        [
+          { text: 'Not Now', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => {/* TODO: Open device settings */} }
+        ]
+      );
+    }
+  };
+
+  // for the push notification toogle
+  const handleNotificationPermissionToggle = async () => {
     if (Platform.OS === 'web') {
       return;
     }
@@ -129,7 +145,7 @@ export default function PrivacySettingsScreen() {
         const hasPermission = await NotificationService.requestPermissions();
         if (hasPermission) {
           setNotificationPermissions(true);
-          setPrivacySettings(prev =>
+          setNotificationOption(prev =>
             prev.map(setting =>
               setting.id === 'pushNotifications' 
                 ? { ...setting, value: true }
@@ -169,20 +185,29 @@ export default function PrivacySettingsScreen() {
     }
   };
 
-  const toggleSetting = (id: string) => {
+  const toggleSetting = async (id: string) => {
     if (id === 'pushNotifications') {
-      handleNotificationToggle();
+      handleNotificationPermissionToggle();
       return;
     }
-    
-    setPrivacySettings(prev =>
-      prev.map(setting =>
-        setting.id === id ? { ...setting, value: !setting.value } : setting
-      )
-    );
+    // Find the current value
+    const current = notificationOption.find(opt => opt.id === id);
+    if (!current) return;
+
+    // Update backend/service
+    try {
+      await NotificationService.updateSettings({ [id]: !current.value });
+      setNotificationOption(prev =>
+        prev.map(setting =>
+          setting.id === id ? { ...setting, value: !setting.value } : setting
+        )
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update notification settings');
+    }
   };
 
-  const renderSection = (title: string, items: PrivacyOption[]) => (
+  const renderGeneralNotiSection = (title: string, items: NotificationOption[]) => (
     <SettingSection title={title}>
       {items.map((item, index) => (
         <SettingItem
@@ -201,38 +226,22 @@ export default function PrivacySettingsScreen() {
   return (
     <>
       <StatusBar style={isDarkMode ? "dark" : "light"} />
-        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-          <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
-            <ProfileHeader title="Privacy Settings" subtitle='Control who can see your information and how your data is used'/>
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}> 
+        <View style={[styles.header, { borderBottomColor: theme.colors.border }]}> 
+          <ProfileHeader title="Notification Settings" subtitle='Control what notification you will receive from this app'/>
+        </View>
+        <ScrollView 
+          style={[styles.container, { backgroundColor: theme.colors.background }]}
+          contentContainerStyle={{ paddingBottom: insets.bottom }}
+        >
+          <View style={styles.content}>
+            {renderGeneralNotiSection('General Notifications', generalNotificationSettings)}
           </View>
-    <ScrollView 
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      contentContainerStyle={{ paddingBottom: insets.bottom }}
-    >
-
-      <View style={styles.content}>
-        {renderSection('Profile & Visibility', profileSettings)}
-        {renderSection('Data & Analytics', dataSettings)}
-        {renderSection('Notifications', notificationSettings)}
-
-        <Surface style={[styles.infoCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
-          <View style={styles.infoHeader}>
-            <Ionicons name="information-circle-outline" size={24} color={theme.colors.primary} />
-            <Text style={[styles.infoTitle, { color: theme.colors.text }]}>
-              About Privacy
-            </Text>
+          <View style={styles.content}>
+            {renderGeneralNotiSection('Trip Notifications', tripNotificationSettings)}
           </View>
-          <Text style={[styles.infoText, { color: theme.colors.subtext }]}>
-            We're committed to protecting your privacy. These settings help you control how your 
-            information is shared and used. You can change these settings at any time.
-          </Text>
-          <Text style={[styles.infoLink, { color: theme.colors.primary }]}>
-            Learn more about our privacy policy
-          </Text>
-        </Surface>
+        </ScrollView>
       </View>
-    </ScrollView>
-    </View>
     </>
   );
 }
@@ -275,5 +284,42 @@ const styles = StyleSheet.create({
   infoLink: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  section: {
+    padding: 16,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  settingsList: {
+    marginBottom: 16,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  settingInfo: {
+    flex: 1,
+  },
+  settingLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  settingDescription: {
+    fontSize: 14,
+    color: '#666',
+  },
+  darkSection: {
+    backgroundColor: '#333',
+  },
+  darkText: {
+    color: '#fff',
+  },
+  darkSubtext: {
+    color: '#999',
   },
 }); 
