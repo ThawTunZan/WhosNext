@@ -21,6 +21,9 @@ export async function upsertClerkUserToFirestore(user: {
   fullName?: string
   primaryEmailAddress?: { emailAddress: string }
   profileImageUrl?: string
+  friends?: string[]
+  incomingFriendRequests?: { senderId: string, senderUsername: string, status: string, timestamp: string }[]
+  outgoingFriendRequests?: { receiverId: string, receiverUsername: string, status: string, timestamp: string }[]
 }) {
   const ref = doc(db, "users", user.username)
   await setDoc(
@@ -30,6 +33,9 @@ export async function upsertClerkUserToFirestore(user: {
       fullName: user.fullName || "",
       email: user.primaryEmailAddress?.emailAddress || "",
       avatarUrl: user.profileImageUrl || "",
+      friends: user.friends || [],
+      incomingFriendRequests: user.incomingFriendRequests || [],
+      outgoingFriendRequests: user.outgoingFriendRequests || [],
       updatedAt: new Date(),
       premiumStatus: await getUserPremiumStatus(user.username) || PremiumStatus.FREE,
     },

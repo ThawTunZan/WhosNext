@@ -28,9 +28,10 @@ import {
 } from '@/src/services/FirebaseServices';
 
 type Friend = {
-  id: string;
+  username: string;
   name: string;
   email: string;
+  timestamp: any;
 };
 
 type FirebaseUser = {
@@ -38,6 +39,9 @@ type FirebaseUser = {
   name?: string;
   username?: string;
   email?: string;
+  fullName?: string;
+  incomingFriendRequests?: any[];
+  outgoingFriendRequests?: any[];
 };
 
 export default function FriendsScreen() {
@@ -50,7 +54,7 @@ export default function FriendsScreen() {
   const [selectedTab, setSelectedTab] = useState('all');
   const [selectedRequestType, setSelectedRequestType] = useState('incoming');
   const [menuVisible, setMenuVisible] = useState(false);
-  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
+  const [selectedFriendUsername, setSelectedFriendUsername] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const buttonRefs = useRef<{ [key: string]: View | null }>({});
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -73,75 +77,82 @@ export default function FriendsScreen() {
     
     try {
       setIsLoading(true);
-      const friendIds = await getFriendsList(user.id) || [];
-      const friendsData = await Promise.all(
-        friendIds.map(async (friendId: string) => {
-          const friendData = await getUserById(friendId);
-          return friendData ? {
-            id: friendId,
-            name: friendData.username || 'Unknown',
-            email: friendData.email || '',
-          } : null;
+      let friendsUsernames = await getFriendsList(user.username);
+      if (!Array.isArray(friendsUsernames)) friendsUsernames = [];
+      const friendsData: Friend[] = await Promise.all(
+        friendsUsernames.map(async (friendUsername: string) => {
+          const friendData = await getUserByUsername(friendUsername) as FirebaseUser;
+          if (!friendData || typeof friendData !== 'object') return { username: '', name: '', email: '', timestamp: null };
+          const name = ('fullName' in friendData && typeof friendData.fullName === 'string' && friendData.fullName.length > 0)
+            ? friendData.fullName
+            : (('username' in friendData && typeof friendData.username === 'string') ? friendData.username : 'Unknown');
+          const email = ('email' in friendData && typeof friendData.email === 'string') ? friendData.email : '';
+          return {
+            username: friendUsername,
+            name,
+            email,
+            timestamp: null,
+          };
         })
       );
-      
-      setFriends(friendsData.filter((friend): friend is Friend => friend !== null));
+      setFriends(friendsData.filter((friend) => !!friend.username));
       
       // Load friend requests if they exist in user data
-      const userData = await getUserById(user.id);
-      console.log('Current user data:', userData);
-      
+      const userDataRaw = await getUserByUsername(user.username) as FirebaseUser;
+      const userData = (userDataRaw && typeof userDataRaw === 'object') ? userDataRaw : {};
       // Handle incoming requests
-      const incomingRequests = userData?.incomingFriendRequests || [];
-      console.log('Incoming requests:', incomingRequests);
-      
+      const incomingRequests = Array.isArray((userData as FirebaseUser)?.incomingFriendRequests) ? (userData as FirebaseUser).incomingFriendRequests : [];
       const incomingRequestsData = await Promise.all(
         incomingRequests
           .filter((request: any) => request.status === 'pending')
           .map(async (request: any) => {
             try {
-              const requesterData = await getUserById(request.senderId);
-              console.log('Requester data for', request.senderId, ':', requesterData);
-              return requesterData ? {
-                id: request.senderId,
-                name: requesterData.username || 'Unknown',
-                email: requesterData.email || '',
+              const username = request.senderUsername || request.senderId;
+              const requesterData = await getUserByUsername(username) as FirebaseUser;
+              if (!requesterData || typeof requesterData !== 'object') return null;
+              const name = ('fullName' in requesterData && typeof requesterData.fullName === 'string' && requesterData.fullName.length > 0)
+                ? requesterData.fullName
+                : (('username' in requesterData && typeof requesterData.username === 'string') ? requesterData.username : 'Unknown');
+              const email = ('email' in requesterData && typeof requesterData.email === 'string') ? requesterData.email : '';
+              return {
+                username: request.senderUsername || request.senderId,
+                name,
+                email,
                 timestamp: request.timestamp,
-              } : null;
+              };
             } catch (error) {
-              console.error('Error loading requester data:', error);
               return null;
             }
           })
       );
-      console.log('Processed incoming requests:', incomingRequestsData);
-      setIncomingFriendRequests(incomingRequestsData.filter((request): request is Friend => request !== null));
+      setIncomingFriendRequests(incomingRequestsData.filter((request): request is Friend => !!request && 'username' in request && 'name' in request && 'email' in request));
 
       // Handle outgoing requests
-      const outgoingRequests = userData?.outgoingFriendRequests || [];
-      console.log('Outgoing requests:', outgoingRequests);
-      
+      const outgoingRequests = Array.isArray((userData as FirebaseUser)?.outgoingFriendRequests) ? (userData as FirebaseUser).outgoingFriendRequests : [];
       const outgoingRequestsData = await Promise.all(
         outgoingRequests
           .filter((request: any) => request.status === 'pending')
           .map(async (request: any) => {
             try {
-              const recipientData = await getUserById(request.receiverId);
-              console.log('Recipient data for', request.receiverId, ':', recipientData);
-              return recipientData ? {
-                id: request.receiverId,
-                name: recipientData.username || 'Unknown',
-                email: recipientData.email || '',
+              const username = request.receiverUsername || request.receiverId;
+              const recipientData = await getUserByUsername(username) as FirebaseUser;
+              if (!recipientData || typeof recipientData !== 'object') return null;
+              const name = ('fullName' in recipientData && typeof recipientData.fullName === 'string' && recipientData.fullName.length > 0)
+                ? recipientData.fullName
+                : (('username' in recipientData && typeof recipientData.username === 'string') ? recipientData.username : 'Unknown');
+              const email = ('email' in recipientData && typeof recipientData.email === 'string') ? recipientData.email : '';
+              return {
+                username: request.receiverUsername || request.receiverId,
+                name,
+                email,
                 timestamp: request.timestamp,
-              } : null;
+              };
             } catch (error) {
-              console.error('Error loading recipient data:', error);
               return null;
             }
           })
       );
-      console.log('Processed outgoing requests:', outgoingRequestsData);
-      setOutgoingFriendRequests(outgoingRequestsData.filter((request): request is Friend => request !== null));
+      setOutgoingFriendRequests(outgoingRequestsData.filter((request): request is Friend => !!request && 'username' in request && 'name' in request && 'email' in request));
       
     } catch (error) {
       console.error('Error loading friends data:', error);
@@ -159,11 +170,12 @@ export default function FriendsScreen() {
     }
 
     try {
-      const results = await searchUsers(query, user.id);
+      const results = await searchUsers(query, user.username);
       setSearchResults(results.map((result: FirebaseUser) => ({
-        id: result.id,
-        name: result.username || 'Unknown',
+        username: result.username || '',
+        name: result.fullName || result.username || 'Unknown',
         email: result.email || '',
+        timestamp: null, // Add this line
       })));
     } catch (error) {
       console.error('Error searching users:', error);
@@ -175,7 +187,7 @@ export default function FriendsScreen() {
 
     try {
       setIsLoading(true);
-      const targetUser = await getUserByUsername(newFriendUsername.trim());
+      const targetUser = await getUserByUsername(newFriendUsername.trim()) as FirebaseUser;
       console.log('Found target user:', targetUser);
       
       if (!targetUser) {
@@ -183,17 +195,17 @@ export default function FriendsScreen() {
         return;
       }
 
-      if (targetUser.id === user.id) {
+      if (targetUser.username === user.username) {
         Alert.alert('Error', 'You cannot send a friend request to yourself');
         return;
       }
 
       // Check if we already have an outgoing request to this user
-      const userData = await getUserById(user.id);
+      const userData = await getUserByUsername(user.username) as FirebaseUser;
       console.log('Current user data before sending request:', userData);
       
       const hasExistingRequest = userData?.outgoingFriendRequests?.some(
-        (request: any) => request.receiverId === targetUser.id
+        (request: any) => request.receiverUsername === targetUser.username
       );
 
       if (hasExistingRequest) {
@@ -201,7 +213,7 @@ export default function FriendsScreen() {
         return;
       }
 
-      await sendFriendRequest(user.id, targetUser.id);
+      await sendFriendRequest(user.username, targetUser.username);
       console.log('Friend request sent successfully');
       
       // Reload friends data to get updated requests
@@ -218,12 +230,12 @@ export default function FriendsScreen() {
     }
   };
 
-  const handleAcceptRequest = async (requesterId: string) => {
+  const handleAcceptRequest = async (requesterUsername: string) => {
     if (!user) return;
 
     try {
       setIsLoading(true);
-      await acceptFriendRequest(user.id, requesterId);
+      await acceptFriendRequest(user.username, requesterUsername);
       await loadFriendsData(); // Reload friends data after accepting
       Alert.alert('Success', 'Friend request accepted');
     } catch (error) {
@@ -234,13 +246,13 @@ export default function FriendsScreen() {
     }
   };
 
-  const handleDeclineRequest = async (requesterId: string) => {
+  const handleDeclineRequest = async (requesterUsername: string) => {
     if (!user) return;
 
     try {
       setIsLoading(true);
-      await declineFriendRequest(user.id, requesterId);
-      setIncomingFriendRequests(prev => prev.filter(request => request.id !== requesterId));
+      await declineFriendRequest(user.username, requesterUsername);
+      setIncomingFriendRequests(prev => prev.filter(request => request.username !== requesterUsername));
     } catch (error) {
       console.error('Error declining friend request:', error);
       Alert.alert('Error', 'Failed to decline friend request');
@@ -249,14 +261,14 @@ export default function FriendsScreen() {
     }
   };
 
-  const handleRemoveFriend = useCallback(async (friendId: string) => {
+  const handleRemoveFriend = useCallback(async (friendUsername: string) => {
     if (!user) return;
 
     try {
       setIsLoading(true);
-      await removeFriend(user.id, friendId);
-      await removeFriend(friendId, user.id); // Remove from both users
-      setFriends(prev => prev.filter(friend => friend.id !== friendId));
+      await removeFriend(user.username, friendUsername);
+      await removeFriend(friendUsername, user.username); // Remove from both users
+      setFriends(prev => prev.filter(friend => friend.username !== friendUsername));
       Alert.alert('Success', 'Friend removed successfully');
     } catch (error) {
       console.error('Error removing friend:', error);
@@ -267,13 +279,13 @@ export default function FriendsScreen() {
     }
   }, [user]);
 
-  const handleBlockUser = async (friendId: string) => {
+  const handleBlockUser = async (friendUsername: string) => {
     if (!user) return;
 
     try {
       setIsLoading(true);
-      await blockUser(user.id, friendId);
-      setFriends(prev => prev.filter(friend => friend.id !== friendId));
+      await blockUser(user.username, friendUsername);
+      setFriends(prev => prev.filter(friend => friend.username !== friendUsername));
       Alert.alert('Success', 'User blocked successfully');
     } catch (error) {
       console.error('Error blocking user:', error);
@@ -284,28 +296,28 @@ export default function FriendsScreen() {
     }
   };
 
-  const handleOpenMenu = useCallback((friendId: string) => {
-    const button = buttonRefs.current[friendId];
+  const handleOpenMenu = useCallback((friendUsername: string) => {
+    const button = buttonRefs.current[friendUsername];
     if (button) {
       button.measureInWindow((x, y, width, height) => {
-        setSelectedFriendId(friendId);
+        setSelectedFriendUsername(friendUsername);
         setMenuPosition({ x, y });
         setMenuVisible(true);
       });
     }
   }, []);
 
-  const setButtonRef = useCallback((id: string) => (ref: View | null) => {
-    buttonRefs.current[id] = ref;
+  const setButtonRef = useCallback((username: string) => (ref: View | null) => {
+    buttonRefs.current[username] = ref;
   }, []);
 
-  const handleCancelRequest = async (receiverId: string) => {
+  const handleCancelRequest = async (receiverUsername: string) => {
     if (!user) return;
     try {
-      setCancelingRequestId(receiverId);
+      setCancelingRequestId(receiverUsername);
       setIsLoading(true);
-      await cancelFriendRequest(user.id, receiverId);
-      setOutgoingFriendRequests(prev => prev.filter(request => request.id !== receiverId));
+      await cancelFriendRequest(user.username, receiverUsername);
+      setOutgoingFriendRequests(prev => prev.filter(request => request.username !== receiverUsername));
       Alert.alert('Success', 'Friend request cancelled');
     } catch (error) {
       console.error('Error cancelling friend request:', error);
@@ -326,10 +338,10 @@ export default function FriendsScreen() {
           </View>
         </View>
         <View style={styles.friendActions}>
-          <View ref={setButtonRef(friend.id)}>
+          <View ref={setButtonRef(friend.username)}>
             <IconButton 
               icon="dots-vertical" 
-              onPress={() => handleOpenMenu(friend.id)}
+              onPress={() => handleOpenMenu(friend.username)}
             />
           </View>
         </View>
@@ -369,7 +381,7 @@ export default function FriendsScreen() {
             <>
               <Button 
                 mode="contained" 
-                onPress={() => handleAcceptRequest(friend.id)}
+                onPress={() => handleAcceptRequest(friend.username)}
                 style={[styles.actionButton, styles.acceptButton]}
                 contentStyle={styles.buttonContent}
                 labelStyle={styles.buttonLabel}
@@ -378,7 +390,7 @@ export default function FriendsScreen() {
               </Button>
               <Button 
                 mode="outlined" 
-                onPress={() => handleDeclineRequest(friend.id)}
+                onPress={() => handleDeclineRequest(friend.username)}
                 style={[
                   styles.actionButton,
                   { borderColor: theme.colors.error }
@@ -392,15 +404,15 @@ export default function FriendsScreen() {
           ) : (
             <Button 
               mode="outlined" 
-              onPress={() => handleCancelRequest(friend.id)}
+              onPress={() => handleCancelRequest(friend.username)}
               style={[
                 styles.actionButton,
                 { borderColor: theme.colors.error }
               ]}
               contentStyle={styles.buttonContent}
               labelStyle={styles.buttonLabel}
-              loading={isLoading && cancelingRequestId === friend.id}
-              disabled={isLoading && cancelingRequestId === friend.id}
+              loading={isLoading && cancelingRequestId === friend.username}
+              disabled={isLoading && cancelingRequestId === friend.username}
             >
               Cancel Request
             </Button>
@@ -412,18 +424,18 @@ export default function FriendsScreen() {
 
   // Add filtered friends computation
   const filteredFriends = friends.filter(friend => 
-    friend.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    friend.email.toLowerCase().includes(searchQuery.toLowerCase())
+    (friend.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (friend.email || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredIncomingFriendRequests = incomingFriendRequests.filter(request => 
-    request.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    request.email.toLowerCase().includes(searchQuery.toLowerCase())
+    (request.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (request.email || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredOutgoingFriendRequests = outgoingFriendRequests.filter(request => 
-    request.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    request.email.toLowerCase().includes(searchQuery.toLowerCase())
+    (request.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (request.email || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
 
@@ -502,7 +514,7 @@ export default function FriendsScreen() {
         <ScrollView style={styles.content}>
           {selectedTab === 'all' ? (
             filteredFriends.map(friend => (
-              <React.Fragment key={friend.id}>
+              <React.Fragment key={friend.username}>
                 {renderFriendCard(friend)}
               </React.Fragment>
             ))
@@ -511,7 +523,7 @@ export default function FriendsScreen() {
               {selectedRequestType === 'incoming' ? (
                 filteredIncomingFriendRequests.length > 0 ? (
                   filteredIncomingFriendRequests.map(friend => (
-                    <React.Fragment key={friend.id}>
+                    <React.Fragment key={friend.username}>
                       {renderFriendRequest(friend, 'incoming')}
                     </React.Fragment>
                   ))
@@ -526,7 +538,7 @@ export default function FriendsScreen() {
               ) : (
                 filteredOutgoingFriendRequests.length > 0 ? (
                   filteredOutgoingFriendRequests.map(friend => (
-                    <React.Fragment key={friend.id}>
+                    <React.Fragment key={friend.username}>
                       {renderFriendRequest(friend, 'outgoing')}
                     </React.Fragment>
                   ))
@@ -554,7 +566,7 @@ export default function FriendsScreen() {
               onPress={() => {
                 setMenuVisible(false);
                 // TODO: Implement view profile
-                console.log('View profile:', selectedFriendId);
+                console.log('View profile:', selectedFriendUsername);
               }} 
               title="View Profile" 
               leadingIcon="account"
@@ -563,14 +575,14 @@ export default function FriendsScreen() {
               onPress={() => {
                 setMenuVisible(false);
                 // TODO: Implement block user
-                console.log('Block user:', selectedFriendId);
+                console.log('Block user:', selectedFriendUsername);
               }} 
               title="Block User" 
               leadingIcon="block-helper"
             />
             <Divider />
             <Menu.Item 
-              onPress={() => selectedFriendId && handleRemoveFriend(selectedFriendId)} 
+              onPress={() => selectedFriendUsername && handleRemoveFriend(selectedFriendUsername)} 
               title="Remove Friend" 
               leadingIcon="account-remove"
               titleStyle={{ color: theme.colors.error }}
