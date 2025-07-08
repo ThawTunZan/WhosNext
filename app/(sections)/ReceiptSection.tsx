@@ -20,7 +20,6 @@ import * as ImagePicker from "expo-image-picker"
 import { useUser } from "@clerk/clerk-expo"
 import { Redirect } from "expo-router"
 import { db } from "@/firebase"
-import { useMemberProfiles } from "@/src/context/MemberProfilesContext"
 import {
   collection,
   addDoc,
@@ -47,7 +46,7 @@ type Receipt = {
   expenseId?: string
   expenseName?: string
   createdAt?: Timestamp
-  createdById?: string
+  createdByName?: string
   paidById: string
 }
 type Expense = { id: string; activityName: string, paidById?: string }
@@ -57,7 +56,6 @@ export default function ReceiptSection({ tripId }: Props) {
   const theme = isDarkMode ? darkTheme : lightTheme;
 
   const { isLoaded, isSignedIn, user } = useUser()
-  const profiles = useMemberProfiles()
 
   if (!isLoaded) return null
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />
@@ -205,7 +203,7 @@ export default function ReceiptSection({ tripId }: Props) {
       <CommonCard
         key={receipt.id}
         title={receipt.expenseName || "Unlinked Receipt"}
-        subtitle={`Paid by: ${profiles[receipt.paidById] || "Unknown"}`}
+        subtitle={`Paid by: ${receipt.createdByName || "Unknown"}`}
         leftIcon="receipt"
         actions={
           <Button

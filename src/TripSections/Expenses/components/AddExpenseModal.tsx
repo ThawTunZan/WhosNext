@@ -5,7 +5,6 @@ import { Button, Card, Text, TextInput, RadioButton, HelperText, Caption, useThe
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { AddExpenseModalProps, Expense, SharedWith, Currency } from '@/src/types/DataTypes';
-import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { useUser } from '@clerk/clerk-expo';
 import { Redirect } from 'expo-router';
 import { db } from "@/firebase";
@@ -17,15 +16,15 @@ import IconRadioSelector from './IconRadioSelector';
 import AvatarRadioSelector from './AvatarRadioSelector';
 import DateButton from '@/src/trip/components/DateButton';
 
-const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerId }: AddExpenseModalProps) => {
+const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerName }: AddExpenseModalProps) => {
 	const [expenseName, setExpenseName] = useState('');
 	const [expenseAmt, setexpenseAmt] = useState('');
 	const [expenseType, setExpenseType] = useState<'group' | 'personal'>('group');
 	const [multiplePaidAmtMap, setmultiplePaidAmtMap] = useState('');
-	const [paidByIds, setPaidByIds] = useState<string[]>([]);
-	const [customPaidAmount, setCustomPaidAmount] = useState<{ [id: string]: string }>({});
+	const [paidByNames, setpaidByNames] = useState<string[]>([]);
+	const [customPaidAmount, setCustomPaidAmount] = useState<{ [username: string]: string }>({});
 	const [splitType, setSplitType] = useState<'even' | 'custom'>('even');
-	const [sharedWithIds, setSharedWithIds] = useState<string[]>([]);
+	const [sharedWithNames, setSharedWithNames] = useState<string[]>([]);
 	const [customSplitAmount, setcustomSplitAmount] = useState<{ [id: string]: string }>({});
 	const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
 	const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
@@ -39,8 +38,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	const { isLoaded, isSignedIn, user } = useUser()
 	if (!isLoaded) return null
 	if (!isSignedIn) return <Redirect href="/auth/sign-in" />
-	const currentUserId = user.id
-	const profiles = useMemberProfiles();
+	const currentUsername = user.username
 
 	// Reset form when modal is opened/closed or members change
 	useEffect(() => {
@@ -50,7 +48,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 		setIsSubmitting(false);
 		if (visible) {
 			// Optionally pre-select all members to share with initially
-			const allMemberIds = Object.keys(members);
+			const allMemberNames = Object.keys(members);
 
 			setExpenseName(initialData?.activityName || ''); // Use activityName if present
 			//setexpenseAmt(initialData?.paidByAndAmounts.map(pba => pba.amount).reduce((sum, amt) => sum + parseFloat(amt), 0).toString() || ''); // Use paidAmt if present
@@ -74,10 +72,10 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 					setexpenseAmt(initialData.paidByAndAmounts[0].amount.toString());
 				} else if (initialData.paidByAndAmounts && initialData.paidByAndAmounts.length > 0) {
 					setExpenseType('group')
-					setPaidByIds(initialData.paidByAndAmounts.map(pba => pba.memberId));
+					setpaidByNames(initialData.paidByAndAmounts.map(pba => pba.memberName));
 					const tempCustomPaidAmts: { [id: string]: string } = {};
 					initialData.paidByAndAmounts.forEach(pba => {
-						tempCustomPaidAmts[pba.memberId] = pba.amount.toString();
+						tempCustomPaidAmts[pba.memberName] = pba.amount.toString();
 					});
 					setCustomPaidAmount(tempCustomPaidAmts);
 					setmultiplePaidAmtMap(
@@ -85,8 +83,8 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 							.reduce((sum, pba) => sum + parseFloat(pba.amount), 0)
 							.toString()
 					);
-					const initialSharedIds = initialData.sharedWith.map(sw => sw.payeeID);
-					setSharedWithIds(initialSharedIds);
+					const initialSharedNames = initialData.sharedWith.map(sw => sw.payeeName);
+					setSharedWithNames(initialSharedNames);
 					// Attempt to determine split type based on sharedWith data
 					const firstAmount = initialData.sharedWith[0].amount;
 					let allAmountsEqual = true;
@@ -97,28 +95,28 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 							allAmountsEqual = false;
 							setSplitType("custom")
 						}
-						customSplitAmountToSet[sw.payeeID] = sw.amount.toString();
+						customSplitAmountToSet[sw.payeeName] = sw.amount.toString();
 					}
 					const totalSharedAmount = initialData.sharedWith.reduce((sum, sw) => sum + sw.amount, 0);
 					setcustomSplitAmount(customSplitAmountToSet);
 					
 				} else {
 					setExpenseType('group')
-					setPaidByIds([])
-					setSharedWithIds([]);
+					setpaidByNames([])
+					setSharedWithNames([]);
 					setSplitType('even');
 					setcustomSplitAmount({});
 				}
 			} else {
 				// --- Defaults for ADD mode (or if initialData is minimal) ---
-				const allMemberIds = Object.keys(members);
-				setSharedWithIds(allMemberIds);
+				const allMemberNames = Object.keys(members);
+				setSharedWithNames(allMemberNames);
 				// If suggestedPayerName is available, try to find their ID and set it
-				let defaultPayerId = suggestedPayerId;
-				if (!defaultPayerId) defaultPayerId = currentUserId;
-				if (!defaultPayerId && allMemberIds.length) defaultPayerId = allMemberIds[0];
-				setPaidByIds([defaultPayerId]);
-				setCustomPaidAmount({ [defaultPayerId]: '0' });
+				let defaultPayerName = suggestedPayerName;
+				if (!defaultPayerName) defaultPayerName = currentUsername;
+				if (!defaultPayerName && allMemberNames.length) defaultPayerName = allMemberNames[0];
+				setpaidByNames([defaultPayerName]);
+				setCustomPaidAmount({ [defaultPayerName]: '0' });
 				setSplitType('even');
 				setcustomSplitAmount({});
 			}
@@ -126,8 +124,8 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			// Reset all fields on close (already handled well)
 			setExpenseName('');
 			setexpenseAmt('');
-			setPaidByIds([]);
-			setSharedWithIds([]);
+			setpaidByNames([]);
+			setSharedWithNames([]);
 			setSplitType('even');
 			setcustomSplitAmount({});
 			setSelectedCurrency('USD');
@@ -135,7 +133,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			setIsSubmitting(false);
 			setExpenseDate(new Date());
 		}
-	}, [visible, members, initialData, editingExpenseId, suggestedPayerId, currentUserId]); // Reset on visibility change or if members list changes
+	}, [visible, members, initialData, editingExpenseId, suggestedPayerName, currentUsername]); // Reset on visibility change or if members list changes
 
 
 	const validateForm = (): boolean => {
@@ -156,7 +154,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 		}
 		
 		if (expenseType === 'group') {
-			if (paidByIds.length === 0) {
+			if (paidByNames.length === 0) {
 				newErrors.paidBy = "Select at least one person to pay.";
 				isValid = false;
 			}
@@ -172,7 +170,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			if (splitType === 'custom') {
 				let totalCustomAmount = 0;
 				let hasInvalidCustom = false;
-				sharedWithIds.forEach(id => {
+				sharedWithNames.forEach(id => {
 					const customAmt = parseFloat(customSplitAmount[id] || '0');
 					if (isNaN(customAmt) || customAmt < 0) {
 						newErrors[`custom_${id}`] = "Invalid amount"; // Error per input
@@ -192,7 +190,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 			}
 		}
 
-		if (sharedWithIds.length === 0) {
+		if (sharedWithNames.length === 0) {
 			newErrors.sharedWith = "Select at least one person to share with.";
 			isValid = false;
 		}
@@ -217,24 +215,24 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 		setErrors({}); // Clear previous errors
 
 		let parsedSharedWith: SharedWith[] = [];
-    let parsedPaidByAndAmounts: {memberId: string, amount: string}[] = []
+    let parsedPaidByAndAmounts: {memberName: string, amount: string}[] = []
 
 		try {
-				const numOfPpl = sharedWithIds.length
+				const numOfPpl = sharedWithNames.length
 				let totalPaid = 0;
 
 				if (expenseType === 'personal') {
 					totalPaid = parseFloat(expenseAmt);
-					parsedPaidByAndAmounts = [{memberId: user.id, amount: expenseAmt}];
+					parsedPaidByAndAmounts = [{memberName: user.username, amount: expenseAmt}];
 					parsedSharedWith = []
 				} else if (expenseType === 'group') {
 					
-					parsedPaidByAndAmounts = paidByIds.map(id => ({memberId: id, amount: customPaidAmount[id]}));
+					parsedPaidByAndAmounts = paidByNames.map(username => ({memberName: username, amount: customPaidAmount[username]}));
 					
 					if (splitType === 'custom') {
-						parsedSharedWith = sharedWithIds.map(id => ({
-							payeeID: id,
-							amount: parseFloat(customSplitAmount[id] || '0'),
+						parsedSharedWith = sharedWithNames.map(username => ({
+							payeeName: username,
+							amount: parseFloat(customSplitAmount[username] || '0'),
 							currency: selectedCurrency
 						}));
 					} else if (splitType === 'even') { // Even split
@@ -243,8 +241,8 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 							.reduce((sum, val) => isNaN(val) ? sum : sum + val, 0);
 						console.log("TOTAL PAID IS " + totalPaid)
 						const perPerson = numOfPpl > 0 ? totalPaid / numOfPpl : 0;
-						parsedSharedWith = sharedWithIds.map(id => ({
-							payeeID: id,
+						parsedSharedWith = sharedWithNames.map(username => ({
+							payeeName: username,
 							amount: perPerson,
 							currency: selectedCurrency,
 						}));
@@ -277,7 +275,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	};
 
 	const toggleSharedMember = (id: string) => {
-		setSharedWithIds(prev => {
+		setSharedWithNames(prev => {
 			const newSelection = prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id];
 			// When removing a member from custom split, clear their amount
 			if (splitType === 'custom' && !newSelection.includes(id)) {
@@ -304,7 +302,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	};
 
 	const handleMultiplePaidByChange = (val: string | string[]) => {
-		if (Array.isArray(val)) setPaidByIds(val);
+		if (Array.isArray(val)) setpaidByNames(val);
 	};
 
 	const { isDarkMode } = useCustomTheme();
@@ -398,15 +396,15 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 
 											<AvatarRadioSelector
 												title="Paid by"
-												value={paidByIds}
+												value={paidByNames}
 												onValueChange={handleMultiplePaidByChange}
-												options={memberEntries.map(([id, member]) => ({ value: id, label: profiles[id] }))}
+												options={memberEntries.map(([id, member]) => ({ value: id, label: id }))}
 												containerStyle={{ backgroundColor: theme.colors.background }}
 												multiple={true}
 											/>
 											
-											{suggestedPayerId && (
-												<Caption style={[styles.suggestionText, { color: theme.colors.primary }]}>💡 Suggestion: {profiles[suggestedPayerId]} is next to pay</Caption>
+											{suggestedPayerName && (
+												<Caption style={[styles.suggestionText, { color: theme.colors.primary }]}>💡 Suggestion: {suggestedPayerName} is next to pay</Caption>
 											)}
 											{errors.paidBy && <HelperText type="error">{errors.paidBy}</HelperText>}
 
@@ -417,10 +415,10 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 													Paid Amounts
 												</Text>
 												<View style={styles.customSplitAmountContainer}>
-													{paidByIds.map(id => (
+													{paidByNames.map(id => (
 														<View key={id} style={styles.customAmountRow}>
 															<Text style={[styles.customAmountLabel, { color: theme.colors.text }]}>
-																{profiles[id]}
+																{id}
 															</Text>
 															<TextInput
 																mode="outlined"
@@ -469,9 +467,9 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 																onPress={() => toggleSharedMember(id)}
 																style={[
 																	styles.sharedOption,
-																	sharedWithIds.includes(id) && styles.sharedOptionSelected,
+																	sharedWithNames.includes(id) && styles.sharedOptionSelected,
 																	{
-																		backgroundColor: sharedWithIds.includes(id)
+																		backgroundColor: sharedWithNames.includes(id)
 																			? paperTheme.colors.primaryContainer
 																			: theme.colors.surface,
 																		borderColor: theme.colors.border
@@ -479,19 +477,19 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 																]}
 															>
 																<MaterialCommunityIcons
-																	name={sharedWithIds.includes(id) ? "checkbox-marked" : "checkbox-blank-outline"}
+																	name={sharedWithNames.includes(id) ? "checkbox-marked" : "checkbox-blank-outline"}
 																	size={24}
-																	color={sharedWithIds.includes(id) ? paperTheme.colors.primary : theme.colors.text}
+																	color={sharedWithNames.includes(id) ? paperTheme.colors.primary : theme.colors.text}
 																/>
 																<Text style={[
 																	styles.sharedOptionText,
 																	{
-																		color: sharedWithIds.includes(id)
+																		color: sharedWithNames.includes(id)
 																			? paperTheme.colors.onPrimaryContainer
 																			: theme.colors.text
 																	}
 																]}>
-																	{profiles[id]}
+																	{id}
 																</Text>
 															</TouchableOpacity>
 														))}
@@ -505,16 +503,16 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 											</Surface>
 
 											{/* Custom Amounts Section */}
-											{splitType === 'custom' && sharedWithIds.length > 0 && (
+											{splitType === 'custom' && sharedWithNames.length > 0 && (
 												<Surface style={[styles.section, { backgroundColor: theme.colors.background }]}>
 													<Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.text }]}>
 														Custom Amounts
 													</Text>
 													<View style={styles.customSplitAmountContainer}>
-														{sharedWithIds.map(id => (
+														{sharedWithNames.map(id => (
 															<View key={id} style={styles.customAmountRow}>
 																<Text style={[styles.customAmountLabel, { color: theme.colors.text }]}>
-																	{profiles[id]}
+																	{id}
 																</Text>
 																<TextInput
 																	mode="outlined"

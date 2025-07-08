@@ -16,7 +16,6 @@ import {
     ParsedDebt,         
 } from '@/src/TripSections/SettleUp/utilities/SettleUpUtilities'; 
 import { Member, Debt, Currency, Payment } from '@/src/types/DataTypes';
-import { useMemberProfiles, MemberProfilesProvider } from '@/src/context/MemberProfilesContext';
 import RecordPaymentModal from '@/src/TripSections/Payment/components/RecordPaymentModal';
 import { firebaseRecordPayment, firebaseGetTripPayments, firebaseDeletePayment } from '@/src/services/FirebaseServices';
 
@@ -39,7 +38,6 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
   const { user } = useUser();
-  const profiles = useMemberProfiles();
 
   const [value, setValue] = useState('all'); // 'all' | 'simplified' | 'currency'
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -80,10 +78,10 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
     const transformedDebts: Debt[] = [];
     Object.entries(rawDebts).forEach(([currency, debtsByUsers]) => {
       Object.entries(debtsByUsers as Record<string, number>).forEach(([userPair, amount]) => {
-        const [fromUserId, toUserId] = userPair.split('#');
+        const [fromUserName, toUserName] = userPair.split('#');
         transformedDebts.push({
-          fromUserId,
-          toUserId,
+          fromUserName,
+          toUserName,
           amount,
           currency: currency as Currency
         });
@@ -96,7 +94,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   const groupDebts = useCallback((debts: Debt[]) => {
     // Group by currency
     const grouped = debts.reduce((acc, debt) => {
-      const fromName = profiles[debt.fromUserId] || 'Unknown';
+      const fromName = debt.fromUserName || 'Unknown';
       if (!acc[fromName]) {
         acc[fromName] = [];
       }
@@ -170,7 +168,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   const renderItem = useCallback(({ item }: { item: Debt }) => (
     <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
       <Card.Title
-        title={`owes ${profiles[item.toUserId]}`}
+        title={`owes ${item.toUserName}`}
         titleStyle={{ color: theme.colors.text }}
         right={() => (
           <Text style={[styles.amountText, { color: theme.colors.text }]}>
@@ -180,12 +178,12 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
         rightStyle={styles.amountContainer}
       />
     </Card>
-  ), [theme.colors, profiles]);
+  ), [theme.colors]);
 
   // Render payment item
   const renderPaymentItem = useCallback((payment: Payment) => {
-    const fromUser = profiles[payment.fromUserId] || payment.fromUserId;
-    const toUser = profiles[payment.toUserId] || payment.toUserId;
+    const fromUser = payment.fromUserName
+    const toUser = payment.toUserName
     
     // Handle different date formats
     let paymentDate: Date;
@@ -288,7 +286,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
         )}
       </Card>
     );
-  }, [expandedPaymentIds, profiles, theme.colors, handleDeletePayment]);
+  }, [expandedPaymentIds, theme.colors, handleDeletePayment]);
 
   const renderListHeader = () => (
     <>
@@ -305,7 +303,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   ), [theme.colors]);
 
   const keyExtractor = useCallback((item: Debt, index: number) =>
-    `${item.fromUserId}-${item.toUserId}-${index}`,
+    `${item.fromUserName}-${item.toUserName}-${index}`,
   []);
 
   const renderPaymentsSection = () => (
@@ -406,7 +404,6 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
         label="Record Payment"
       />
 
-      <MemberProfilesProvider memberUids={Object.keys(members)}>
         <RecordPaymentModal
           visible={showPaymentModal}
           onDismiss={() => setShowPaymentModal(false)}
@@ -417,7 +414,6 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
           defaultCurrency={tripCurrency}
           members={members}
         />
-      </MemberProfilesProvider>
     </View>
   );
 }

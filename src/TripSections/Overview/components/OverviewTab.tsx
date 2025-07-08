@@ -12,11 +12,11 @@ import { UpgradeTripButton } from '@/src/components';
 
 type OverviewTabProps = {
   members: Record<string, Member>;
-  profiles: Record<string, string>;
+  usernames: Record<string, string>;
   totalBudget: number;
   totalAmtLeft: number;
   currentUserId: string;
-  onAddMember: (memberId: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
+  onAddMember: (memberKey: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
   onRemoveMember: (memberId: string) => void;
   onEditBudget: () => void;
   onLeaveTrip: () => void;
@@ -30,7 +30,6 @@ type OverviewTabProps = {
 
 export default function OverviewTab({
   members,
-  profiles,
   totalBudget,
   totalAmtLeft,
   currentUserId,
@@ -80,7 +79,6 @@ export default function OverviewTab({
         </Text>
         <BudgetSummaryCard
           members={members}
-          profiles={profiles}
           totalBudget={totalBudget}
           totalAmtLeft={totalAmtLeft}
           tripCurrency={tripCurrency}
@@ -94,12 +92,12 @@ export default function OverviewTab({
         )}
       </View>
 
-      {nextPayer && profiles[nextPayer] && (
+      {nextPayer && (
         <View style={styles.section}>
           <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.text }]}>
             ⏭️ Next Up
           </Text>
-          <NextPayerCard name={profiles[nextPayer]} />
+          <NextPayerCard name={nextPayer} />
         </View>
       )}
 

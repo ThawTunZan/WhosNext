@@ -11,12 +11,10 @@ import { addExpenseAndCalculateDebts, deleteExpense } from '@/src/services/expen
 import ExpenseList from '@/app/trip/components/ItemList/ExpenseList';
 import AddExpenseModal from '@/src/TripSections/Expenses/components/AddExpenseModal'; 
 import { ExpensesSectionProps, Expense } from '@/src/types/DataTypes'; 
-import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { SearchBar } from '@/app/trip/components/SearchBar';
 import { BaseSection } from '@/app/common_components/BaseSection';
-import { CommonModal } from '@/app/common_components/CommonModal';
 
-const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, nextPayerId }: ExpensesSectionProps) => {
+const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, nextPayerName }: ExpensesSectionProps) => {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const { expenses, isLoading, error: fetchError } = useExpenses(tripId);
@@ -27,14 +25,13 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const profiles = useMemberProfiles();
 
   const filteredExpenses = expenses.filter(expense => {
     const searchLower = searchQuery.toLowerCase();
     return (
       expense.activityName.toLowerCase().includes(searchLower) ||
       expense.paidByAndAmounts.some(paidByAndAmount => {
-        const profileName = profiles[paidByAndAmount.memberId];
+        const profileName = paidByAndAmount.memberName;
         return profileName && profileName.toLowerCase().includes(searchLower);
       })
     );
@@ -58,7 +55,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
 
   const handleAddExpenseSubmit = async (expenseData: Expense) => {
     try {
-      await addExpenseAndCalculateDebts(tripId, expenseData, members, profiles);
+      await addExpenseAndCalculateDebts(tripId, expenseData, members);
       setSnackbarMessage('Expense added successfully!');
       setSnackbarVisible(true);
       setModalVisible(false);
@@ -72,7 +69,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   const handleDeleteExpense = async (id: string) => {
     // To add confirmation dialog here
     try {
-      await deleteExpense(tripId, id, members, profiles); 
+      await deleteExpense(tripId, id); 
       setSnackbarMessage('Expense deleted.');
       setSnackbarVisible(true);
 
@@ -102,13 +99,13 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
         onChangeSearch={setSearchQuery}
         placeholder="Search expenses..."
       />
-      {nextPayerId && (
+      {nextPayerName && (
         <Chip
           icon="account-arrow-right"
           style={[sectionStyles.nextPayerChip, { backgroundColor: theme.colors.surfaceVariant }]}
           textStyle={[sectionStyles.nextPayerChipText, { color: theme.colors.text }]}
         >
-          Next Payer: {profiles[nextPayerId]}
+          Next Payer: {nextPayerName}
         </Chip>
       )}
     </>
@@ -126,7 +123,6 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
       <ExpenseList
         expenses={expenses}
         searchQuery={searchQuery}
-        profiles={profiles}
         expandedId={expandedId}
         isRefreshing={isRefreshing}
         onRefresh={onRefresh}

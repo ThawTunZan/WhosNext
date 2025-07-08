@@ -7,7 +7,6 @@ import { Snackbar, Portal, Button } from "react-native-paper";
 
 import { useTripData } from "@/src/hooks/useTripData";
 import { useUser } from "@clerk/clerk-expo";
-import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 import TripHeader from "@/src/components/TripHeader";
 import TabBar from "@/app/trip/components/TabBar";
@@ -39,23 +38,20 @@ export default function TripDetailPage() {
   const currentUserId = user?.id;
 
   const { trip, expenses, payments, loading, error: dataError } = useTripData(tripId);
-  const profiles = useMemberProfiles();
 
   const [nextPayer, setNextPayer] = React.useState<string | null>(null);
   const [showChooseModal, setShowChooseModal] = useState(showChooseModalParam === 'true');
 
   const nextPayerParams = React.useMemo(() => ({
     members: trip?.members || null,
-    profiles,
     currency: trip?.currency || 'USD'
-  }), [trip?.members, profiles, trip?.currency]);
+  }), [trip?.members, trip?.currency]);
 
   React.useEffect(() => {
     const updateNextPayer = async () => {
-      if (nextPayerParams.members && nextPayerParams.profiles) {
+      if (nextPayerParams.members) {
         const nextPayerId = await calculateNextPayer(
           nextPayerParams.members,
-          nextPayerParams.profiles,
           nextPayerParams.currency
         );
         setNextPayer(nextPayerId);
@@ -102,7 +98,6 @@ export default function TripDetailPage() {
   } = useTripHandlers({
     tripId: tripId!,
     trip: trip!,
-    profiles,
     activityToDeleteId,
     openAddExpenseModal,
     closeAddExpenseModal,
@@ -150,7 +145,6 @@ export default function TripDetailPage() {
   };
 
   return (
-    <MemberProfilesProvider memberUids={Object.keys(trip?.members || {})}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.outerContainer}
@@ -178,7 +172,6 @@ export default function TripDetailPage() {
             {selectedTab === "overview" && (
               <OverviewTab
                 members={trip.members}
-                profiles={profiles}
                 totalBudget={trip.totalBudget}
                 totalAmtLeft={trip.totalAmtLeft}
                 currentUserId={currentUserId}
@@ -201,7 +194,7 @@ export default function TripDetailPage() {
                 members={trip.members}
                 onAddExpensePress={() => openAddExpenseModal(null, false)}
                 onEditExpense={handleEditExpense}
-                nextPayerId={nextPayer}
+                nextPayerName={nextPayer}
               />
             )}
 
@@ -227,7 +220,7 @@ export default function TripDetailPage() {
 
             {selectedTab === "invite" && <InviteSection tripId={tripId!} />}
 
-            {selectedTab === "leaderboard" && <TripLeaderboard trip={trip} expenses={expenses} payments={payments} nextPayerId={nextPayer}  />}
+            {selectedTab === "leaderboard" && <TripLeaderboard trip={trip} expenses={expenses} payments={payments}/>}
 
             <Portal>
               <BudgetDialog
@@ -248,7 +241,7 @@ export default function TripDetailPage() {
               tripId={tripId!}
               initialData={initialExpenseData}
               editingExpenseId={editingExpenseId}
-              suggestedPayerId={nextPayer}
+              suggestedPayerName={nextPayer}
             />
 
             <ChooseExistingOrNew
@@ -269,7 +262,6 @@ export default function TripDetailPage() {
           </>
         )}
       </KeyboardAvoidingView>
-    </MemberProfilesProvider>
   );
 }
 

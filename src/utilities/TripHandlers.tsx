@@ -28,7 +28,6 @@ import {
 interface UseTripHandlersParams {
 	tripId: string;
 	trip: any;
-	profiles: Record<string, string>;
 	activityToDeleteId: string | null;
 	openAddExpenseModal: (d: Partial<Expense> | null, isEditing?: boolean) => void;
 	closeAddExpenseModal: () => void;
@@ -39,7 +38,6 @@ interface UseTripHandlersParams {
 export function useTripHandlers({
 	tripId,
 	trip,
-	profiles,
 	activityToDeleteId,
 	openAddExpenseModal,
 	closeAddExpenseModal,
@@ -47,17 +45,17 @@ export function useTripHandlers({
 	setSnackbarVisible,
 }: UseTripHandlersParams) {
 	const { user } = useUser();
-	const currentUserId = user.id;
+	const currentUserName = user.username;
 	const router = useRouter();
 	const [isDeletingTrip, setIsDeletingTrip] = useState(false);
 
 	const handleAddMember = useCallback(
-		async (memberId: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => {
+		async (memberName: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => {
 			if (!tripId) return;
 			try {
 				await addMemberToTrip(
 					tripId,
-					memberId,
+					memberName,
 					{
 						name,
 						budget,
@@ -77,12 +75,12 @@ export function useTripHandlers({
 	);
 
 	const handleClaimMockUser = useCallback(
-		async (mockUserId: string, claimCode: string) => {
-			if (!tripId || !currentUserId) return;
+		async (mockUsername: string, claimCode: string) => {
+			if (!tripId || !currentUserName) return;
 			try {
-				await claimMockUser(tripId, mockUserId, claimCode, currentUserId);
+				await claimMockUser(tripId, mockUsername, claimCode, currentUserName);
 				// call a function that update firebase database expenses and activity and settle debt
-				await updateFirebaseAfterClaiming(mockUserId, currentUserId, tripId);
+				await updateFirebaseAfterClaiming(mockUsername, currentUserName, tripId);
 				setSnackbarMessage("Successfully claimed mock profile!");
 				setSnackbarVisible(true);
 			} catch (err: any) {
@@ -92,15 +90,15 @@ export function useTripHandlers({
 				throw err;
 			}
 		},
-		[tripId, currentUserId]
+		[tripId, currentUserName]
 	);
 
-	async function canBeRemoved(memberId: string) {
+	async function canBeRemoved(memberName: string) {
 		if (
-			await checkIfPartOfExpenses(memberId, tripId) ||
-			await checkIfPartOfActivities(memberId, tripId) ||
-			await checkIfUploadedReceipts(memberId, tripId) ||
-			await checkIfPartOfDebts(memberId, tripId)
+			await checkIfPartOfExpenses(memberName, tripId) ||
+			await checkIfPartOfActivities(memberName, tripId) ||
+			await checkIfUploadedReceipts(memberName, tripId) ||
+			await checkIfPartOfDebts(memberName, tripId)
 		) {
 			return false;
 		}
@@ -108,18 +106,14 @@ export function useTripHandlers({
 	}
 
 	const handleRemoveMember = useCallback(
-		async (memberIdToRemove: string) => {
-			if (!tripId || !trip?.members?.[memberIdToRemove]) {
+		async (memberNameToRemove: string) => {
+			if (!tripId || !trip?.members?.[memberNameToRemove]) {
 				setSnackbarMessage("Cannot remove member: Data missing.");
 				setSnackbarVisible(true);
 				return;
 			}
-			const name = profiles[memberIdToRemove] || "This member";
-			console.log("PROFILES OBJECT:", profiles);
-			console.log("PROFILE KEYS:", Object.keys(profiles));
-			console.log("memberIdToRemove:", memberIdToRemove);
-			console.log("profiles[memberIdToRemove]:", profiles[memberIdToRemove]);
-			if (await canBeRemoved(memberIdToRemove)) {
+			const name = memberNameToRemove || "This member";
+			if (await canBeRemoved(memberNameToRemove)) {
 				Alert.alert(
 					"Remove Member",
 					`Are you sure you want to remove ${name}?`,
@@ -132,8 +126,8 @@ export function useTripHandlers({
 								try {
 									await removeMemberFromTrip(
 										tripId,
-										memberIdToRemove,
-										trip.members[memberIdToRemove]
+										memberNameToRemove,
+										trip.members[memberNameToRemove]
 									);
 									setSnackbarMessage(`${name} removed.`);
 									setSnackbarVisible(true);
@@ -147,17 +141,13 @@ export function useTripHandlers({
 					]
 				);
 			} else {
-				console.log("PROFILES OBJECT:", profiles);
-				console.log("PROFILE KEYS:", Object.keys(profiles));
-				console.log("memberIdToRemove:", memberIdToRemove);
-				console.log("profiles[memberIdToRemove]:", profiles[memberIdToRemove]);
 				Alert.alert(
 					"Cannot Remove Member",
 					`${name} cannot be removed because they are still part of an expense, activity, receipt, or debt.`
 				);
 			}
 		},
-		[tripId, trip, profiles]
+		[tripId, trip]
 	);
 
 	const handleAddOrUpdateExpenseSubmit = useCallback(
@@ -173,11 +163,10 @@ export function useTripHandlers({
 						editingExpenseId,
 						expenseData,
 						members,
-						profiles
 					);
 					setSnackbarMessage("Expense updated successfully!");
 				} else {
-					await addExpenseAndCalculateDebts(tripId, expenseData, members, profiles);
+					await addExpenseAndCalculateDebts(tripId, expenseData, members);
 					setSnackbarMessage("Expense added successfully!");
 					if (activityToDeleteId) {
 						await deleteProposedActivity(tripId, activityToDeleteId);
@@ -231,7 +220,7 @@ export function useTripHandlers({
 				  activityName: activity.name,
 				  paidByAndAmounts: [
 					{
-					  memberId: currentUserId,
+					  memberName: currentUserName,
 					  amount: activity.estCost ? String(activity.estCost) : "0",
 					}
 				  ],
@@ -239,7 +228,7 @@ export function useTripHandlers({
 				},
 				false
 			  ),
-		[openAddExpenseModal, currentUserId]
+		[openAddExpenseModal, currentUserName]
 	);
 
 	const handleLeaveTrip = useCallback(async () => {
@@ -247,8 +236,8 @@ export function useTripHandlers({
 		try {
 			await leaveTripIfEligible(
 				tripId,
-				currentUserId,
-				trip.members[currentUserId]
+				currentUserName,
+				trip.members[currentUserName]
 			);
 			setSnackbarMessage("You left the trip.");
 			setSnackbarVisible(true);
@@ -258,7 +247,7 @@ export function useTripHandlers({
 			setSnackbarMessage(`Failed to leave trip: ${err.message}`);
 			setSnackbarVisible(true);
 		}
-	}, [tripId, currentUserId, trip, router]);
+	}, [tripId, currentUserName, trip, router]);
 
 	return {
 		handleAddMember,
@@ -292,7 +281,7 @@ export function useTripHandlers({
  * Function is called when new user join in and claims a mock member
  * To update in the backend the expenses, activities and other stuff the mockmember participated in 
  */
-async function updateFirebaseAfterClaiming(mockUserId: string, currentUserId: string, tripId: string) {
+async function updateFirebaseAfterClaiming(mockUserId: string, currentUserName: string, tripId: string) {
 	const db = getFirestore();
 
 	// 1. Update Expenses
@@ -305,7 +294,7 @@ async function updateFirebaseAfterClaiming(mockUserId: string, currentUserId: st
 		// Update paidByAndAmounts
 		if (expense.paidByAndAmounts) {
 			expense.paidByAndAmounts = expense.paidByAndAmounts.map(pba =>
-				pba.memberId === mockUserId ? { ...pba, memberId: currentUserId } : pba
+				pba.memberName === mockUserId ? { ...pba, memberName: currentUserName } : pba
 			);
 			updated = true;
 		}
@@ -313,7 +302,7 @@ async function updateFirebaseAfterClaiming(mockUserId: string, currentUserId: st
 		// Update sharedWith
 		if (expense.sharedWith) {
 			expense.sharedWith = expense.sharedWith.map(sw =>
-				sw.payeeID === mockUserId ? { ...sw, payeeID: currentUserId } : sw
+				sw.payeeName === mockUserId ? { ...sw, payeeName: currentUserName } : sw
 			);
 			updated = true;
 		}
@@ -333,8 +322,8 @@ async function updateFirebaseAfterClaiming(mockUserId: string, currentUserId: st
 		const activity = activityDoc.data();
 		let updated = false;
 
-		if (activity.suggestedByID === mockUserId) {
-			activity.suggestedByID = currentUserId;
+		if (activity.suggestedByName === mockUserId) {
+			activity.suggestedByName = currentUserName;
 			updated = true;
 		}
 
@@ -360,7 +349,7 @@ async function updateFirebaseAfterClaiming(mockUserId: string, currentUserId: st
 				let newKey = key;
 				if (key.includes(mockUserId)) {
 					console.log("FOUND DEBT WITH MOCKUSERID")
-					newKey = key.replace(mockUserId, currentUserId);
+					newKey = key.replace(mockUserId, currentUserName);
 					console.log("NEW KEY IS "+newKey)
 					updated = true;
 				}		

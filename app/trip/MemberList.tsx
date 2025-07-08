@@ -5,7 +5,6 @@ import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, P
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState, useEffect, useCallback } from "react";
 import { AddMemberType, Currency, Member } from '@/src/types/DataTypes';
-import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import SelectFriendsModal from '@/app/trip/components/SelectFriendsModal';
@@ -16,8 +15,8 @@ import { useUser } from '@clerk/clerk-expo';
 import QRCode from 'react-native-qrcode-svg';
 
 type MemberListProps = {
-  members: { [id: string]: Member };
-  onAddMember: (id: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
+  members: { [username: string]: Member };
+  onAddMember: (memberKey: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
   onRemoveMember: (name: string) => void;
   onGenerateClaimCode?: (memberId: string) => Promise<string>;
   onClaimMockUser?: (memberId: string, claimCode: string) => Promise<void>;
@@ -32,7 +31,6 @@ export default function MemberList({
   onClaimMockUser,
   tripId 
 }: MemberListProps) {
-  const profiles = useMemberProfiles();
   const [newMember, setNewMember] = useState("");
   const [newMemberBudget, setNewMemberBudget] = useState<number | null>(null);
   const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
@@ -70,13 +68,13 @@ export default function MemberList({
     });
   }, []);
 
-  const handleShareInvite = useCallback((inviteId: string, mockUserId: string) => {
-    const inviteLink = getInviteUrl(inviteId, mockUserId);
-    const memberName = profiles[mockUserId] || 'this mock profile';
+  const handleShareInvite = useCallback((inviteId: string, mockUsername: string) => {
+    const inviteLink = getInviteUrl(inviteId, mockUsername);
+    const memberName = mockUsername || 'this mock profile';
     Share.share({
       message: `You've been invited to claim ${memberName} in our trip on Who's Next!\n\nClick here to claim the profile: ${inviteLink}`,
     });
-  }, [profiles, getInviteUrl]);
+  }, [getInviteUrl]);
 
   useEffect(() => {
     if (showClaimModal && user && !inviteId) {
@@ -118,21 +116,20 @@ export default function MemberList({
       return;
     }
 
-    const memberId = `${trimmedName}-${Date.now()}`;
-
-    onAddMember(memberId, trimmedName, newMemberBudget, selectedCurrency, addMemberType);
+    // Use the name directly as the member key instead of generating an ID
+    onAddMember(trimmedName, trimmedName, newMemberBudget, selectedCurrency, addMemberType);
     setNewMember("");
     setNewMemberBudget(null);
     setShowMockMemberModal(false);
   };
 
   const handleFriendSelect = (friendId: string, friendName: string, budget: number) => {
-    onAddMember(friendId, friendName, budget, "USD", AddMemberType.FRIENDS);
+    onAddMember(friendName, friendName, budget, "USD", AddMemberType.FRIENDS);
   };
 
   const memberCount = Object.keys(members).length;
 
-  const MemberCard = ({ id, member, profileName }: { id: string; member: Member; profileName: string }) => (
+  const MemberCard = ({ username, member, profileName }: { username: string; member: Member; profileName: string }) => (
     <Surface style={styles.memberCard} elevation={1}>
       <View style={[styles.memberContent, { overflow: 'hidden' }]}>
         <View style={styles.avatarContainer}>
@@ -156,7 +153,7 @@ export default function MemberList({
                 <Text variant="titleMedium" style={[styles.memberName, { color: theme.colors.text }]}>
                   {profileName}
                 </Text>
-                {user && id === user.id && (
+                {user && username === user.username && (
                   <Text
                     variant="labelMedium"
                     style={{ color: theme.colors.primary, marginLeft: 8, fontWeight: 'bold' }}
@@ -189,7 +186,7 @@ export default function MemberList({
                 icon="link-variant"
                 size={20}
                 onPress={() => {
-                  setSelectedMemberId(id);
+                  setSelectedMemberId(username);
                   setShowClaimModal(true);
                 }}
                 mode="contained-tonal"
@@ -200,7 +197,7 @@ export default function MemberList({
             <IconButton
               icon="account-remove"
               size={20}
-              onPress={() => onRemoveMember(id)}
+              onPress={() => onRemoveMember(username)}
               mode="contained-tonal"
               containerColor={theme.colors.error}
               iconColor="white"
@@ -233,12 +230,12 @@ export default function MemberList({
           </View>
 
           <View style={styles.memberGrid}>
-            {Object.entries(members).map(([id, member]) => (
+            {Object.entries(members).map(([username, member]) => (
               <MemberCard
-                key={id}
-                id={id}
+                key={username}
+                username={username}
                 member={member}
-                profileName={profiles[id]}
+                profileName={username}
               />
             ))}
           </View>

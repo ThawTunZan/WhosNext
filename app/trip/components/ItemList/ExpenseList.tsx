@@ -7,7 +7,6 @@ import { groupByDate } from '@/src/trip/components/DateButton';
 interface ExpenseListProps {
   expenses: Expense[];
   searchQuery: string;
-  profiles: Record<string, string>;
   expandedId: string | null;
   isRefreshing: boolean;
   onRefresh: () => void;
@@ -20,7 +19,6 @@ interface ExpenseListProps {
 const ExpenseList = memo(({
   expenses,
   searchQuery,
-  profiles,
   expandedId,
   isRefreshing,
   onRefresh,
@@ -41,7 +39,7 @@ const ExpenseList = memo(({
 
   const searchFields = (expense: Expense) => [
     expense.activityName,
-    profiles[expense.paidByAndAmounts[0]?.memberId] || ''
+    expense.paidByAndAmounts[0]?.memberName || ''
   ];
 
   const sections = groupByDate(expenses);
@@ -50,7 +48,6 @@ const ExpenseList = memo(({
     <GenericList
       sections={sections}
       searchQuery={searchQuery}
-      profiles={profiles}
       renderItem={renderExpenseItem}
       searchFields={searchFields}
       emptyMessage={{

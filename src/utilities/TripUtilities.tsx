@@ -30,11 +30,11 @@ function generateRandomString(length: number): string {
  */
 export async function updatePersonalBudget(
 	tripId: string,
-	userId: string,
+	username: string,
 	newBudget: number,
 	newCurrency: Currency
 ): Promise<void> {
-	if (!tripId || !userId) {
+	if (!tripId || !username) {
 		throw new Error("Trip ID and User ID are required.")
 	}
 
@@ -47,7 +47,7 @@ export async function updatePersonalBudget(
 		}
 		const data = snap.data()
 		const members = data.members || {}
-		const userData = members[userId]
+		const userData = members[username]
 		if (!userData) {
 			throw new Error("User not a member of this trip.")
 		}
@@ -73,7 +73,7 @@ export async function updatePersonalBudget(
 		}
 
 		tx.update(tripRef, {
-			[`members.${userId}`]: updatedMember,
+			[`members.${username}`]: updatedMember,
 			totalBudget: increment(-diff),
 			totalAmtLeft: increment(-diff)
 		})
@@ -83,7 +83,7 @@ export async function updatePersonalBudget(
 /**
  * Adds a member to a trip or ensures they exist in the trip.
  * @param tripId The ID of the trip
- * @param memberId The ID for the member
+ * @param memberName The ID for the member
  * @param options Configuration options for adding the member
  * @param options.name The name of the member (optional for existing members)
  * @param options.budget The budget for the member (defaults to 0)
@@ -93,7 +93,7 @@ export async function updatePersonalBudget(
  */
 export const addMemberToTrip = async (
 	tripId: string,
-	memberId: string,
+	memberName: string,
 	options: {
 		name?: string,
 		budget?: number,
@@ -103,7 +103,7 @@ export const addMemberToTrip = async (
 		sendNotifications?: boolean,
 	} = {}
 ): Promise<void> => {
-	if (!tripId || !memberId) {
+	if (!tripId || !memberName) {
 		throw new Error("Trip ID and Member ID are required.");
 	}
 
@@ -127,7 +127,7 @@ export const addMemberToTrip = async (
 	const members = tripData.members || {};
 
 	// Check if member exists and handle accordingly
-	if (members[memberId]) {
+	if (members[memberName]) {
 		if (skipIfExists) {
 			return; // Exit early if member exists and we're told to skip
 		}
@@ -136,7 +136,7 @@ export const addMemberToTrip = async (
 	}
 
 	const newMemberData: Member = {
-		id: memberId,
+		username: memberName,
 		budget: budget || 0,
 		amtLeft: budget || 0,
 		currency: currency,
@@ -158,21 +158,19 @@ export const addMemberToTrip = async (
 	try {
 		// 1) Update the trip's members map and totals
 		await updateDoc(tripRef, {
-			[`members.${memberId}`]: newMemberData,
+			[`members.${memberName}`]: newMemberData,
 			totalBudget: increment(newMemberDefaultCurrencyBudget),
 			totalAmtLeft: increment(newMemberDefaultCurrencyBudget),
 		});
-		console.log(`Member ${name || memberId} added to trip ${tripId}`);
 
 		// 2) Update user profile if name is provided
 		if (name) {
-			const userRef = doc(db, "users", memberId);
+			const userRef = doc(db, "users", memberName);
 			await setDoc(
 				userRef,
 				{ username: name.trim() },
 				{ merge: true }
 			);
-			console.log(`User profile for ${memberId} upserted in users collection`);
 		}
 
 		// 3) Send notifications if enabled and not a mock user
@@ -180,15 +178,15 @@ export const addMemberToTrip = async (
 			const updatedTripSnap = await getDoc(tripRef);
 			const updatedTripData = updatedTripSnap.data();
 			if (updatedTripData && updatedTripData.members) {
-				Object.keys(updatedTripData.members).forEach(async (existingMemberId) => {
-					if (existingMemberId !== memberId) {
+				Object.keys(updatedTripData.members).forEach(async (existingmemberName) => {
+					if (existingmemberName !== memberName) {
 						await NotificationService.sendTripUpdate(
 							"New Member Joined",
 							`${name.trim()} has joined the trip!`,
 							{
 								type: NOTIFICATION_TYPES.TRIP_UPDATE,
 								tripId: tripId,
-								memberId: memberId
+								memberName: memberName
 							}
 						);
 					}
@@ -203,9 +201,9 @@ export const addMemberToTrip = async (
 
 export const claimMockUser = async (
 	tripId: string,
-	mockUserId: string,
+	mockUsername: string,
 	claimCode: string,
-	newUserId: string
+	newusername: string
 ): Promise<void> => {
 	const tripRef = doc(db, "trips", tripId);
 
@@ -216,7 +214,7 @@ export const claimMockUser = async (
 		}
 
 		const tripData = tripSnap.data();
-		const mockMember = tripData.members[mockUserId];
+		const mockMember = tripData.members[mockUsername];
 
 		if (!mockMember) {
 			throw new Error("Mock user not found");
@@ -235,14 +233,14 @@ export const claimMockUser = async (
 
 		// Update trip document to replace mock user with real user
 		await updateDoc(tripRef, {
-			[`members.${mockUserId}`]: deleteField(),
-			[`members.${newUserId}`]: {
+			[`members.${mockUsername}`]: deleteField(),
+			[`members.${newusername}`]: {
 				...memberData,
 				addMemberType: AddMemberType.INVITE_LINK
 			}
 		});
 
-		console.log(`Mock user ${mockUserId} successfully claimed by ${newUserId}`);
+		console.log(`Mock user ${mockUsername} successfully claimed by ${newusername}`);
 	} catch (error) {
 		console.error("Error claiming mock user:", error);
 		throw error;
@@ -256,10 +254,10 @@ export const claimMockUser = async (
  */
 export const leaveTripIfEligible = async (
 	tripId: string,
-	userId: string,
+	username: string,
 	member: Member,
 ): Promise<void> => {
-	if (!tripId || !userId || !member) {
+	if (!tripId || !username || !member) {
 		throw new Error("Missing trip or user data.");
 	}
 
@@ -274,7 +272,7 @@ export const leaveTripIfEligible = async (
 	const expensesSnap = await getDocs(collection(db, `trips/${tripId}/expenses`));
 	const involvedInExpenses = expensesSnap.docs.some(doc => {
 		const data = doc.data();
-		return data.paidById === member.id || (data.sharedWith || []).includes(userId);
+		return data.paidById === member.username|| (data.sharedWith || []).includes(username);
 	});
 
 	if (involvedInExpenses) {
@@ -284,14 +282,14 @@ export const leaveTripIfEligible = async (
 	const activitiesSnap = await getDocs(collection(db, `trips/${tripId}/proposed_activities`));
 	const hasProposed = activitiesSnap.docs.some(doc => {
 		const data = doc.data();
-		return data.suggestedByID === userId;
+		return data.suggestedByID === username;
 	});
 
 	if (hasProposed) {
 		throw new Error("You have proposed activities. Remove them first.");
 	}
 
-	await removeMemberFromTrip(tripId, userId, member);
+	await removeMemberFromTrip(tripId, username, member);
 };
 
 /**
@@ -299,22 +297,22 @@ export const leaveTripIfEligible = async (
  * WARNING: This does not currently recalculate debts or reassign expenses
  * if the removed member was involved. This would require more complex logic.
  * @param tripId
- * @param memberIdToRemove
+ * @param memberNameToRemove
  * @param memberToRemoveData
  */
 export const removeMemberFromTrip = async (
 	tripId: string,
-	memberIdToRemove: string,
+	memberNameToRemove: string,
 	memberToRemoveData: Member
 ): Promise<void> => {
-	if (!tripId || !memberIdToRemove) {
+	if (!tripId || !memberNameToRemove) {
 		throw new Error("Trip ID and Member ID are required to remove a member.");
 	}
 	const docRef = doc(db, "trips", tripId);
 
 	try {
 		// Get member name before removing
-		const userRef = doc(db, "users", memberIdToRemove);
+		const userRef = doc(db, "users", memberNameToRemove);
 		const userSnap = await getDoc(userRef);
 		const userName = userSnap.exists() ? userSnap.data().username : 'A member';
 
@@ -327,26 +325,26 @@ export const removeMemberFromTrip = async (
 		await updateDoc(docRef, {
 			totalBudget: increment(-(memberToRemoveData.budget || 0)),
 			totalAmtLeft: increment(-(memberToRemoveData.amtLeft || 0)),
-			[`members.${memberIdToRemove}`]: deleteField(),
+			[`members.${memberNameToRemove}`]: deleteField(),
 		});
-		console.log(`Member ${memberIdToRemove} removed from trip ${tripId}`);
+		console.log(`Member ${memberNameToRemove} removed from trip ${tripId}`);
 
 		// Remove from users collection if mock member
 		if (memberToRemoveData.addMemberType === AddMemberType.MOCK) {
 			await deleteDoc(userRef);
-			console.log(`Mock member ${memberIdToRemove} deleted from users collection`);
+			console.log(`Mock member ${memberNameToRemove} deleted from users collection`);
 		}
 
 		// Get remaining members and notify them
 		if (tripData && tripData.members) {
-			Object.keys(tripData.members).forEach(async (memberId) => {
+			Object.keys(tripData.members).forEach(async (memberName) => {
 				await NotificationService.sendTripUpdate(
 					"Member Left Trip",
 					`${userName} has left the trip.`,
 					{
 						type: NOTIFICATION_TYPES.TRIP_UPDATE,
 						tripId: tripId,
-						memberId: memberIdToRemove
+						memberName: memberNameToRemove
 					}
 				);
 			});
@@ -362,6 +360,9 @@ export const deleteTripAndRelatedData = async (tripId: string): Promise<void> =>
 
 	// TBD deleted related receipt pictures
 	console.log("TRIP BUTTON IS PRESSED")
+
+	// TODO
+	// DELETE MOCK MEMBERS
 
 	// 1. Delete receipts
 	const receiptsQ = query(collection(db, "receipts"), where("tripId", "==", tripId));

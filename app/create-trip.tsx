@@ -87,16 +87,15 @@ export default function CreateTripScreen() {
     setErrors(newErrors);
     if (hasError) return;
 
-    const userId = user.id;
+    const username = user.username;
     let isTripPremium = false;
-    const userPremiumStatus = await getUserPremiumStatus(userId);
+    const userPremiumStatus = await getUserPremiumStatus(username);
     if (userPremiumStatus === PremiumStatus.PREMIUM || userPremiumStatus === PremiumStatus.TRIAL) {
       isTripPremium = true;
     }
 
     const initialMembers = {
-      [userId]: {
-        id: userId,
+      [username]: {
         budget: parsedBudget,
         amtLeft: parsedBudget,
         currency: selectedCurrency,
@@ -119,7 +118,7 @@ export default function CreateTripScreen() {
         totalBudget: parsedBudget,
         totalAmtLeft: parsedBudget,
         currency: selectedCurrency,
-        userId,
+        createdBy: username,
         members: initialMembers,
         debts: [],
         startDate: Timestamp.fromDate(tripDate),

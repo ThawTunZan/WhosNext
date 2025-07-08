@@ -313,19 +313,17 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
   const batch = writeBatch(db);
   
   try {
-    // 1. Add the payment record
+    // 1. Add the payment document
     const paymentsRef = collection(db, 'trips', payment.tripId, 'payments');
     const paymentDocRef = doc(paymentsRef);
-    
-    const paymentData = {
+    batch.set(paymentDocRef, {
       ...payment,
-    };
-    paymentData.createdTime = serverTimestamp();
-    paymentData.createdDate = Timestamp.now();
-    
-    batch.set(paymentDocRef, paymentData);
+      id: paymentDocRef.id,
+      createdTime: serverTimestamp(),
+      createdDate: serverTimestamp(),
+    });
 
-    // 2. Get current debt values
+    // 2. Update trip debts and member amounts
     const tripRef = doc(db, 'trips', payment.tripId);
     const tripSnap = await getDoc(tripRef);
     
@@ -338,8 +336,8 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
     const currencyDebts = debts[payment.currency] || {};
 
     // Get the current debt values in both directions
-    const paidByToPaidTo = `${payment.fromUserId}#${payment.toUserId}`;
-    const paidToToPaidBy = `${payment.toUserId}#${payment.fromUserId}`;
+    const paidByToPaidTo = `${payment.fromUserName}#${payment.toUserName}`;
+    const paidToToPaidBy = `${payment.toUserName}#${payment.fromUserName}`;
     
     const currentPaidByToPaidTo = currencyDebts[paidByToPaidTo] || 0;
     const paymentAmount = payment.amount;
@@ -349,8 +347,8 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
     if (currentPaidByToPaidTo >= paymentAmount) {
       batch.update(tripRef, {
         [`debts.${payment.currency}.${paidByToPaidTo}`]: increment(-paymentAmount),
-        [`members.${payment.fromUserId}.amtLeft`]: increment(-paymentAmount),
-        [`members.${payment.toUserId}.amtLeft`]: increment(paymentAmount),
+        [`members.${payment.fromUserName}.amtLeft`]: increment(-paymentAmount),
+        [`members.${payment.toUserName}.amtLeft`]: increment(paymentAmount),
       });
     } 
     // If payment amount is greater than current debt
@@ -360,8 +358,8 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
       
       // Create update object
       const updates: any = {
-        [`members.${payment.fromUserId}.amtLeft`]: increment(-paymentAmount),
-        [`members.${payment.toUserId}.amtLeft`]: increment(paymentAmount),
+        [`members.${payment.fromUserName}.amtLeft`]: increment(-paymentAmount),
+        [`members.${payment.toUserName}.amtLeft`]: increment(paymentAmount),
       };
 
       // If there was any existing debt, clear it
@@ -403,15 +401,15 @@ export const firebaseGetTripPayments = async (tripId: string): Promise<Payment[]
 // Function to get payments between two users in a trip
 export const firebaseGetUserPayments = async (
   tripId: string,
-  userId1: string,
-  userId2: string
+  userName1: string,
+  userName2: string
 ): Promise<Payment[]> => {
   try {
     const paymentsRef = collection(db, 'trips', tripId, 'payments');
     const q = query(
       paymentsRef,
       where('tripId', '==', tripId),
-      where('fromUserId', 'in', [userId1, userId2])
+      where('fromUserName', 'in', [userName1, userName2])
     );
     
     const querySnapshot = await getDocs(q);
@@ -423,8 +421,8 @@ export const firebaseGetUserPayments = async (
     
     // Filter to only include payments between these two users
     return payments.filter(payment => 
-      (payment.fromUserId === userId1 && payment.toUserId === userId2) ||
-      (payment.fromUserId === userId2 && payment.toUserId === userId1)
+      (payment.fromUserName === userName1 && payment.toUserName === userName2) ||
+      (payment.fromUserName === userName2 && payment.toUserName === userName1)
     );
   } catch (error) {
     console.error('Error getting user payments:', error);
@@ -572,14 +570,14 @@ export async function cancelFriendRequest(senderId, receiverId) {
 }
 
 // Check if member is part of any expense (payer or payee)
-export async function checkIfPartOfExpenses(queryMemberId, tripId) {
+export async function checkIfPartOfExpenses(queryMemberName, tripId) {
   const expensesRef = collection(db, "trips", tripId, "expenses");
   const expensesSnap = await getDocs(expensesRef);
   for (const docSnap of expensesSnap.docs) {
     const expense = docSnap.data();
     if (
-      expense.paidByAndAmounts?.some(pba => pba.memberId === queryMemberId) ||
-      expense.sharedWith?.some(sw => sw.payeeID === queryMemberId)
+      expense.paidByAndAmounts?.some(pba => pba.memberName === queryMemberName) ||
+      expense.sharedWith?.some(sw => sw.payeeName === queryMemberName)
     ) {
       return true;
     }
@@ -588,12 +586,12 @@ export async function checkIfPartOfExpenses(queryMemberId, tripId) {
 }
 
 // Check if member is part of any activity (as proposer or participant)
-export async function checkIfPartOfActivities(queryMemberId, tripId) {
+export async function checkIfPartOfActivities(queryMemberName, tripId) {
   const activitiesRef = collection(db, "trips", tripId, "proposed_activities");
   const activitiesSnap = await getDocs(activitiesRef);
   for (const docSnap of activitiesSnap.docs) {
     const activity = docSnap.data();
-    if (activity.suggestedByID === queryMemberId) {
+    if (activity.suggestedByName === queryMemberName) {
       return true;
     }
   }
@@ -602,12 +600,12 @@ export async function checkIfPartOfActivities(queryMemberId, tripId) {
 
 // Check if member uploaded any receipts
 // TODO: CHECK AGAIN
-export async function checkIfUploadedReceipts(queryMemberId, tripId) {
+export async function checkIfUploadedReceipts(queryMemberName, tripId) {
   const receiptsRef = collection(db, "trips", tripId, "receipts");
   const receiptsSnap = await getDocs(receiptsRef);
   for (const docSnap of receiptsSnap.docs) {
     const receipt = docSnap.data();
-    if (receipt.uploaderId === queryMemberId) {
+    if (receipt.uploaderName === queryMemberName) {
       return true;
     }
   }
@@ -615,7 +613,7 @@ export async function checkIfUploadedReceipts(queryMemberId, tripId) {
 }
 
 // Check if member is part of any debts (as debtor or creditor)
-export async function checkIfPartOfDebts(queryMemberId, tripId) {
+export async function checkIfPartOfDebts(queryMemberName, tripId) {
   const tripRef = doc(db, "trips", tripId);
   const tripSnap = await getDoc(tripRef);
   const tripData = tripSnap.data();
@@ -623,12 +621,12 @@ export async function checkIfPartOfDebts(queryMemberId, tripId) {
     for (const [currency, currencyDebts] of Object.entries(tripData.debts)) {
       for (const [key, value] of Object.entries(currencyDebts)) {
         // Only consider if the value is not 0
-        if (key.includes(queryMemberId) && value !== 0) {
+        if (key.includes(queryMemberName) && value !== 0) {
           return true;
         }
         if (typeof value === "object" && value !== null) {
           for (const k of Object.keys(value)) {
-            if (k === queryMemberId && value[k] !== 0) {
+            if (k === queryMemberName && value[k] !== 0) {
               return true;
             }
           }

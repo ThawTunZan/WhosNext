@@ -20,7 +20,7 @@ import { convertCurrency } from '@/src/services/CurrencyService';
 const TRIPS_COLLECTION = 'trips';
 const EXPENSES_SUBCOLLECTION = 'expenses';
 
-export const updateExpense = async (expenseId: string, tripId: string, updatedExpenseData: Expense, members: Record<string, Member>, profiles: Record<string, string>): Promise<void> => {
+export const updateExpense = async (expenseId: string, tripId: string, updatedExpenseData: Expense, members: Record<string, Member>): Promise<void> => {
 
 	const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
 	const batch = writeBatch(db);
@@ -33,9 +33,9 @@ export const updateExpense = async (expenseId: string, tripId: string, updatedEx
 
 		const originalExpense = originalExpenseSnap.data() as Expense
 
-		const reversalRaw = generateExpenseImpactUpdate({}, originalExpense, members, true, profiles);
+		const reversalRaw = generateExpenseImpactUpdate({}, originalExpense, members, true);
 		reversalRaw['totalAmtLeft'] = getTotalPaid(originalExpense.paidByAndAmounts);
-		const applyRaw = generateExpenseImpactUpdate({}, updatedExpenseData, members, false, profiles);
+		const applyRaw = generateExpenseImpactUpdate({}, updatedExpenseData, members, false);
 		applyRaw['totalAmtLeft'] = -getTotalPaid(updatedExpenseData.paidByAndAmounts);
 
 		const combinedUpdates = mergeIncrements(reversalRaw, applyRaw)
@@ -73,14 +73,13 @@ export const editExpense = async (
 	expenseId: string | null,
 	updatedExpenseData: Expense,
 	members: Record<string, Member>,
-	profiles: Record<string, string>
 ): Promise<void> => {
 	if (!tripId || !expenseId) {
 		throw new Error("Trip ID and Expense ID are required for update.");
 	}
 
 	try {
-		await updateExpense(expenseId, tripId, updatedExpenseData, members, profiles);
+		await updateExpense(expenseId, tripId, updatedExpenseData, members);
 	} catch (error) {
 		console.error(`Error updating expense ${expenseId}: `, error);
 		throw error;
@@ -116,7 +115,6 @@ export const generateExpenseImpactUpdate = (
 	expenseData: Expense,
 	members: Record<string, Member>,
 	reverse: boolean,
-	profiles: Record<string, string>,
 	expenseId?: string,
 	convertedPaidAmt?: number
   ): { [key: string]: any } => {
@@ -129,8 +127,8 @@ export const generateExpenseImpactUpdate = (
   
 	// Validate payers
 	paidByAndAmounts.forEach(p => {
-	  if (!members[p.memberId]) {
-		throw new Error(`${profiles[p.memberId] || p.memberId} does not exist in the trip!`);
+	  if (!members[p.memberName]) {
+		throw new Error(`${p.memberName} does not exist in the trip!`);
 	  }
 	});
   
@@ -144,15 +142,15 @@ export const generateExpenseImpactUpdate = (
 	for (const member of tempSharedWith) {
 	  const originalShare = Number(member.amount);
 	  if (isNaN(originalShare) || originalShare === 0) {
-		console.log(`Skipping payee ${member.payeeID}: no share to allocate.`);
+		console.log(`Skipping payee ${member.payeeName}: no share to allocate.`);
 		continue;
 	  }
   
-	  console.log(`\nStarting allocation for payee ${member.payeeID}: total share = ${originalShare}`);
+	  console.log(`\nStarting allocation for payee ${member.payeeName}: total share = ${originalShare}`);
   
 	  for (const payer of tempPaidByAndAmounts) {
 		const paidAmount = Number(payer.amount);
-		if (payer.memberId === member.payeeID || paidAmount <= 0) {
+		if (payer.memberName === member.payeeName || paidAmount <= 0) {
 		  // skip self‐payments or exhausted payers
 		  continue;
 		}
@@ -166,16 +164,16 @@ export const generateExpenseImpactUpdate = (
 		payer.amount = String(Math.max(paidAmount - debtAmount, 0));
   
 		console.log(
-		  `  Payer ${payer.memberId} covers ${debtAmount}. ` +
-		  `Remaining payee(${member.payeeID}) = ${member.amount}, ` +
-		  `remaining payer(${payer.memberId}) = ${payer.amount}`
+		  `  Payer ${payer.memberName} covers ${debtAmount}. ` +
+		  `Remaining payee(${member.payeeName}) = ${member.amount}, ` +
+		  `remaining payer(${payer.memberName}) = ${payer.amount}`
 		);
   
 		// Record the debt update
 		if (debtAmount > 0) {
 		  const debtKey = reverse
-			? `${payer.memberId}#${member.payeeID}`
-			: `${member.payeeID}#${payer.memberId}`;
+			? `${payer.memberName}#${member.payeeName}`
+			: `${member.payeeName}#${payer.memberName}`;
   
 		  updates[`debts.${currency}.${debtKey}`] =
 			(updates[`debts.${currency}.${debtKey}`] || 0) + debtAmount;
@@ -183,7 +181,7 @@ export const generateExpenseImpactUpdate = (
   
 		// Once this payee is “fully paid,” stop the inner loop
 		if (member.amount === 0) {
-		  console.log(`  Payee ${member.payeeID} fully covered, moving to next payee.`);
+		  console.log(`  Payee ${member.payeeName} fully covered, moving to next payee.`);
 		  break;
 		}
 	  }
@@ -194,11 +192,11 @@ export const generateExpenseImpactUpdate = (
 	for (const payer of paidByAndAmounts) {
 	  const paidAmount = Number(payer.amount);
 	  if (!isNaN(paidAmount) && paidAmount !== 0) {
-		updates[`members.${payer.memberId}.amtLeft`] =
-		  (updates[`members.${payer.memberId}.amtLeft`] || 0) + multiplier * paidAmount;
+		updates[`members.${payer.memberName}.amtLeft`] =
+		  (updates[`members.${payer.memberName}.amtLeft`] || 0) + multiplier * paidAmount;
 		totalPaidAmt += paidAmount;
 		console.log(
-		  `Payer ${payer.memberId} final amtLeft adjustment = ${multiplier * paidAmount}`
+		  `Payer ${payer.memberName} final amtLeft adjustment = ${multiplier * paidAmount}`
 		);
 	  }
 	}
@@ -239,7 +237,7 @@ function formatToFirebase(updates: { [key: string]: any }) {
  * @param members - The members map containing budget and amtLeft info.
  * @returns Object with id and name of the next payer, or { id: null, name: null }.
  */
-export async function calculateNextPayer(members: Record<string, Member> | null | undefined, profiles: Record<string, string>, tripCurrency: string): Promise<string> {
+export async function calculateNextPayer(members: Record<string, Member> | null | undefined, tripCurrency: string): Promise<string> {
 	if (!members || Object.keys(members).length === 0) {
 		return '';
 	}
@@ -314,7 +312,6 @@ export const addExpenseAndCalculateDebts = async (
 	tripId: string,
 	expenseData: Expense,
 	members: Record<string, Member>,
-	profiles: Record<string, string>
 ): Promise<void> => {
 
 	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
@@ -340,7 +337,7 @@ export const addExpenseAndCalculateDebts = async (
 
 	let updatesRaw: { [key: string]: number } = {};
 	const convertedPaidAmt = await convertCurrency(getTotalPaid(expenseData.paidByAndAmounts), expenseData.currency, tripData.currency);
-	updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false, profiles, expenseData.id, convertedPaidAmt);
+	updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false, expenseData.id, convertedPaidAmt);
 	updatesRaw['totalAmtLeft'] = -convertedPaidAmt;
 	let updates = formatToFirebase(updatesRaw);
 	updates['expensesCount'] = increment(1);
@@ -351,12 +348,12 @@ export const addExpenseAndCalculateDebts = async (
 		console.log("Expense added and debts updated successfully.");
 
 		// Send notifications to all members involved
-		const payerNames = expenseData.paidByAndAmounts.map(p => profiles[p.memberId] || 'Someone').join(', ');
+		const payerNames = expenseData.paidByAndAmounts.map(p => p.memberName|| 'Someone').join(', ');
 		const amount = getTotalPaid(expenseData.paidByAndAmounts).toFixed(2);
 
 		// Notify everyone who needs to pay (not a payer)
 		expenseData.sharedWith.forEach(async (shared) => {
-			const isPayer = expenseData.paidByAndAmounts.some(p => p.memberId === shared.payeeID);
+			const isPayer = expenseData.paidByAndAmounts.some(p => p.memberName === shared.payeeName);
 			if (!isPayer) {
 				await NotificationService.sendExpenseAlert(
 					"New Expense Added",
@@ -378,7 +375,7 @@ export const addExpenseAndCalculateDebts = async (
 
 // Function to delete an expense
 // IMPORTANT: Deleting an expense requires recalculating/reversing the debt updates.
-export const deleteExpense = async (tripId: string, expenseId: string, members: Record<string, Member>, profiles: Record<string, string>): Promise<void> => {
+export const deleteExpense = async (tripId: string, expenseId: string): Promise<void> => {
 	try {
 		// Get the expense data first
 		const expenseRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
@@ -417,9 +414,9 @@ export const deleteExpense = async (tripId: string, expenseId: string, members: 
 			if (isNaN(shareAmount) || shareAmount <= 0) continue;
 
 			for (const payer of paidByAndAmounts) {
-				if (share.payeeID === payer.memberId) continue; // Skip if share belongs to payer
-				const payeeToPayerKey = `${share.payeeID}#${payer.memberId}`;
-				const payerToPayeeKey = `${payer.memberId}#${share.payeeID}`;
+				if (share.payeeName === payer.memberName) continue; // Skip if share belongs to payer
+				const payeeToPayerKey = `${share.payeeName}#${payer.memberName}`;
+				const payerToPayeeKey = `${payer.memberName}#${share.payeeName}`;
 				const currentPayeeToPayer = currencyDebts[payeeToPayerKey] || 0;
 				const payerShareAmount = shareAmount * (Number(payer.amount) / getTotalPaid(paidByAndAmounts));
 
@@ -440,7 +437,7 @@ export const deleteExpense = async (tripId: string, expenseId: string, members: 
 		for (const payer of paidByAndAmounts) {
 			const paidAmount = Number(payer.amount);
 			if (!isNaN(paidAmount) && paidAmount !== 0) {
-				updates[`members.${payer.memberId}.amtLeft`] = increment(paidAmount);
+				updates[`members.${payer.memberName}.amtLeft`] = increment(paidAmount);
 				totalPaidAmt += paidAmount;
 			}
 		}
@@ -469,7 +466,6 @@ export const reverseExpensesAndUpdate = async (
 	expenseId: string,
 	members: Record<string, Member>, // Needed for payer ID lookup if not stored on expense
 	reverse: boolean,
-	profiles: Record<string, string>
 ): Promise<void> => {
 	const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
 	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
@@ -484,7 +480,7 @@ export const reverseExpensesAndUpdate = async (
 		}
 
 		let reversalUpdatesRaw: { [key: string]: number } = {}
-		reversalUpdatesRaw = generateExpenseImpactUpdate(reversalUpdatesRaw, expenseSnap.data() as Expense, members, reverse, profiles, expenseId);
+		reversalUpdatesRaw = generateExpenseImpactUpdate(reversalUpdatesRaw, expenseSnap.data() as Expense, members, reverse, expenseId);
 		let reversalUpdates = formatToFirebase(reversalUpdatesRaw)
 
 		batch.update(tripDocRef, reversalUpdates);
@@ -499,6 +495,6 @@ export const reverseExpensesAndUpdate = async (
 };
 
 // Helper to sum total paid from paidByAndAmounts
-function getTotalPaid(paidByAndAmounts: {memberId: string, amount: string}[]): number {
+function getTotalPaid(paidByAndAmounts: {memberName: string, amount: string}[]): number {
 	return paidByAndAmounts.reduce((sum, p) => sum + Number(p.amount), 0);
 }

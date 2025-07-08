@@ -23,7 +23,6 @@ import ProposeActivityModal from '@/src/TripSections/Activity/components/Propose
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
 import { SearchBar } from '@/app/trip/components/SearchBar'
-import { useMemberProfiles } from '@/src/context/MemberProfilesContext'
 import ActivityList from '@/app/trip/components/ItemList/ActivityList'
 import { BaseSection } from '@/app/common_components/BaseSection'
 import { CommonModal } from '@/app/common_components/CommonModal'
@@ -38,7 +37,6 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
     const [proposeModalVisible, setProposeModalVisible] = useState(false);
     const [editingActivity, setEditingActivity] = useState<ProposedActivity | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const profiles = useMemberProfiles();
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const { isLoaded, isSignedIn, user } = useUser()
@@ -147,7 +145,6 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
         <ActivityList
           activities={activities}
           searchQuery={searchQuery}
-          profiles={profiles}
           onVoteUp={handleVoteUp}
           onVoteDown={handleVoteDown}
           isRefreshing={isRefreshing}
@@ -182,7 +179,6 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
               setEditingActivity(null)
             }}
             onSubmit={handleProposeSubmit}
-            currentUserId={currentUserId}
             currentUserName={currentUserName}
             initialData={editingActivity || undefined}
           />

@@ -4,7 +4,6 @@ import { Modal, Portal, Text, Button, RadioButton, Surface, Avatar, useTheme, Ac
 import { AddMemberType, Member } from '@/src/types/DataTypes';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
 
 type ChooseExistingOrNewProps = {
   visible: boolean;
@@ -25,7 +24,6 @@ export default function ChooseExistingOrNew({
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const paperTheme = useTheme();
 
   const handleConfirm = () => {
     if (choice === 'existing' && selectedMemberId) {
@@ -36,10 +34,8 @@ export default function ChooseExistingOrNew({
     onDismiss();
   };
 
-  const profiles = useMemberProfiles();
-
   const mockMemberEntries = Object.entries(mockMembers).filter(([_, member]) => member.addMemberType === AddMemberType.MOCK);
-  const isLoadingProfiles = mockMemberEntries.some(([id]) => !profiles[id]);
+  const isLoadingProfiles = mockMemberEntries.some(([username]) => !username);
 
   return (
     <Portal>
@@ -126,12 +122,12 @@ export default function ChooseExistingOrNew({
                       <View style={styles.memberContent}>
                         <Avatar.Text
                           size={40}
-                          label={profiles[member.id]?.substring(0, 2).toUpperCase() || "??"}
+                          label={member.username?.substring(0, 2).toUpperCase() || "??"}
                           style={{ backgroundColor: theme.colors.primary }}
                         />
                         <View style={styles.memberInfo}>
                           <Text variant="titleMedium" style={{ color: theme.colors.text }}>
-                            {profiles[member.id]}
+                            {member.username}
                           </Text>
                           <Text variant="bodySmall" style={{ color: theme.colors.subtext }}>
                             Budget: ${member.budget.toFixed(2)}

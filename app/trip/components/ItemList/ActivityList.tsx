@@ -9,7 +9,6 @@ import { groupByDate } from '@/src/trip/components/DateButton';
 interface ActivityListProps {
   activities: ProposedActivity[];
   searchQuery: string;
-  profiles: Record<string, string>;
   onVoteUp: (id: string) => void;
   onVoteDown: (id: string) => void;
   isRefreshing: boolean;
@@ -23,7 +22,6 @@ interface ActivityListProps {
 const ActivityList = memo(({
   activities,
   searchQuery,
-  profiles,
   onVoteUp,
   onVoteDown,
   isRefreshing,
@@ -47,7 +45,7 @@ const ActivityList = memo(({
   const searchFields = (activity: ProposedActivity) => [
     activity.name,
     activity.description || '',
-    profiles[activity.suggestedByID]?.toString() || ''
+    activity.suggestedByName?.toString() || ''
   ];
 
   const sections = groupByDate(activities || []);
@@ -56,7 +54,6 @@ const ActivityList = memo(({
     <GenericList
       sections={sections}
       searchQuery={searchQuery}
-      profiles={profiles}
       renderItem={renderActivityItem}
       searchFields={searchFields}
       emptyMessage={{

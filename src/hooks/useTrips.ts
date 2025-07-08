@@ -11,7 +11,7 @@ export function useTrips() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user?.id) {
+    if (!user?.username) {
       setIsTripsLoading(false);
       return;
     }
@@ -21,7 +21,7 @@ export function useTrips() {
 
     const q = query(
       collection(db, 'trips'),
-      where(`members.${user.id}`, '!=', null)
+      where(`members.${user.username}`, '!=', null)
     );
 
     const unsubscribe = onSnapshot(
@@ -43,7 +43,7 @@ export function useTrips() {
     );
 
     return () => unsubscribe();
-  }, [user?.id]);
+  }, [user?.username]);
 
   return { trips, isTripsLoading, error };
 } 

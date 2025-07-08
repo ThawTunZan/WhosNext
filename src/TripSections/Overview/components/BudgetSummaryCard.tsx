@@ -4,11 +4,9 @@ import { Card, Text, ProgressBar, useTheme, ActivityIndicator } from 'react-nati
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { Member, Currency } from '@/src/types/DataTypes';
-import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
 
 type BudgetSummaryCardProps = {
   members: Record<string, Member>;
-  profiles: Record<string, string>;
   totalBudget: number;
   totalAmtLeft: number;
   tripCurrency: Currency;
@@ -23,7 +21,6 @@ export default function BudgetSummaryCard({
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
-  const profiles = useMemberProfiles();
 
   const totalProgress = totalBudget > 0 ? totalAmtLeft / totalBudget : 0;
   const getProgressColor = (progress: number) => {
@@ -32,19 +29,6 @@ export default function BudgetSummaryCard({
     return theme.colors.error;
   };
 
-  const getMemberName = (uid: string) => {
-    if (!profiles) return 'Loading...';
-    const name = profiles[uid];
-    console.log("Getting name for uid:", uid);
-    console.log("Name from profiles:", name);
-    console.log("Full profiles object:", profiles);
-    
-    // Only fallback to UID if name is undefined or empty string
-    if (typeof name !== 'string' || name.trim() === '') {
-      return `${uid.slice(0, 10)}...`;
-    }
-    return name;
-  };
 
   const currencySymbol = tripCurrency === 'USD' ? '$' : tripCurrency;
 
@@ -75,11 +59,11 @@ export default function BudgetSummaryCard({
           <Text variant="titleMedium" style={[styles.memberTitle, { color: theme.colors.text }]}>
             Individual Budgets
           </Text>
-          {Object.entries(members).map(([uid, m]) => {
+          {Object.entries(members).map(([username, m]) => {
             const progress = m.budget > 0 ? m.amtLeft / m.budget : 0;
-            const memberName = getMemberName(uid);
+            const memberName = username;
             return (
-              <View key={uid} style={styles.memberBar}>
+              <View key={username} style={styles.memberBar}>
                 <View style={styles.memberHeader}>
                   <Text style={[styles.memberName, { color: theme.colors.text }]}>
                     {memberName}

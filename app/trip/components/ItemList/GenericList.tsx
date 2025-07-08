@@ -12,7 +12,6 @@ interface Section<T> {
 interface GenericListProps<T> {
   sections: Section<T>[];
   searchQuery: string;
-  profiles: Record<string, string>;
   renderItem: ({ item }: { item: T }) => React.ReactElement;
   searchFields: (item: T) => string[];
   emptyMessage: {
@@ -28,7 +27,6 @@ interface GenericListProps<T> {
 function GenericList<T>({
   sections,
   searchQuery,
-  profiles,
   renderItem,
   searchFields,
   emptyMessage,

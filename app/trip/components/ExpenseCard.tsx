@@ -4,7 +4,6 @@ import { Card, Text, IconButton, List, Avatar, Divider } from 'react-native-pape
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { Expense, SharedWith } from '@/src/types/DataTypes';
-import { useMemberProfiles } from '@/src/context/MemberProfilesContext';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 
@@ -25,10 +24,9 @@ export default function ExpenseCard({
 }: ExpenseCardProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const profiles = useMemberProfiles();
 
   // Get array of payer names for this expense
-  const paidByNames = expense.paidByAndAmounts.map(p => profiles[p.memberId] || 'Someone').join(',  ');
+  const paidByNames = expense.paidByAndAmounts.map(p => p.memberName || 'Someone').join(',  ');
 
   // Calculate total shared amount
   const totalShared = expense.paidByAndAmounts.reduce(
@@ -68,18 +66,18 @@ export default function ExpenseCard({
   const getPayeeNames = (sharedWith: SharedWith[]) => {
     return sharedWith
       .map(share => ({
-        name: profiles[share.payeeID] || "Unknown",
+        name: share.payeeName || "Unknown",
         amount: share.amount
       }))
       .sort((a, b) => b.amount - a.amount);
   };
 
   const getPayerNames = (paidByAndAmounts: {
-    memberId: string;
+    memberName: string;
     amount: string;
     }[]) => {
       return paidByAndAmounts.map(each => ({
-        name: profiles[each.memberId] || 'unknown',
+        name: each.memberName || 'unknown',
         amount: parseFloat(each.amount) || 0
       }))
   }

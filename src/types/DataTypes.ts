@@ -69,7 +69,7 @@ export type OwesTotalMap = Record<Currency, number>;
 
 // Individual member data
 export type Member = {
-  id: string;
+  username: string;
   budget: number;
   amtLeft: number;
   currency: Currency;
@@ -85,7 +85,7 @@ export type Expenses = {[id:string]: {expense: Expense}}
   
   // Type for how an expense is shared among payees
 export type SharedWith = {
-  payeeID: string;
+  payeeName: string;
   amount: number;
   currency: Currency
 };
@@ -94,7 +94,7 @@ export type SharedWith = {
 export type Expense = {
   id: string; // Firestore document ID
   activityName: string;
-  paidByAndAmounts: {memberId: string, amount: string}[];
+  paidByAndAmounts: {memberName: string, amount: string}[];
   sharedWith: SharedWith[];
   createdAt: Timestamp; // Firestore Timestamp type for consistency
   currency: Currency;
@@ -108,7 +108,7 @@ export type ExpensesSectionProps = {
   // setIsRowSwiping: (v: boolean) => void;
   onAddExpensePress: () => void;
   onEditExpense: (expense: Expense) => void;
-  nextPayerId: string | null
+  nextPayerName: string | null
 };
 
 // Props for the ExpenseListItem component
@@ -129,7 +129,7 @@ export interface AddExpenseModalProps {
   tripId: string;
   initialData?: Partial<Expense>;
   editingExpenseId?: string;
-  suggestedPayerId?: string;
+  suggestedPayerName?: string;
 }
 
 // Props for the ActivityVotingSection component
@@ -156,7 +156,7 @@ export type ProposedActivity = {
   id: string; // Firestore document ID
   name: string;
   description?: string | null;
-  suggestedByID: string | null;
+  suggestedByName: string | null;
   estCost?: number | null;
   currency: Currency;
   createdAt: Timestamp;  // Firestore Timestamp
@@ -180,14 +180,13 @@ export type ProposeActivityModalProps = {
   // so the modal knows when the submission attempt is complete.
   onSubmit: (data: NewProposedActivityData) => Promise<void>;
   // Pass current user's ID and Name to assign as proposer
-  currentUserId: string | null;
   currentUserName: string | null;
   initialData?: Partial<NewProposedActivityData>
 };
 
 export type Debt = {
-  fromUserId: string;
-  toUserId: string;
+  fromUserName: string;
+  toUserName: string;
   amount: number;
   currency: Currency;
 }
@@ -195,8 +194,8 @@ export type Debt = {
 export type Payment = {
   id?: string;
   tripId: string;
-  fromUserId: string;
-  toUserId: string;
+  fromUserName: string;
+  toUserName: string;
   amount: number;
   currency: Currency;
   method: 'cash' | 'transfer' | 'other';
@@ -212,7 +211,7 @@ export interface TripData {
   totalBudget?: number;
   totalAmtLeft?: number;
   debts?: Debt[];
-  userId: string;
+  createdBy: string;
   currency: Currency;
   premiumStatus: PremiumStatus;
   startDate: Timestamp

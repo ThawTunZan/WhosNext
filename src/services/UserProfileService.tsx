@@ -17,13 +17,12 @@ export interface UserProfile {
  * Creates or merges the document with the latest Clerk fields.
  */
 export async function upsertClerkUserToFirestore(user: {
-  id: string
   username?: string
   fullName?: string
   primaryEmailAddress?: { emailAddress: string }
   profileImageUrl?: string
 }) {
-  const ref = doc(db, "users", user.id)
+  const ref = doc(db, "users", user.username)
   await setDoc(
     ref,
     {
@@ -32,38 +31,8 @@ export async function upsertClerkUserToFirestore(user: {
       email: user.primaryEmailAddress?.emailAddress || "",
       avatarUrl: user.profileImageUrl || "",
       updatedAt: new Date(),
-      premiumStatus: await getUserPremiumStatus(user.id) || PremiumStatus.FREE,
+      premiumStatus: await getUserPremiumStatus(user.username) || PremiumStatus.FREE,
     },
     { merge: true }
   )
-}
-
-/** Read the profile for the current user (or create if missing) */
-export async function fetchOrCreateUserProfile(userId: string): Promise<UserProfile> {
-  const ref = doc(db, "users", userId)
-  const snap = await getDoc(ref)
-  if (snap.exists()) {
-    return snap.data() as UserProfile
-  } else {
-    const initial: UserProfile = {
-      username: "",
-      avatarUrl: "",
-      updatedAt: new Date(),
-      premiumStatus: PremiumStatus.FREE,
-    }
-    await setDoc(ref, initial)
-    return initial
-  }
-}
-
-/** Update just these fields on the user's profile doc */
-export async function updateUserProfile(
-  userId: string,
-  updates: Partial<Pick<UserProfile, "username" | "avatarUrl">>
-) {
-  const ref = doc(db, "users", userId)
-  await updateDoc(ref, {
-    ...updates,
-    updatedAt: new Date(),
-  })
 }

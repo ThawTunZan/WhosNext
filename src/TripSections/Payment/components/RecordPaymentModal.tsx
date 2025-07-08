@@ -9,14 +9,13 @@ import { Currency, Debt, Member, Payment } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
-import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 type RecordPaymentModalProps = {
   visible: boolean;
   onDismiss: () => void;
   onSubmit: (payment: Payment) => Promise<void>;
   debts: Debt[];
-  currentUserId: string;
+  currentUsername: string;
   tripId: string;
   defaultCurrency: Currency;
   members: Record<string, Member>;
@@ -24,44 +23,33 @@ type RecordPaymentModalProps = {
 
 const MemberList = memo(({ 
   members, 
-  selectedId, 
+  selectedUsername, 
   onSelect, 
   onClose,
-  excludeId,
+  excludeUsername,
   theme,
   isPayee = false,
   getDebtAmount,
   selectedPayer,
   onDebtSelect
 }: { 
-  members: { id: string; name: string }[];
-  selectedId: string;
-  onSelect: (id: string) => void;
+  members: { username: string; name: string }[];
+  selectedUsername: string;
+  onSelect: (username: string) => void;
   onClose: () => void;
-  excludeId?: string;
+  excludeUsername?: string;
   theme: any;
   isPayee?: boolean;
-  getDebtAmount?: (fromId: string, toId: string) => Promise<{amount: number, currency: Currency}>;
+  getDebtAmount?: (fromUsername: string, toUsername: string) => Promise<{amount: number, currency: Currency}>;
   selectedPayer?: string;
   onDebtSelect?: (amount: number, currency: Currency) => void;
 }) => {
-  const filteredMembers = excludeId ? members.filter(m => m.id !== excludeId) : members;
+  const filteredMembers = excludeUsername ? members.filter(m => m.username !== excludeUsername) : members;
   const [memberDebts, setMemberDebts] = useState<Record<string, {amount: number, currency: Currency}>>({});
-
-  console.log('MemberList render - isPayee:', isPayee);
-  console.log('MemberList render - selectedPayer:', selectedPayer);
-  console.log('MemberList render - memberDebts:', memberDebts);
 
   // Fetch debt amounts for payee list
   React.useEffect(() => {
     const fetchDebts = async () => {
-      console.log('Starting fetchDebts - conditions:', {
-        isPayee,
-        hasGetDebtAmount: !!getDebtAmount,
-        selectedPayer,
-        memberCount: filteredMembers.length
-      });
-
       if (!isPayee || !getDebtAmount || !selectedPayer) {
         console.log('Skipping debt fetch - conditions not met');
         return;
@@ -69,14 +57,11 @@ const MemberList = memo(({
       
       const debts: Record<string, {amount: number, currency: Currency}> = {};
       for (const member of filteredMembers) {
-        console.log('Fetching debt for member:', member.id);
-        const debt = await getDebtAmount(selectedPayer, member.id);
-        console.log('Received debt:', debt, 'for member:', member.id);
+        const debt = await getDebtAmount(selectedPayer, member.username);
         if (debt.amount > 0) {
-          debts[member.id] = debt;
+          debts[member.username] = debt;
         }
       }
-      console.log('Setting memberDebts:', debts);
       setMemberDebts(debts);
     };
 
@@ -91,12 +76,10 @@ const MemberList = memo(({
         style={[styles.dropdownScroll, { backgroundColor: theme.colors.surface }]}
       >
         {filteredMembers.map((member) => {
-          const debt = memberDebts[member.id];
-          console.log('Rendering member:', member.id, 'debt:', debt);
-          
+          const debt = memberDebts[member.username];
           return (
             <List.Item
-              key={member.id}
+              key={member.username}
               title={
                 <View style={styles.memberItemContent}>
                   <Text style={styles.memberName}>{member.name}</Text>
@@ -108,7 +91,7 @@ const MemberList = memo(({
                 </View>
               }
               onPress={() => {
-                onSelect(member.id);
+                onSelect(member.username);
                 if (debt && onDebtSelect) {
                   onDebtSelect(debt.amount, debt.currency);
                 }
@@ -116,7 +99,7 @@ const MemberList = memo(({
               }}
               style={[
                 styles.dropdownItem,
-                selectedId === member.id && { backgroundColor: theme.colors.primaryContainer }
+                selectedUsername === member.username && { backgroundColor: theme.colors.primaryContainer }
               ]}
             />
           );
@@ -131,14 +114,13 @@ export default function RecordPaymentModal({
   onDismiss,
   onSubmit,
   debts = [],
-  currentUserId,
+  currentUsername,
   tripId,
   defaultCurrency = 'USD',
   members
 }: RecordPaymentModalProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const profiles = useMemberProfiles();
 
   const [showPayerDropdown, setShowPayerDropdown] = useState(false);
   const [showPayeeDropdown, setShowPayeeDropdown] = useState(false);
@@ -147,7 +129,7 @@ export default function RecordPaymentModal({
   const [date, setDate] = useState(new Date());
   const [note, setNote] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedPayer, setSelectedPayer] = useState(currentUserId);
+  const [selectedPayer, setSelectedPayer] = useState(currentUsername);
   const [selectedPayee, setSelectedPayee] = useState('');
   const [amount, setAmount] = useState('');
   const [selectedCurrency, setSelectedCurrency] = useState<Currency>(defaultCurrency);
@@ -155,28 +137,23 @@ export default function RecordPaymentModal({
 
   // Get list of all members who can be payers or payees
   const membersList = React.useMemo(() => {
-    return Object.entries(members).map(([id, member]) => ({
-      id,
-      name: profiles[id] || id
+    return Object.entries(members).map(([username, member]) => ({
+      username,
+      name: username
     }));
-  }, [members, profiles]);
+  }, [members]);
 
   // Get the total debt amount between two members
-  const getDebtAmountForMember = async (fromId: string, toId: string): Promise<{amount: number, currency: Currency}> => {
-    console.log('getDebtAmountForMember called with:', { fromId, toId });
-    console.log('Current debts:', debts);
+  const getDebtAmountForMember = async (fromUsername: string, toUsername: string): Promise<{amount: number, currency: Currency}> => {
     
     // Handle the new debt structure where debts is an object keyed by currency
     if (typeof debts === 'object' && !Array.isArray(debts)) {
       for (const [currency, debtsByUser] of Object.entries(debts)) {
-        console.log('Checking currency:', currency, 'debts:', debtsByUser);
-        
         // Check if there's a debt from the payer to the payee
-        const debtKey = `${fromId}#${toId}`;
+        const debtKey = `${fromUsername}#${toUsername}`;
         const amount = debtsByUser[debtKey];
         
         if (amount) {
-          console.log('Found debt:', { currency, amount });
           return { amount, currency: currency as Currency };
         }
       }
@@ -198,8 +175,8 @@ export default function RecordPaymentModal({
     }
     setErrors({});
     const payment: Payment = {
-      fromUserId: selectedPayer,
-      toUserId: selectedPayee,
+      fromUserName: selectedPayer,
+      toUserName: selectedPayee,
       amount: parseFloat(amount),
       currency: selectedCurrency,
       method,
@@ -207,7 +184,6 @@ export default function RecordPaymentModal({
       note,
       tripId,
       createdTime: serverTimestamp(),
-      //TODO
       createdDate: Timestamp.now()
     };
     await onSubmit(payment);
@@ -240,14 +216,14 @@ export default function RecordPaymentModal({
                 <View style={styles.inputContainer}>
                   <Text style={[styles.label, { color: theme.colors.text }]}>Paying From</Text>
                   <List.Accordion
-                    title={selectedPayer ? profiles[selectedPayer] || selectedPayer : "Select payer"}
+                    title={selectedPayer || "Select payer"}
                     expanded={showPayerDropdown}
                     onPress={() => setShowPayerDropdown(!showPayerDropdown)}
                     style={[styles.dropdown, { backgroundColor: theme.colors.surface }]}
                   >
                     <MemberList
                       members={membersList}
-                      selectedId={selectedPayer}
+                      selectedUsername={selectedPayer}
                       onSelect={setSelectedPayer}
                       onClose={() => setShowPayerDropdown(false)}
                       theme={theme}
@@ -259,31 +235,25 @@ export default function RecordPaymentModal({
                 <View style={styles.inputContainer}>
                   <Text style={[styles.label, { color: theme.colors.text }]}>Paying To</Text>
                   <List.Accordion
-                    title={selectedPayee ? profiles[selectedPayee] || selectedPayee : "Select payee"}
+                    title={selectedPayee || "Select payee"}
                     expanded={showPayeeDropdown}
                     onPress={() => {
-                      console.log('Toggling payee dropdown. Current state:', {
-                        showPayeeDropdown,
-                        selectedPayer,
-                        selectedPayee,
-                        debtsCount: debts.length
-                      });
                       setShowPayeeDropdown(!showPayeeDropdown);
                     }}
                     style={[styles.dropdown, { backgroundColor: theme.colors.surface }]}
                   >
                     <MemberList
                       members={membersList}
-                      selectedId={selectedPayee}
+                      selectedUsername={selectedPayee}
                       onSelect={setSelectedPayee}
                       onClose={() => setShowPayeeDropdown(false)}
-                      excludeId={selectedPayer}
+                      excludeUsername={selectedPayer}
                       theme={theme}
                       isPayee={true}
                       getDebtAmount={getDebtAmountForMember}
                       selectedPayer={selectedPayer}
                       onDebtSelect={(amount, currency) => {
-                        console.log('Debt selected:', { amount, currency });
+                        
                         setAmount(amount.toString());
                         setSelectedCurrency(currency);
                       }}
