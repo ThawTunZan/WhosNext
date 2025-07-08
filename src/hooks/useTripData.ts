@@ -17,7 +17,7 @@ export const useTripData = (tripId: string | null | undefined) => {
             setTrip(null);
             setExpenses([]);
             setPayments([]);
-            setError(new Error("No Trip ID provided to useTripData."));
+            setError(new Error("No Trip ID provided to useTripData"));
             return;
         }
 
