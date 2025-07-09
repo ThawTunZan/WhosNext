@@ -36,6 +36,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { BaseSection } from '@/app/common_components/BaseSection';
 import { CommonModal } from '@/app/common_components/CommonModal';
 import { CommonCard } from '@/app/common_components/CommonCard';
+import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 
 // Types
 type Props = { tripId: string }
@@ -56,13 +57,15 @@ export default function ReceiptSection({ tripId }: Props) {
   const theme = isDarkMode ? darkTheme : lightTheme;
 
   const { isLoaded, isSignedIn, user } = useUser()
+  const { expenses, loading: expensesLoading } = useTripExpensesContext();
 
   if (!isLoaded) return null
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />
   const currentUserId = user.id
   // State
   const [receipts, setReceipts] = useState<Receipt[]>([])
-  const [expenses, setExpenses] = useState<Expense[]>([])
+  // Remove local expenses state
+  // const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(false)
 
   // Modal state
@@ -70,7 +73,7 @@ export default function ReceiptSection({ tripId }: Props) {
   const [selectedExpense, setSelectedExpense] = useState<string | null>(null)
   const [pickedImageUri, setPickedImageUri] = useState<string | null>(null)
 
-  // Fetch receipts & expenses
+  // Fetch receipts only
   const fetchReceipts = async () => {
     const q = query(collection(db, "receipts"), where("tripId", "==", tripId))
     const snap = await getDocs(q)
@@ -79,27 +82,13 @@ export default function ReceiptSection({ tripId }: Props) {
     )
   }
 
-  const fetchExpenses = async () => {
-    const q = query(
-      collection(db, "trips", tripId, "expenses")
-    )
-    const snap = await getDocs(q)
-    setExpenses(
-      snap.docs.map((d) => ({
-        id: d.id,
-        activityName: (d.data() as any).activityName as string,
-        paidById: (d.data() as any).paidById as string,
-      }))
-    )
-  }
-
+  // Remove fetchExpenses and useEffect for expenses
   useEffect(() => {
     fetchReceipts()
-    fetchExpenses()
   }, [])
 
   // Filter out expenses that already have a receipt
-  const availableExpenses = expenses.filter(
+  const availableExpenses = (expenses || []).filter(
     (e) => !receipts.some((r) => r.expenseId === e.id)
   )
 
