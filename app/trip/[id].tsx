@@ -46,7 +46,7 @@ export default function TripPageWrapper() {
 
 function TripPage({ tripId }) {
   const { isLoaded, isSignedIn, user } = useUser();
-  const currentUserId = user?.id;
+  const currentUsername = user?.username;
   // Get trip from UserTripsContext
   const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
   const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
@@ -131,7 +131,7 @@ function TripPage({ tripId }) {
     setHasLeftTrip,
     setActivityToDeleteId,
     setSnackbarMessage,
-  } = useTripState(tripId!, currentUserId!);
+  } = useTripState(tripId!, currentUsername!);
 
   const {
     handleAddMember,
@@ -253,11 +253,10 @@ function TripPage({ tripId }) {
 
             {selectedTab === "overview" && (
               <OverviewTab
-                members={safeMembers as Record<string, Member>}
                 usernames={Object.fromEntries(Object.entries(safeMembers as Record<string, Member>).map(([k, v]) => [k, v.username || k]))}
                 totalBudget={trip.totalBudget}
                 totalAmtLeft={trip.totalAmtLeft}
-                currentUserId={currentUserId}
+                currentUsername={currentUsername}
                 onAddMember={handleAddMember}
                 onRemoveMember={handleRemoveMember}
                 onEditBudget={openBudgetDialog}
@@ -283,7 +282,6 @@ function TripPage({ tripId }) {
             {selectedTab === "settle" && (
               <SettleUpSection
                 debts={Array.isArray(trip.debts) ? trip.debts : []}
-                members={safeMembers as Record<string, Member>}
                 tripId={tripId!}
                 tripCurrency={trip.currency}
               />
@@ -323,7 +321,7 @@ function TripPage({ tripId }) {
                 value={newBudgetInput}
                 onChangeValue={setNewBudgetInput}
                 onSubmit={submitBudgetChange}
-                currency={safeMembers[currentUserId]?.currency || 'USD'}
+                currency={safeMembers[currentUsername]?.currency || 'USD'}
               />
             </Portal>
 

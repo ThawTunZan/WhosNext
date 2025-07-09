@@ -6,7 +6,7 @@ import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { Member } from '@/src/types/DataTypes';
 
 type BudgetSummaryCardProps = {
-  members: Record<string, Member>;
+  members: { [username: string]: { addMemberType: string; amtLeft: number; budget: number; currency: string; owesTotalMap: { [currency: string]: number; }; receiptsCount: number; username: string; }; };
   totalBudget: number;
   totalAmtLeft: number;
   tripCurrency: string;

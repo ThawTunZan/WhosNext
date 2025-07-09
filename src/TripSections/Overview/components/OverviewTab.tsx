@@ -3,19 +3,19 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, useTheme, Text } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Member, AddMemberType } from '@/src/types/DataTypes';
+import { Member, AddMemberType, FirestoreTrip } from '@/src/types/DataTypes';
 import BudgetSummaryCard from '@/src/TripSections/Overview/components/BudgetSummaryCard';
 import PersonalBudgetCard from '@/src/TripSections/Overview/components/PersonalBudgetCard';
 import MemberList from '@/app/trip/MemberList';
 import NextPayerCard from '@/app/trip/components/NextPayerCard';
 import { UpgradeTripButton } from '@/src/components';
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 type OverviewTabProps = {
-  members: Record<string, Member>;
   usernames: Record<string, string>;
   totalBudget: number;
   totalAmtLeft: number;
-  currentUserId: string;
+  currentUsername: string;
   onAddMember: ( name: string, budget: number, currency: string, addMemberType: AddMemberType) => void;
   onRemoveMember: (memberId: string) => void;
   onEditBudget: () => void;
@@ -29,10 +29,9 @@ type OverviewTabProps = {
 };
 
 export default function OverviewTab({
-  members,
   totalBudget,
   totalAmtLeft,
-  currentUserId,
+  currentUsername,
   onAddMember,
   onRemoveMember,
   onEditBudget,
@@ -47,6 +46,10 @@ export default function OverviewTab({
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
+  const {trips} = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
+  const members = trip?.members || {};
+  console.log("MEMBERS IN OVERVIEW TAB ARE ",members)
 
   return (
     <ScrollView 
@@ -64,10 +67,6 @@ export default function OverviewTab({
           onAddMember={onAddMember} 
           onRemoveMember={onRemoveMember}
           onClaimMockUser={onClaimMockUser}
-          onGenerateClaimCode={async (memberId) => {
-            const member = members[memberId];
-            return member.claimCode || '';
-          }}
           tripId={tripId}
         />
       </View>
@@ -83,9 +82,9 @@ export default function OverviewTab({
           tripCurrency={tripCurrency}
         />
 
-        {members[currentUserId] && (
+        {members[currentUsername] && (
           <PersonalBudgetCard
-            member={members[currentUserId]}
+            member={members[currentUsername]}
             onEditBudget={onEditBudget}
           />
         )}
@@ -101,7 +100,7 @@ export default function OverviewTab({
       )}
 
       <View style={styles.actionButtons}>
-        {Object.keys(members)[0] === currentUserId && (
+        {Object.keys(members)[0] === currentUsername && (
           <Button
             mode="contained"
             onPress={onDeleteTrip}

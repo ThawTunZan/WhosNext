@@ -23,10 +23,23 @@ type MemberListProps = {
   tripId: string;
 };
 
+type membersType = {
+  [username: string]: {
+      addMemberType: string;
+      amtLeft: number;
+      budget: number;
+      currency: string;
+      owesTotalMap: {
+          [currency: string]: number;
+      };
+      receiptsCount: number;
+      username: string;
+  };
+}
+
 export default function MemberList({ 
   onAddMember, 
   onRemoveMember,
-  onGenerateClaimCode,
   onClaimMockUser,
   tripId 
 }: MemberListProps) {
@@ -51,12 +64,16 @@ export default function MemberList({
   const paperTheme = useTheme();
   const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
   const trip = trips.find(t => t.id === tripId);
-  const members: Record<string, Member> = (trip && trip.members) ? trip.members : {};
+  //console.log("TRIP IN MEMBERLIST IS ", trip)
+  const members: membersType = (trip && trip.members) ? trip.members : {};
+  //console.log("MEMBERS IN MEMBERLIST ARE ",members)
+
 
   // Only render valid members
   const validMembers: [string, Member][] = Object.entries(members).filter(
-    ([, member]) => member && member.username && typeof member.budget === 'number'
+    ([username, member]) => member && (member.username || username) && typeof member.budget === 'number'
   ) as [string, Member][];
+  //console.log("VALID MEMBERS ARE ", validMembers)
 
   const getInviteUrl = useCallback((inviteId: string, mockUserId: string) => {
     // For development
@@ -177,7 +194,7 @@ export default function MemberList({
         </View>
 
         <View style={styles.rightContent}>
-          {member.addMemberType === AddMemberType.MOCK && onGenerateClaimCode && (
+          {member.addMemberType === AddMemberType.MOCK  && (
             <Chip 
               style={styles.unverifiedBadge}
               textStyle={{ fontSize: 10 }}
@@ -188,7 +205,7 @@ export default function MemberList({
           )}
 
           <View style={styles.actionButtons}>
-            {member.addMemberType === AddMemberType.MOCK && onGenerateClaimCode && (
+            {member.addMemberType === AddMemberType.MOCK && (
               <IconButton
                 icon="link-variant"
                 size={20}
@@ -239,7 +256,6 @@ export default function MemberList({
           <View style={styles.memberGrid}>
             {validMembers.map(([username, member]) => (
               <MemberCard
-                key={username}
                 username={username}
                 member={member}
                 profileName={username}

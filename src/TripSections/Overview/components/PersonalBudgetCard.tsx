@@ -6,7 +6,17 @@ import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { Member } from '@/src/types/DataTypes';
 
 type PersonalBudgetCardProps = {
-  member: Member;
+  member:  {
+        addMemberType: string;
+        amtLeft: number;
+        budget: number;
+        currency: string;
+        owesTotalMap: {
+            [currency: string]: number;
+        };
+        receiptsCount: number;
+        username: string;
+    };
   onEditBudget: () => void;
 };
 
