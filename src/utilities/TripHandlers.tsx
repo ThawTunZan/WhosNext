@@ -53,13 +53,14 @@ export function useTripHandlers({
 				await addMemberToTrip(
 					tripId,
 					memberName,
+					trip,
 					{
 						budget,
 						addMemberType,
 						currency,
 					}
 				);
-				setSnackbarMessage(`${name} ${addMemberType === "mock" ? 'added as a mock member!' : 'added to the trip!'}`);
+				setSnackbarMessage(`${memberName} ${addMemberType === "mock" ? 'added as a mock member!' : 'added to the trip!'}`);
 				setSnackbarVisible(true);
 			} catch (err: any) {
 				console.error(err);

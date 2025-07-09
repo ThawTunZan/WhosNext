@@ -28,7 +28,7 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [budget, setBudget] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const { userFirebase } = useUserTripsContext();
+  const { userData } = useUserTripsContext();
 
   useEffect(() => {
     loadFriends();
@@ -38,7 +38,7 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
     if (!user?.id) return;
     try {
       setLoading(true);
-      const friends = userFirebase.friends || [];
+      const friends = userData.friends || [];
       // friends is now an array of { username, email }
       const friendsData = friends.map((friend: { username: string; email: string }) => ({
         id: friend.username,

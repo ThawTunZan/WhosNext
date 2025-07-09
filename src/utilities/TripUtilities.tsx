@@ -5,7 +5,7 @@ import {
 	getDoc,
 } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Member, AddMemberType, } from '@/src/types/DataTypes';
+import { Member, AddMemberType, FirestoreTrip, } from '@/src/types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
@@ -93,6 +93,7 @@ export async function updatePersonalBudget(
 export const addMemberToTrip = async (
 	tripId: string,
 	memberName: string,
+	tripData: FirestoreTrip,
 	options: {
 		budget?: number,
 		addMemberType?: AddMemberType,
@@ -114,22 +115,16 @@ export const addMemberToTrip = async (
 	} = options;
 
 	const tripRef = doc(db, "trips", tripId);
-	const tripSnap = await getDoc(tripRef);
-
-	if (!tripSnap.exists()) {
-		throw new Error("Trip does not exist");
-	}
-
-	const tripData = tripSnap.data();
 	const members = tripData.members || {};
 
 	// Check if member exists and handle accordingly
 	if (members[memberName]) {
 		if (skipIfExists) {
-			return; // Exit early if member exists and we're told to skip
+			throw new Error("Member already exists in trip");
+			// Exit early if member exists and we're told to skip
 		}
 		// Could throw error here if desired:
-		// throw new Error("Member already exists in trip");
+		// 
 	}
 
 	const newMemberData: Member = {
@@ -150,8 +145,9 @@ export const addMemberToTrip = async (
 		addMemberType: addMemberType,
 	};
 
-	const newMemberDefaultCurrencyBudget = await convertCurrency(newMemberData.budget, newMemberData.currency, tripData.currency);
-
+	//TODO to be used when it is working
+	//const newMemberDefaultCurrencyBudget = await convertCurrency(newMemberData.budget, newMemberData.currency, tripData.currency);
+	const newMemberDefaultCurrencyBudget = newMemberData.budget
 	try {
 		// 1) Update the trip's members map and totals
 		await updateDoc(tripRef, {

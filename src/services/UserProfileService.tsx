@@ -17,6 +17,10 @@ export interface UserProfile {
  * Creates or merges the document with the latest Clerk fields.
  */
 export async function upsertClerkUserToFirestore(user: UserFromFirebase) {
+  if (!user || !user.username) {
+    console.warn("upsertClerkUserToFirestore: user or user.username is undefined, skipping upsert.");
+    return;
+  }
   const ref = doc(db, "users", user.username)
   await setDoc(
     ref,

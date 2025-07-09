@@ -135,7 +135,6 @@ export default function CreateTripScreen() {
       await updateDoc(userDocRef, {
         trips: arrayUnion(tripRef.id)
       });
-
       router.push('/');
     } catch (error) {
       console.error("Error creating trip:", error);

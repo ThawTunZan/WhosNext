@@ -82,7 +82,7 @@ const MemberList = memo(({
               key={member.username}
               title={
                 <View style={styles.memberItemContent}>
-                  <Text style={styles.memberName}>{member.name}</Text>
+                  <Text style={styles.memberName}>{member.username}</Text>
                   {debt && (
                     <Text style={[styles.debtAmount, { color: theme.colors.primary }]}>
                       {` (Owes ${debt.currency} ${debt.amount.toFixed(2)})`}

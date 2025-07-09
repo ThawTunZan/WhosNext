@@ -13,9 +13,9 @@ import { createInvite } from '@/src/TripSections/Invite/utilities/InviteUtilitie
 import * as Linking from 'expo-linking';
 import { useUser } from '@clerk/clerk-expo';
 import QRCode from 'react-native-qrcode-svg';
+import { useUserTripsContext } from "@/src/context/UserTripsContext";
 
 type MemberListProps = {
-  members: { [username: string]: Member };
   onAddMember: (name: string, budget: number, currency: string, addMemberType: AddMemberType) => void;
   onRemoveMember: (name: string) => void;
   onGenerateClaimCode?: (memberId: string) => Promise<string>;
@@ -24,7 +24,6 @@ type MemberListProps = {
 };
 
 export default function MemberList({ 
-  members, 
   onAddMember, 
   onRemoveMember,
   onGenerateClaimCode,
@@ -50,6 +49,9 @@ export default function MemberList({
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
+  const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId);
+  const members = trip.members
 
   const getInviteUrl = useCallback((inviteId: string, mockUserId: string) => {
     // For development

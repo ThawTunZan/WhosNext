@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { useUser } from "@clerk/clerk-expo";
 import { db } from "@/firebase";
-import { collection, doc, getDoc, query, where, getDocs } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { incrementFirestoreRead } from "@/src/utilities/firestoreReadCounter";
 
 const UserTripsContext = createContext(null);
@@ -12,50 +12,87 @@ export const UserTripsProvider = ({ children }) => {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const tripsUnsubRef = useRef([]);
+  const userUnsubRef = useRef(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!isLoaded || !isSignedIn || !user) {
-        setLoading(false);
+    tripsUnsubRef.current.forEach(unsub => unsub && unsub());
+    tripsUnsubRef.current = [];
+    if (userUnsubRef.current) {
+      userUnsubRef.current();
+      userUnsubRef.current = null;
+    }
+    setLoading(true);
+    setError(null);
+    setUserData(null);
+    setTrips([]);
+
+    if (!isLoaded || !isSignedIn || !user) {
+      setLoading(false);
+      return;
+    }
+
+    // Listen to user doc for trips array
+    const userDocRef = doc(db, "users", user.username || user.id);
+    userUnsubRef.current = onSnapshot(userDocRef, async (userDocSnap) => {
+      incrementFirestoreRead();
+      if (!userDocSnap.exists()) {
         setUserData(null);
         setTrips([]);
+        setLoading(false);
         return;
       }
-      setLoading(true);
-      setError(null);
-      try {
-        // Fetch user data
-        const userDocRef = doc(db, "users", user.username || user.id);
-        const userDocSnap = await getDoc(userDocRef);
-        incrementFirestoreRead(); // +1 read for user doc
-        const userDocData = userDocSnap.exists() ? userDocSnap.data() : null;
-        setUserData(userDocData);
-
-        // Fetch only trips in user's trips array
-        const tripIds = userDocData?.trips || [];
-        let tripsList = [];
-        if (tripIds.length > 0) {
-          // Firestore 'in' query supports up to 10 IDs per query
-          const batchSize = 10;
-          for (let i = 0; i < tripIds.length; i += batchSize) {
-            const batchIds = tripIds.slice(i, i + batchSize);
-            const q = query(collection(db, "trips"), where("__name__", "in", batchIds));
-            const batchSnap = await getDocs(q);
-            incrementFirestoreRead(batchSnap.size); // +N reads for trips batch
-            batchSnap.forEach(docSnap => {
-              tripsList.push({ id: docSnap.id, ...docSnap.data() });
-            });
-          }
-        }
-        console.log("TRIPLIST IS ", tripsList)
-        setTrips(tripsList);
-      } catch (err) {
-        setError(err);
-      } finally {
+      const userDocData = userDocSnap.data();
+      setUserData(userDocData);
+      const tripIds = userDocData?.trips || [];
+      if (!tripIds.length) {
+        setTrips([]);
         setLoading(false);
+        return;
+      }
+      // Clean up previous trip listeners
+      tripsUnsubRef.current.forEach(unsub => unsub && unsub());
+      tripsUnsubRef.current = [];
+      let allTrips = [];
+      let completedBatches = 0;
+      const batchSize = 10;
+      setLoading(true);
+      for (let i = 0; i < tripIds.length; i += batchSize) {
+        const batchIds = tripIds.slice(i, i + batchSize);
+        const q = query(collection(db, "trips"), where("__name__", "in", batchIds));
+        const unsub = onSnapshot(q, (batchSnap) => {
+          incrementFirestoreRead(batchSnap.size);
+          // Remove old trips from this batch
+          allTrips = allTrips.filter(trip => !batchIds.includes(trip.id));
+          // Add new trips from this batch
+          batchSnap.forEach(docSnap => {
+            allTrips.push({ id: docSnap.id, ...docSnap.data() });
+          });
+          // If all batches have been processed, update state
+          completedBatches++;
+          if (completedBatches * batchSize >= tripIds.length) {
+            setTrips([...allTrips]);
+            setLoading(false);
+          }
+        }, (err) => {
+          setError(err);
+          setLoading(false);
+        });
+        tripsUnsubRef.current.push(unsub);
+      }
+    }, (err) => {
+      setError(err);
+      setLoading(false);
+    });
+    // Cleanup on unmount
+    return () => {
+      tripsUnsubRef.current.forEach(unsub => unsub && unsub());
+      tripsUnsubRef.current = [];
+      if (userUnsubRef.current) {
+        userUnsubRef.current();
+        userUnsubRef.current = null;
       }
     };
-    fetchData();
   }, [isLoaded, isSignedIn, user]);
 
   return (

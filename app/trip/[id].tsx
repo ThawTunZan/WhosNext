@@ -203,7 +203,7 @@ function TripPage({ tripId }) {
   const handleJoinAsNew = async () => {
     try {
       await handleAddMember(
-        user.fullName || user.username || user.primaryEmailAddress?.emailAddress || 'Unknown User',
+        user.username || user.fullName || user.primaryEmailAddress?.emailAddress || 'Unknown User',
         0,
         'USD',
         AddMemberType.INVITE_LINK

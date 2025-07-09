@@ -54,7 +54,7 @@ export async function convertCurrency(
 
         const isAvailable = await checkApiHealth();
         if (!isAvailable) {
-            console.warn(' API is not available, using 1:1 conversion rate');
+            //console.warn(' API is not available, using 1:1 conversion rate');
             return amount; // Fallback to 1:1 rate
         }
 
