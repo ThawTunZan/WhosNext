@@ -104,88 +104,89 @@ function mergeIncrements(
 }
 
 export const generateExpenseImpactUpdate = (
-  updates: { [key: string]: any },
-  expenseData: Expense,
-  members: Record<string, Member>,
-  reverse: boolean,
-  expenseId?: string,
-  convertedPaidAmt?: number
-): { [key: string]: any } => {
-  const { sharedWith, paidByAndAmounts, currency } = expenseData;
+	updates: { [key: string]: any },
+	expenseData: Expense,
+	members: Record<string, Member>,
+	reverse: boolean,
+	expenseId?: string,
+	convertedPaidAmt?: number
+  ): { [key: string]: any } => {
+  
+	const { sharedWith, paidByAndAmounts, currency } = expenseData;
+  
+	if (!paidByAndAmounts) {
+	  throw new Error(`paid by and amount map has error: ${paidByAndAmounts}`);
+	}
+  
+	// Validate payers
+	paidByAndAmounts.forEach(p => {
+	  if (!members[p.memberName]) {
+		throw new Error(`${p.memberName} does not exist in the trip!`);
+	  }
+	});
+  
+	const multiplier = reverse ? 1 : -1;
+	
+	const allMemberNames = Array.from(new Set([
+		...paidByAndAmounts.map(p => p.memberName),
+		...sharedWith.map(s => s.payeeName)
+	]));
+	const netBalances: Record<string, number> = {};
+  	for (const member of allMemberNames) {
+  	  const paid = Number(paidByAndAmounts.find(p => p.memberName === member)?.amount || 0);
+  	  const owed = Number(sharedWith.find(s => s.payeeName === member)?.amount || 0);
+  	  netBalances[member] = paid - owed;
+  	}
 
-  if (!paidByAndAmounts) {
-    throw new Error(`paid by and amount map has error: ${paidByAndAmounts}`);
-  }
+  	// 2. List debtors and creditors
+  	const debtors = Object.entries(netBalances).filter(([_, net]) => net < -0.001);
+  	const creditors = Object.entries(netBalances).filter(([_, net]) => net > 0.001);
+	console.log("DEBTORS ARE ", debtors);
+	console.log("CREDITORS ARE ", creditors)
 
-  // Validate payers
-  paidByAndAmounts.forEach(p => {
-    if (!members[p.memberName]) {
-      throw new Error(`${p.memberName} does not exist in the trip!`);
-    }
-  });
+  	// 3. Settle debts
+  	let debtorsCopy = debtors.map(([name, net]) => [name, -Number(net)] as [string, number]); // amount owed (positive)
+  	let creditorsCopy = creditors.map(([name, net]) => [name, Number(net)] as [string, number]); // amount to receive (positive)
+	  console.log("debtorsCOPY ARE ", debtorsCopy);
+	  console.log("creditorsCOPY ARE ", creditorsCopy)
 
-  const multiplier = reverse ? 1 : -1;
+	for (let i = 0; i < debtorsCopy.length; i++) {
+    	let [debtor, amtToSettle] = debtorsCopy[i];
+    	for (let j = 0; j < creditorsCopy.length && amtToSettle > 0.001; j++) {
+    	  let [creditor, creditAmt] = creditorsCopy[j];
+    	  if (creditAmt < 0.001) continue;
+    	  const settleAmt = Math.min(amtToSettle, creditAmt);
+		  if (settleAmt > 0) {
+		    const debtKey = reverse
+		  	? `${creditor}#${debtor}`
+		  	: `${debtor}#${creditor}`;
+		
+		    updates[`debts.${currency}.${debtKey}`] =
+		  	(updates[`debts.${currency}.${debtKey}`] || 0) + settleAmt;
+		  }
+    	}
+  	}
 
-  // --- Netting approach ---
-  // 1. Calculate net balances for each member
-  const allMemberNames = Array.from(new Set([
-    ...paidByAndAmounts.map(p => p.memberName),
-    ...sharedWith.map(s => s.payeeName)
-  ]));
+  
+	// Calculate totalPaidAmt
+	let totalPaidAmt = 0;
+	for (const payer of paidByAndAmounts) {
+	  const paidAmount = Number(payer.amount);
+	  if (!isNaN(paidAmount) && paidAmount !== 0) {
+	    totalPaidAmt += paidAmount;
+	  }
+	}
 
-  const netBalances: Record<string, number> = {};
-  for (const member of allMemberNames) {
-    const paid = Number(paidByAndAmounts.find(p => p.memberName === member)?.amount || 0);
-    const owed = Number(sharedWith.find(s => s.payeeName === member)?.amount || 0);
-    netBalances[member] = paid - owed;
-  }
-
-  // 2. List debtors and creditors
-  const debtors = Object.entries(netBalances).filter(([_, net]) => net < -0.001);
-  const creditors = Object.entries(netBalances).filter(([_, net]) => net > 0.001);
-
-  // 3. Settle debts
-  let debtorsCopy = debtors.map(([name, net]) => [name, -Number(net)] as [string, number]); // amount owed (positive)
-  let creditorsCopy = creditors.map(([name, net]) => [name, Number(net)] as [string, number]); // amount to receive (positive)
-
-  for (let i = 0; i < debtorsCopy.length; i++) {
-    let [debtor, amtToSettle] = debtorsCopy[i];
-    for (let j = 0; j < creditorsCopy.length && amtToSettle > 0.001; j++) {
-      let [creditor, creditAmt] = creditorsCopy[j];
-      if (creditAmt < 0.001) continue;
-      const settleAmt = Math.min(amtToSettle, creditAmt);
-      if (settleAmt > 0.001) {
-        const debtKey = reverse
-          ? `${creditor}#${debtor}`
-          : `${debtor}#${creditor}`;
-        updates[`debts.${currency}.${debtKey}`] =
-          (updates[`debts.${currency}.${debtKey}`] || 0) + settleAmt * multiplier;
-        creditorsCopy[j][1] = creditAmt - settleAmt;
-        amtToSettle = amtToSettle - settleAmt;
-      }
-    }
-  }
-
-  // === Update amtLeft for each payer ===
-  let totalPaidAmt = 0;
-  for (const payer of paidByAndAmounts) {
-    const paidAmount = Number(payer.amount);
-    if (!isNaN(paidAmount) && paidAmount !== 0) {
-      updates[`members.${payer.memberName}.amtLeft`] =
-        (updates[`members.${payer.memberName}.amtLeft`] || 0) + multiplier * paidAmount;
-      totalPaidAmt += paidAmount;
-    }
-  }
-
-  // === Update totalAmtLeft ===
-  if (!isNaN(totalPaidAmt)) {
-    updates[`totalAmtLeft`] =
-      (updates[`totalAmtLeft`] || 0) + multiplier * totalPaidAmt;
-  }
-
-  return updates;
-};
-
+	// === Update totalAmtLeft ===
+	if (!isNaN(totalPaidAmt)) {
+	  updates[`totalAmtLeft`] =
+		(updates[`totalAmtLeft`] || 0) + multiplier * totalPaidAmt;
+	  console.log(`totalAmtLeft adjustment = ${multiplier * totalPaidAmt}`);
+	}
+  
+	return updates;
+  };
+  
 function formatToFirebase(updates: { [key: string]: any }) {
 	const out: { [key: string]: any } = {};
 	for (const [k, v] of Object.entries(updates)) {
