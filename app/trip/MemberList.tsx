@@ -51,7 +51,12 @@ export default function MemberList({
   const paperTheme = useTheme();
   const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
   const trip = trips.find(t => t.id === tripId);
-  const members = trip.members
+  const members: Record<string, Member> = (trip && trip.members) ? trip.members : {};
+
+  // Only render valid members
+  const validMembers: [string, Member][] = Object.entries(members).filter(
+    ([, member]) => member && member.username && typeof member.budget === 'number'
+  ) as [string, Member][];
 
   const getInviteUrl = useCallback((inviteId: string, mockUserId: string) => {
     // For development
@@ -131,7 +136,7 @@ export default function MemberList({
 
   const memberCount = Object.keys(members).length;
 
-  const MemberCard = ({ username, member, profileName }: { username: string; member: Member; profileName: string }) => (
+  const MemberCard = ({ username, member, profileName }: { username: string; member: {addMemberType: string; amtLeft: number; budget: number; currency: string; owesTotalMap: { [currency: string]: number; }; receiptsCount: number; username: string; }; profileName: string }) => (
     <Surface style={styles.memberCard} elevation={1}>
       <View style={[styles.memberContent, { overflow: 'hidden' }]}>
         <View style={styles.avatarContainer}>
@@ -232,7 +237,7 @@ export default function MemberList({
           </View>
 
           <View style={styles.memberGrid}>
-            {Object.entries(members).map(([username, member]) => (
+            {validMembers.map(([username, member]) => (
               <MemberCard
                 key={username}
                 username={username}

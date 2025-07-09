@@ -18,7 +18,7 @@ type RecordPaymentModalProps = {
   currentUsername: string;
   tripId: string;
   defaultCurrency: string;
-  members: Record<string, Member>;
+  members: { [username: string]: { addMemberType: string; amtLeft: number; budget: number; currency: string; owesTotalMap: { [currency: string]: number; }; receiptsCount: number; username: string; }; };
 };
 
 const MemberList = memo(({ 

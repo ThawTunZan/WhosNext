@@ -15,15 +15,15 @@ import {
     calculateSimplifiedDebtsPerCurrency,
     ParsedDebt,         
 } from '@/src/TripSections/SettleUp/utilities/SettleUpUtilities'; 
-import { Member, Debt, Payment } from '@/src/types/DataTypes';
+import { Member, Debt, Payment, FirestoreTrip } from '@/src/types/DataTypes';
 import RecordPaymentModal from '@/src/TripSections/Payment/components/RecordPaymentModal';
 import { firebaseRecordPayment, firebaseDeletePayment } from '@/src/services/FirebaseServices';
 import { useTripData } from '@/src/hooks/useTripData';
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 // Props type specific to this component
 type SettleUpProps = {
   debts?: Debt[];
-  members: Record<string, Member>;  
   tripId: string;
   tripCurrency: string;
 };
@@ -34,7 +34,7 @@ type DebtSection = {
   fromName: string;
 };
 
-export default function SettleUpSection({ debts = [], members, tripId, tripCurrency }: SettleUpProps) {
+export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
@@ -47,6 +47,28 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [expandedPaymentIds, setExpandedPaymentIds] = useState<Set<string>>(new Set());
+  const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
+  const members = trip.members;
+  const debts = trip.debts;
+
+  // Transform debts object form the database to Debt[] for RecordPaymentModal
+  const debtsArray: Debt[] = React.useMemo(() => {
+    if (!debts) return [];
+    const arr: Debt[] = [];
+    Object.entries(debts).forEach(([currency, debtsByUsers]) => {
+      Object.entries(debtsByUsers as Record<string, number>).forEach(([userPair, amount]) => {
+        const [fromUserName, toUserName] = userPair.split('#');
+        arr.push({
+          fromUserName,
+          toUserName,
+          amount,
+          currency
+        });
+      });
+    });
+    return arr;
+  }, [debts]);
 
   // Toggle payment expansion
   const togglePaymentExpanded = useCallback((paymentId: string) => {
@@ -63,6 +85,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
 
   // Transform debts from DB format to array format
   const transformDebts = useCallback((rawDebts: any): Debt[] => {
+    console.log('Raw debts:', rawDebts);
     if (!rawDebts) return [];
     
     const transformedDebts: Debt[] = [];
@@ -118,6 +141,8 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
             break;
         }
         setShownDebts(groupDebts(processedDebts));
+        console.log('Processed debts:', processedDebts);
+        console.log('Shown debts:', groupDebts(processedDebts));
       } catch (error) {
         console.error('Error calculating debts:', error);
         // If currency conversion fails, fall back to showing raw debts
@@ -396,7 +421,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
           visible={showPaymentModal}
           onDismiss={() => setShowPaymentModal(false)}
           onSubmit={handlePaymentSubmit}
-          debts={debts}
+          debts={debtsArray} // <-- pass the array, not the raw object
           currentUsername={user?.username || ''}
           tripId={tripId}
           defaultCurrency={tripCurrency}

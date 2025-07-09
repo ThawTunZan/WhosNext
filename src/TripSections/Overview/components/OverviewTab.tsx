@@ -61,7 +61,6 @@ export default function OverviewTab({
           👥 Members
         </Text>
         <MemberList 
-          members={members} 
           onAddMember={onAddMember} 
           onRemoveMember={onRemoveMember}
           onClaimMockUser={onClaimMockUser}
