@@ -32,6 +32,7 @@ export type FirestoreTrip = {
   startDate: any; // Timestamp or string
   totalAmtLeft: number;
   totalBudget: number;
+  premiumStatus: string
 };
 
 export type FirestoreExpense = {
@@ -58,6 +59,7 @@ export type UserFromFirebase = {
     friends?: string[]
     incomingFriendRequests?: { senderId: string, senderUsername: string, status: string, timestamp: string }[]
     outgoingFriendRequests?: { receiverId: string, receiverUsername: string, status: string, timestamp: string }[]
+    trips: string[]
 }
 
 export enum ErrorType {
@@ -123,21 +125,19 @@ export enum AddMemberType {
   MOCK = "mock"
 }
 
-export type OwesTotalMap = Record<Currency, number>;
+export type OwesTotalMap = Record<string, number>;
 
 // Individual member data
 export type Member = {
   username: string;
   budget: number;
   amtLeft: number;
-  currency: Currency;
+  currency: string;
   claimCode?: string;
   addMemberType: AddMemberType;
   owesTotalMap: OwesTotalMap;
   receiptsCount: number;
-};
-
-export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CNY' | 'SGD'; 
+}; 
   
 export type Expenses = {[id:string]: {expense: Expense}}
   
@@ -145,7 +145,7 @@ export type Expenses = {[id:string]: {expense: Expense}}
 export type SharedWith = {
   payeeName: string;
   amount: number;
-  currency: Currency
+  currency: string
 };
   
   // Type for a single expense item
@@ -155,13 +155,12 @@ export type Expense = {
   paidByAndAmounts: {memberName: string, amount: string}[];
   sharedWith: SharedWith[];
   createdAt: Timestamp; // Firestore Timestamp type for consistency
-  currency: Currency;
+  currency: string;
 };
 
 // Props for the main ExpensesSection component
 export type ExpensesSectionProps = {
   tripId: string;
-  members: Record<string, Member>;
   // Consider removing setIsRowSwiping if swipe logic is handled differently or locally
   // setIsRowSwiping: (v: boolean) => void;
   onAddExpensePress: () => void;
@@ -216,7 +215,7 @@ export type ProposedActivity = {
   description?: string | null;
   suggestedByName: string | null;
   estCost?: number | null;
-  currency: Currency;
+  currency: string;
   createdAt: Timestamp;  // Firestore Timestamp
   votes: {
       [userId: string]: VoteType; // Map of UserID -> 'up' or 'down'
@@ -246,7 +245,7 @@ export type Debt = {
   fromUserName: string;
   toUserName: string;
   amount: number;
-  currency: Currency;
+  currency: string;
 }
 
 export type Payment = {
@@ -255,7 +254,7 @@ export type Payment = {
   fromUserName: string;
   toUserName: string;
   amount: number;
-  currency: Currency;
+  currency: string;
   method: 'cash' | 'transfer' | 'other';
   paymentDate: Date | Timestamp;
   note?: string;
@@ -270,7 +269,7 @@ export interface TripData {
   totalAmtLeft?: number;
   debts?: Debt[];
   createdBy: string;
-  currency: Currency;
+  currency: string;
   premiumStatus: PremiumStatus;
   startDate: Timestamp
   endDate: Timestamp

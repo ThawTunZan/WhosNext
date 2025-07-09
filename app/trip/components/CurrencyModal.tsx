@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Dialog, List, Searchbar, IconButton } from 'react-native-paper';
-import { Currency } from '@/src/types/DataTypes';
 import { StyleSheet } from 'react-native';
 import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
 
 interface CurrencyModalProps {
     visible: boolean;
     onDismiss: () => void;
-    selectedCurrency: Currency;
-    onSelectCurrency: (currency: Currency) => void;
+    selectedCurrency: string;
+    onSelectCurrency: (currency: string) => void;
 }
 
 const CurrencyModal: React.FC<CurrencyModalProps> = ({
@@ -25,7 +24,7 @@ const CurrencyModal: React.FC<CurrencyModalProps> = ({
         currency.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const handleCurrencySelect = (currency: Currency) => {
+    const handleCurrencySelect = (currency: string) => {
         onSelectCurrency(currency);
         setSearchQuery(''); // Reset search when selection is made
         onDismiss();

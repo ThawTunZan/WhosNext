@@ -50,7 +50,7 @@ export default function ProfileScreen() {
   const theme = isDarkMode ? darkTheme : lightTheme
   const { trips } = useTrips()
   const [friendCount, setFriendCount] = useState<number>(0);
-  const { userFirebase } = useUserTripsContext();
+  const { userData } = useUserTripsContext();
 
 
   if (!isLoaded || !isSignedIn) {
@@ -59,11 +59,11 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (user && userFirebase?.friends) {
-        upsertClerkUserToFirestore(user).catch(console.error);
-        setFriendCount(userFirebase.friends.length);
+      if (user && userData?.friends) {
+        upsertClerkUserToFirestore(userData).catch(console.error);
+        setFriendCount(userData.friends.length);
       }
-    }, [user, userFirebase?.friends])
+    }, [user, userData?.friends])
   );
 
   const handleImagePick = async () => {

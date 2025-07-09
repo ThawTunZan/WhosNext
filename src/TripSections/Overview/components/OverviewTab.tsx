@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, useTheme, Text } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Member, AddMemberType, Currency } from '@/src/types/DataTypes';
+import { Member, AddMemberType } from '@/src/types/DataTypes';
 import BudgetSummaryCard from '@/src/TripSections/Overview/components/BudgetSummaryCard';
 import PersonalBudgetCard from '@/src/TripSections/Overview/components/PersonalBudgetCard';
 import MemberList from '@/app/trip/MemberList';
@@ -16,7 +16,7 @@ type OverviewTabProps = {
   totalBudget: number;
   totalAmtLeft: number;
   currentUserId: string;
-  onAddMember: ( name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
+  onAddMember: ( name: string, budget: number, currency: string, addMemberType: AddMemberType) => void;
   onRemoveMember: (memberId: string) => void;
   onEditBudget: () => void;
   onLeaveTrip: () => void;
@@ -25,7 +25,7 @@ type OverviewTabProps = {
   nextPayer: string | null;
   onClaimMockUser: (mockUserId: string, claimCode: string) => Promise<void>;
   tripId: string;
-  tripCurrency: Currency;
+  tripCurrency: string;
 };
 
 export default function OverviewTab({

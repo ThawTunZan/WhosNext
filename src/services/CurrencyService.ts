@@ -1,4 +1,3 @@
-import { Currency } from '@/src/types/DataTypes';
 
 // Configuration
 const API_URL = process.env.EXPO_PUBLIC_CUSTOM_API_URL;
@@ -8,8 +7,8 @@ const API_KEY = process.env.EXPO_PUBLIC_CUSTOM_API_KEY;
 interface ConversionResponse {
     convertedAmount: number;
     lastUpdated: string;
-    from: Currency;
-    to: Currency;
+    from: string;
+    to: string;
     amount: number;
 }
 
@@ -33,13 +32,13 @@ const CACHE_DURATION = 1000 * 60 * 60 * 24; // 1 day in milliseconds
  */
 export async function convertCurrency(
     amount: number,
-    fromCurrency: Currency,
-    toCurrency: Currency
+    fromCurrency: string,
+    toCurrency: string
 ): Promise<number> {
     
     // If same currency, return original amount
     if (fromCurrency === toCurrency) {
-        console.log(`Same currency: ${amount} ${fromCurrency} = ${amount} ${toCurrency}`);
+        //console.log(`Same currency: ${amount} ${fromCurrency} = ${amount} ${toCurrency}`);
         return amount;
     }
 
@@ -55,7 +54,7 @@ export async function convertCurrency(
 
         const isAvailable = await checkApiHealth();
         if (!isAvailable) {
-            console.warn('Currency API is not available, using 1:1 conversion rate');
+            console.warn(' API is not available, using 1:1 conversion rate');
             return amount; // Fallback to 1:1 rate
         }
 
@@ -102,7 +101,7 @@ export async function convertCurrency(
  * @returns The exchange rate
  * @throws Error if the rate cannot be retrieved
  */
-export async function getExchangeRate(fromCurrency: Currency, toCurrency: Currency): Promise<number> {
+export async function getExchangeRate(fromCurrency: string, toCurrency: string): Promise<number> {
     try {
         // Convert 1 unit to get the rate
         const rate = await convertCurrency(1, fromCurrency, toCurrency);
@@ -120,7 +119,7 @@ export async function getExchangeRate(fromCurrency: Currency, toCurrency: Curren
  */
 export async function checkApiHealth(): Promise<boolean> {
     try {
-        console.log('Checking API health at:', API_URL); // Add this for debugging
+        //console.log('Checking API health at:', API_URL); // Add this for debugging
         const response = await fetch(`${API_URL}/health`, {
             headers: {
                 'X-API-Key': API_KEY // Add API key to health check

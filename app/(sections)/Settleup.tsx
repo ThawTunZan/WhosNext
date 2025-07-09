@@ -15,7 +15,7 @@ import {
     calculateSimplifiedDebtsPerCurrency,
     ParsedDebt,         
 } from '@/src/TripSections/SettleUp/utilities/SettleUpUtilities'; 
-import { Member, Debt, Currency, Payment } from '@/src/types/DataTypes';
+import { Member, Debt, Payment } from '@/src/types/DataTypes';
 import RecordPaymentModal from '@/src/TripSections/Payment/components/RecordPaymentModal';
 import { firebaseRecordPayment, firebaseDeletePayment } from '@/src/services/FirebaseServices';
 import { useTripData } from '@/src/hooks/useTripData';
@@ -25,7 +25,7 @@ type SettleUpProps = {
   debts?: Debt[];
   members: Record<string, Member>;  
   tripId: string;
-  tripCurrency: Currency;
+  tripCurrency: string;
 };
 
 // Define section type
@@ -73,7 +73,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
           fromUserName,
           toUserName,
           amount,
-          currency: currency as Currency
+          currency: currency
         });
       });
     });

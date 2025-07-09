@@ -20,10 +20,9 @@ import {
   Timestamp,
   FieldValue,
 } from 'firebase/firestore';
-import { Currency, Debt, Payment } from '@/src/types/DataTypes';
+import { Debt, Payment } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 import { deletePayment } from '@/src/TripSections/Payment/utilities/PaymentUtilities';
-import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 // User-related operations (now use context)
 // Usage: const { user } = useUserTripsContext();

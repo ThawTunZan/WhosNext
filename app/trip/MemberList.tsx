@@ -4,7 +4,7 @@ import { View, StyleSheet, Share, Platform, ActivityIndicator } from "react-nati
 import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip, List, Divider } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState, useEffect, useCallback } from "react";
-import { AddMemberType, Currency, Member } from '@/src/types/DataTypes';
+import { AddMemberType, Member } from '@/src/types/DataTypes';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import SelectFriendsModal from '@/app/trip/components/SelectFriendsModal';
@@ -16,7 +16,7 @@ import QRCode from 'react-native-qrcode-svg';
 
 type MemberListProps = {
   members: { [username: string]: Member };
-  onAddMember: (name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
+  onAddMember: (name: string, budget: number, currency: string, addMemberType: AddMemberType) => void;
   onRemoveMember: (name: string) => void;
   onGenerateClaimCode?: (memberId: string) => Promise<string>;
   onClaimMockUser?: (memberId: string, claimCode: string) => Promise<void>;
@@ -33,7 +33,7 @@ export default function MemberList({
 }: MemberListProps) {
   const [newMember, setNewMember] = useState("");
   const [newMemberBudget, setNewMemberBudget] = useState<number | null>(null);
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('USD');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMockMemberModal, setShowMockMemberModal] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);

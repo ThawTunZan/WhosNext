@@ -7,7 +7,7 @@ import {
 	writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Expense, Member, Currency, Debt, FREE_USER_LIMITS, PREMIUM_USER_LIMITS, ErrorType, FirestoreExpense, TripData, FirestoreTrip } from '@/src/types/DataTypes';
+import { Expense, Member, Debt, FREE_USER_LIMITS, PREMIUM_USER_LIMITS, ErrorType, FirestoreExpense, TripData, FirestoreTrip } from '@/src/types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
@@ -247,7 +247,7 @@ export async function calculateNextPayer(members: Record<string, Member> | null 
 			let totalOwed = 0;
 			for (const [currency, amount] of Object.entries(member.owesTotalMap)) {
 				// Convert each currency amount to trip's currency before adding
-				const convertedAmount = await convertCurrency(amount, currency as Currency, tripCurrency as Currency);
+				const convertedAmount = await convertCurrency(amount, currency, tripCurrency);
 				totalOwed += convertedAmount;
 			}
 
@@ -298,7 +298,7 @@ export const addExpenseAndCalculateDebts = async (
 	batch.set(newExpenseRef, expenseDocData);
 
 	let updatesRaw: { [key: string]: number } = {};
-	const convertedPaidAmt = await convertCurrency(getTotalPaid(expenseData.paidByAndAmounts), expenseData.currency, tripData.currency);
+	const convertedPaidAmt = await convertCurrency(getTotalPaid(expenseData.paidByAndAmounts), expenseData.currency , tripData.currency);
 	updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false, expenseData.id, convertedPaidAmt);
 	updatesRaw['totalAmtLeft'] = -convertedPaidAmt;
 	let updates = formatToFirebase(updatesRaw);

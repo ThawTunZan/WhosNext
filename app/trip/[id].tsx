@@ -1,11 +1,15 @@
 // app/trip/[id].tsx
 
 import React, { useState } from "react";
-import { View, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { View, KeyboardAvoidingView, Platform, StyleSheet, Text } from "react-native";
 import { Redirect, useLocalSearchParams } from "expo-router";
-import { Snackbar, Portal, Button } from "react-native-paper";
+import { Snackbar, Portal, Button, ActivityIndicator } from "react-native-paper";
 
-import { useTripData } from "@/src/hooks/useTripData";
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
+import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '@/firebase';
+
 import { useUser } from "@clerk/clerk-expo";
 
 import TripHeader from "@/src/components/TripHeader";
@@ -27,6 +31,7 @@ import { useTripState } from "@/src/hooks/useTripState";
 import { AddMemberType } from "@/src/types/DataTypes";
 import TripLeaderboard from "../(sections)/TripLeaderboard";
 import { TripExpensesProvider } from '@/src/context/TripExpensesContext';
+import type { FirestoreTrip, Member, Debt } from '@/src/types/DataTypes';
 
 export default function TripPageWrapper() {
   const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -42,16 +47,54 @@ export default function TripPageWrapper() {
 function TripPage({ tripId }) {
   const { isLoaded, isSignedIn, user } = useUser();
   const currentUserId = user?.id;
+  // Get trip from UserTripsContext
+  const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
+  
+  // Get expenses from TripExpensesContext
+  const { expenses, loading: expensesLoading, error: expensesError } = useTripExpensesContext();
 
-  const { trip, expenses, payments, loading, error: dataError } = useTripData(tripId);
+  //import { useTripData } from "@/src/hooks/useTripData";
+  //const { trip, expenses, payments, loading, error: dataError } = useTripData(tripId);
+  // Payments state (local listener)
+  const [payments, setPayments] = React.useState([]);
+  const [paymentsLoading, setPaymentsLoading] = React.useState(true);
+  const [paymentsError, setPaymentsError] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!tripId) return;
+    setPaymentsLoading(true);
+    const paymentsColRef = collection(db, 'trips', tripId, 'payments');
+    const unsubscribe = onSnapshot(
+      paymentsColRef,
+      (snapshot) => {
+        setPayments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setPaymentsLoading(false);
+      },
+      (err) => {
+        setPaymentsError(err);
+        setPaymentsLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [tripId]);
+
+  // Compose loading and error states
+  const loading = tripsLoading || expensesLoading || paymentsLoading;
+  const dataError = tripsError || expensesError || paymentsError;
 
   const [nextPayer, setNextPayer] = React.useState<string | null>(null);
   const [showChooseModal, setShowChooseModal] = useState(false);
 
+  // When passing members, cast as Record<string, Member> and cast currency and addMemberType fields, and fix owesTotalMap
+  const safeMembers: Record<string, Member> = Object.fromEntries(
+    Object.entries(trip?.members || {}).map(([k, v]) => [k, toMember(v)])
+  );
+
   const nextPayerParams = React.useMemo(() => ({
-    members: trip?.members || null,
+    members: safeMembers,
     currency: trip?.currency || 'USD'
-  }), [trip?.members, trip?.currency]);
+  }), [safeMembers, trip?.currency]);
 
   React.useEffect(() => {
     const updateNextPayer = async () => {
@@ -103,7 +146,6 @@ function TripPage({ tripId }) {
     isDeletingTrip,
   } = useTripHandlers({
     tripId: tripId!,
-    trip: trip!,
     activityToDeleteId,
     openAddExpenseModal,
     closeAddExpenseModal,
@@ -114,9 +156,36 @@ function TripPage({ tripId }) {
     setSnackbarVisible,
   });
 
+
+  // Helper to create a valid OwesTotalMap
+  const allCurrencies: string[] = ["USD", "EUR", "GBP", "JPY", "CNY", "SGD"];
+  const makeOwesTotalMap = (map: any): Record<string, number> => {
+    const result: Record<string, number> = {
+      USD: 0, EUR: 0, GBP: 0, JPY: 0, CNY: 0, SGD: 0
+    };
+    for (const cur of allCurrencies) {
+      if (map && typeof map[cur] === 'number') result[cur] = map[cur];
+    }
+    return result;
+  };
+  // Helper to convert Firestore member to Member type
+  function toMember(v: any): Member {
+    return {
+      username: v.username,
+      budget: typeof v.budget === 'number' ? v.budget : 0,
+      amtLeft: typeof v.amtLeft === 'number' ? v.amtLeft : 0,
+      currency: v.currency,
+      addMemberType: Object.values(AddMemberType).includes(v.addMemberType) ? v.addMemberType as AddMemberType : AddMemberType.INVITE_LINK,
+      claimCode: v.claimCode,
+      owesTotalMap: v.owesTotalMap,
+      receiptsCount: typeof v.receiptsCount === 'number' ? v.receiptsCount : 0,
+    };
+  }
+
+  // When accessing claimCode, use optional chaining and type guard
   const handleSelectMockMember = async (memberId: string) => {
     try {
-      const member = trip.members[memberId];
+      const member = safeMembers[memberId];
       if (!member?.claimCode) {
         throw new Error('No claim code found for this member');
       }
@@ -160,10 +229,18 @@ function TripPage({ tripId }) {
           loading={loading}
           error={dataError}
           hasLeftTrip={hasLeftTrip}
-          tripExists={!!trip}
+          tripExists={!!trip || !!trip}
         />
 
-        {trip && (
+        {loading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" />
+          </View>
+        ) : !trip ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ fontSize: 18, color: 'gray' }}>Trip not found.</Text>
+          </View>
+        ) : (
           <>
             <TripHeader
               destination={trip.destination}
@@ -176,8 +253,8 @@ function TripPage({ tripId }) {
 
             {selectedTab === "overview" && (
               <OverviewTab
-                members={trip.members}
-                usernames={Object.fromEntries(Object.entries(trip.members).map(([k, v]) => [k, v.username || k]))}
+                members={safeMembers as Record<string, Member>}
+                usernames={Object.fromEntries(Object.entries(safeMembers as Record<string, Member>).map(([k, v]) => [k, v.username || k]))}
                 totalBudget={trip.totalBudget}
                 totalAmtLeft={trip.totalAmtLeft}
                 currentUserId={currentUserId}
@@ -197,7 +274,6 @@ function TripPage({ tripId }) {
             {selectedTab === "expenses" && (
               <ExpensesSection
                 tripId={tripId!}
-                members={trip.members}
                 onAddExpensePress={() => openAddExpenseModal(null, false)}
                 onEditExpense={handleEditExpense}
                 nextPayerName={nextPayer}
@@ -206,8 +282,8 @@ function TripPage({ tripId }) {
 
             {selectedTab === "settle" && (
               <SettleUpSection
-                debts={trip.debts}
-                members={trip.members}
+                debts={Array.isArray(trip.debts) ? trip.debts : []}
+                members={safeMembers as Record<string, Member>}
                 tripId={tripId!}
                 tripCurrency={trip.currency}
               />
@@ -216,7 +292,7 @@ function TripPage({ tripId }) {
             {selectedTab === "activities" && (
               <ActivityVotingSection
                 tripId={tripId!}
-                members={trip.members}
+                members={safeMembers as Record<string, Member>}
                 onAddExpenseFromActivity={handleAddExpenseFromActivity}
                 onDeleteActivity={handleDeleteActivity}
               />
@@ -226,7 +302,19 @@ function TripPage({ tripId }) {
 
             {selectedTab === "invite" && <InviteSection tripId={tripId!} />}
 
-            {selectedTab === "leaderboard" && <TripLeaderboard trip={trip} expenses={expenses} payments={payments}/>}
+            {selectedTab === "leaderboard" && (
+              <TripLeaderboard
+                trip={{
+                  ...trip,
+                  members: safeMembers,
+                  currency: trip.currency,
+                  premiumStatus: trip.premiumStatus ?? 'free',
+                  debts:  trip.debts,
+                }}
+                expenses={expenses}
+                payments={payments}
+              />
+            )}
 
             <Portal>
               <BudgetDialog
@@ -235,7 +323,7 @@ function TripPage({ tripId }) {
                 value={newBudgetInput}
                 onChangeValue={setNewBudgetInput}
                 onSubmit={submitBudgetChange}
-                currency={trip.members[currentUserId]?.currency || 'USD'}
+                currency={safeMembers[currentUserId]?.currency || 'USD'}
               />
             </Portal>
 
@@ -243,7 +331,7 @@ function TripPage({ tripId }) {
               visible={addExpenseModalVisible}
               onDismiss={closeAddExpenseModal}
               onSubmit={handleAddOrUpdateExpenseSubmit}
-              members={trip.members}
+              members={safeMembers as Record<string, Member>}
               tripId={tripId!}
               initialData={initialExpenseData}
               editingExpenseId={editingExpenseId}
@@ -253,7 +341,7 @@ function TripPage({ tripId }) {
             <ChooseExistingOrNew
               visible={showChooseModal}
               onDismiss={() => setShowChooseModal(false)}
-              mockMembers={trip.members || {}}
+              mockMembers={safeMembers as Record<string, Member>}
               onSelectMockMember={handleSelectMockMember}
               onJoinAsNew={handleJoinAsNew}
             />

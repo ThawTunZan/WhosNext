@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { useUser } from "@clerk/clerk-expo";
 import { db } from "@/firebase";
 import { collection, doc, getDoc, query, where, getDocs } from "firebase/firestore";
+import { incrementFirestoreRead } from "@/src/utilities/firestoreReadCounter";
 
 const UserTripsContext = createContext(null);
 
@@ -26,6 +27,7 @@ export const UserTripsProvider = ({ children }) => {
         // Fetch user data
         const userDocRef = doc(db, "users", user.username || user.id);
         const userDocSnap = await getDoc(userDocRef);
+        incrementFirestoreRead(); // +1 read for user doc
         const userDocData = userDocSnap.exists() ? userDocSnap.data() : null;
         setUserData(userDocData);
 
@@ -39,11 +41,13 @@ export const UserTripsProvider = ({ children }) => {
             const batchIds = tripIds.slice(i, i + batchSize);
             const q = query(collection(db, "trips"), where("__name__", "in", batchIds));
             const batchSnap = await getDocs(q);
+            incrementFirestoreRead(batchSnap.size); // +N reads for trips batch
             batchSnap.forEach(docSnap => {
               tripsList.push({ id: docSnap.id, ...docSnap.data() });
             });
           }
         }
+        console.log("TRIPLIST IS ", tripsList)
         setTrips(tripsList);
       } catch (err) {
         setError(err);

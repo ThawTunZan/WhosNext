@@ -5,7 +5,7 @@ import {
 	getDoc,
 } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Currency, Member, AddMemberType, } from '@/src/types/DataTypes';
+import { Member, AddMemberType, } from '@/src/types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
@@ -31,7 +31,7 @@ export async function updatePersonalBudget(
 	tripId: string,
 	username: string,
 	newBudget: number,
-	newCurrency: Currency
+	newCurrency: string
 ): Promise<void> {
 	if (!tripId || !username) {
 		throw new Error("Trip ID and User ID are required.")
@@ -96,7 +96,7 @@ export const addMemberToTrip = async (
 	options: {
 		budget?: number,
 		addMemberType?: AddMemberType,
-		currency?: Currency,
+		currency?: string,
 		skipIfExists?: boolean,
 		sendNotifications?: boolean,
 	} = {}

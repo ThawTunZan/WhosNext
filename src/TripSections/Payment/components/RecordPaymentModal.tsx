@@ -5,7 +5,7 @@ import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
-import { Currency, Debt, Member, Payment } from '@/src/types/DataTypes';
+import { Debt, Member, Payment } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
@@ -17,7 +17,7 @@ type RecordPaymentModalProps = {
   debts: Debt[];
   currentUsername: string;
   tripId: string;
-  defaultCurrency: Currency;
+  defaultCurrency: string;
   members: Record<string, Member>;
 };
 
@@ -40,12 +40,12 @@ const MemberList = memo(({
   excludeUsername?: string;
   theme: any;
   isPayee?: boolean;
-  getDebtAmount?: (fromUsername: string, toUsername: string) => Promise<{amount: number, currency: Currency}>;
+  getDebtAmount?: (fromUsername: string, toUsername: string) => Promise<{amount: number, currency: string}>;
   selectedPayer?: string;
-  onDebtSelect?: (amount: number, currency: Currency) => void;
+  onDebtSelect?: (amount: number, currency: string) => void;
 }) => {
   const filteredMembers = excludeUsername ? members.filter(m => m.username !== excludeUsername) : members;
-  const [memberDebts, setMemberDebts] = useState<Record<string, {amount: number, currency: Currency}>>({});
+  const [memberDebts, setMemberDebts] = useState<Record<string, {amount: number, currency: string}>>({});
 
   // Fetch debt amounts for payee list
   React.useEffect(() => {
@@ -55,7 +55,7 @@ const MemberList = memo(({
         return;
       }
       
-      const debts: Record<string, {amount: number, currency: Currency}> = {};
+      const debts: Record<string, {amount: number, currency: string}> = {};
       for (const member of filteredMembers) {
         const debt = await getDebtAmount(selectedPayer, member.username);
         if (debt.amount > 0) {
@@ -132,7 +132,7 @@ export default function RecordPaymentModal({
   const [selectedPayer, setSelectedPayer] = useState(currentUsername);
   const [selectedPayee, setSelectedPayee] = useState('');
   const [amount, setAmount] = useState('');
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency>(defaultCurrency);
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(defaultCurrency);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Get list of all members who can be payers or payees
@@ -144,7 +144,7 @@ export default function RecordPaymentModal({
   }, [members]);
 
   // Get the total debt amount between two members
-  const getDebtAmountForMember = async (fromUsername: string, toUsername: string): Promise<{amount: number, currency: Currency}> => {
+  const getDebtAmountForMember = async (fromUsername: string, toUsername: string): Promise<{amount: number, currency: string}> => {
     
     // Handle the new debt structure where debts is an object keyed by currency
     if (typeof debts === 'object' && !Array.isArray(debts)) {
@@ -154,7 +154,7 @@ export default function RecordPaymentModal({
         const amount = debtsByUser[debtKey];
         
         if (amount) {
-          return { amount, currency: currency as Currency };
+          return { amount, currency: currency };
         }
       }
     }

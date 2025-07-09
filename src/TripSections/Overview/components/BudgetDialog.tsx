@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Dialog, TextInput, Button, Portal } from 'react-native-paper';
-import { Currency } from '@/src/types/DataTypes';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
 
 type BudgetDialogProps = {
@@ -9,8 +8,8 @@ type BudgetDialogProps = {
   onDismiss: () => void;
   value: string;
   onChangeValue: (value: string) => void;
-  onSubmit: (currency: Currency) => void;
-  currency: Currency;
+  onSubmit: (currency: string) => void;
+  currency: string;
 };
 
 export default function BudgetDialog({
@@ -21,7 +20,7 @@ export default function BudgetDialog({
   onSubmit,
   currency: initialCurrency,
 }: BudgetDialogProps) {
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency>(initialCurrency);
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(initialCurrency);
   const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
 
   const handleSubmit = () => {

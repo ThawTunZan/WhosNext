@@ -3,13 +3,13 @@ import { View, StyleSheet } from 'react-native';
 import { Card, Text, ProgressBar, useTheme, ActivityIndicator } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Member, Currency } from '@/src/types/DataTypes';
+import { Member } from '@/src/types/DataTypes';
 
 type BudgetSummaryCardProps = {
   members: Record<string, Member>;
   totalBudget: number;
   totalAmtLeft: number;
-  tripCurrency: Currency;
+  tripCurrency: string;
 };
 
 export default function BudgetSummaryCard({ 

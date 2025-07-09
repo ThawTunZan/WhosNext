@@ -8,7 +8,6 @@ import {
 	leaveTripIfEligible,
 	removeMemberFromTrip,
 	deleteTripAndRelatedData,
-	updatePersonalBudget,
 	claimMockUser,
 } from "@/src/utilities/TripUtilities";
 import {
@@ -16,7 +15,7 @@ import {
 	editExpense,
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/TripSections/Activity/utilities/ActivityUtilities";
-import { type Expense, type ProposedActivity, type AddMemberType, type Currency, ErrorType, FirestoreExpense, FirestoreTrip } from "@/src/types/DataTypes";
+import { type Expense, type ProposedActivity, type AddMemberType, ErrorType, FirestoreExpense, FirestoreTrip } from "@/src/types/DataTypes";
 import { getFirestore, collection, updateDoc, doc, getDoc, deleteDoc, getDocs } from "firebase/firestore";
 import { useTripExpensesContext } from "../context/TripExpensesContext";
 import { useUserTripsContext } from "../context/UserTripsContext";
@@ -48,7 +47,7 @@ export function useTripHandlers({
 	const trip = trips.find(t => t.id === tripId);
 
 	const handleAddMember = useCallback(
-		async (memberName: string, budget: number, currency: Currency, addMemberType: AddMemberType) => {
+		async (memberName: string, budget: number, currency: string, addMemberType: AddMemberType) => {
 			if (!tripId) return;
 			try {
 				await addMemberToTrip(

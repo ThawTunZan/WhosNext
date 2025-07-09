@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { db } from "@/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
+import { incrementFirestoreRead } from "@/src/utilities/firestoreReadCounter";
 
 export function useTripExpenses(tripId) {
   const [expenses, setExpenses] = useState([]);
@@ -15,6 +16,7 @@ export function useTripExpenses(tripId) {
       expensesColRef,
       (snapshot) => {
         setExpenses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        incrementFirestoreRead(snapshot.size); // Track Firestore reads
         setLoading(false);
       },
       (err) => {

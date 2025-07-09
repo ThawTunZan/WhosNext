@@ -1,10 +1,10 @@
 // src/components/AddExpenseModal.tsx
 import React, { useState, useEffect } from 'react';
 import { Modal, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { Button, Card, Text, TextInput, RadioButton, HelperText, Caption, useTheme, Surface, Divider, Portal } from 'react-native-paper';
+import { Button, Card, Text, TextInput, HelperText, Caption, useTheme, Surface, Divider, Portal } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { AddExpenseModalProps, Expense, SharedWith, Currency } from '@/src/types/DataTypes';
+import { AddExpenseModalProps, Expense, SharedWith } from '@/src/types/DataTypes';
 import { useUser } from '@clerk/clerk-expo';
 import { Redirect } from 'expo-router';
 import { db } from "@/firebase";
@@ -26,7 +26,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	const [splitType, setSplitType] = useState<'even' | 'custom'>('even');
 	const [sharedWithNames, setSharedWithNames] = useState<string[]>([]);
 	const [customSplitAmount, setcustomSplitAmount] = useState<{ [id: string]: string }>({});
-	const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
+	const [selectedCurrency, setSelectedCurrency] = useState<string>('USD');
 	const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -43,7 +43,7 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	// Reset form when modal is opened/closed or members change
 	useEffect(() => {
 		const isEditingMode = !!editingExpenseId;
-		console.log("Modal opening. Editing:", isEditingMode, "ID:", editingExpenseId, "Initial Data:", initialData);
+		//console.log("Modal opening. Editing:", isEditingMode, "ID:", editingExpenseId, "Initial Data:", initialData);
 		setErrors({});
 		setIsSubmitting(false);
 		if (visible) {

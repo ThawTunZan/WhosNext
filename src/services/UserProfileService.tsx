@@ -30,6 +30,7 @@ export async function upsertClerkUserToFirestore(user: UserFromFirebase) {
       outgoingFriendRequests: user.outgoingFriendRequests || [],
       updatedAt: new Date(),
       premiumStatus: await getUserPremiumStatus(user) || PremiumStatus.FREE,
+      trips: user.trips || []
     },
     { merge: true }
   )

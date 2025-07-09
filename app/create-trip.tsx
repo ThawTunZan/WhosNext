@@ -26,7 +26,7 @@ import { db } from '@/firebase';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Currency, AddMemberType, PremiumStatus } from '@/src/types/DataTypes';
+import { AddMemberType, PremiumStatus } from '@/src/types/DataTypes';
 import { getUserPremiumStatus } from '@/src/utilities/PremiumUtilities';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateButton from '@/src/trip/components/DateButton';
@@ -34,7 +34,7 @@ import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 const { width } = Dimensions.get('window');
 
-const CURRENCIES: { code: Currency; symbol: string; name: string }[] = [
+const CURRENCIES: { code: string; symbol: string; name: string }[] = [
   { code: 'USD', symbol: '$', name: 'US Dollar' },
   { code: 'EUR', symbol: '€', name: 'Euro' },
   { code: 'GBP', symbol: '£', name: 'British Pound' },
@@ -46,7 +46,7 @@ const CURRENCIES: { code: Currency; symbol: string; name: string }[] = [
 export default function CreateTripScreen() {
   const [destination, setDestination] = useState('');
   const [totalBudget, setTotalBudget] = useState('');
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('USD');
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
@@ -130,7 +130,7 @@ export default function CreateTripScreen() {
         activitiesCount: 0,
       });
 
-      // Add trip ID to user's trips array
+      // Add trip ID to user's trips array in users collection
       const userDocRef = doc(db, 'users', username);
       await updateDoc(userDocRef, {
         trips: arrayUnion(tripRef.id)

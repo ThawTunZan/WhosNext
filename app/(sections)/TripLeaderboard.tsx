@@ -4,10 +4,10 @@ import { Text, Button, Avatar, Card, Badge, useTheme, Surface } from 'react-nati
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { useRouter } from 'expo-router';
-import { TripData, Payment, Expense } from '@/src/types/DataTypes';
+import { TripData, Payment, Expense, FirestoreTrip } from '@/src/types/DataTypes';
 
 interface TripLeaderboardProps {
-  trip: TripData;
+  trip: FirestoreTrip;
   expenses: Expense[];
   payments: Payment[];
 }

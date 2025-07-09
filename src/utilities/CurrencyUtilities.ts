@@ -1,10 +1,9 @@
-import { Currency } from '@/src/types/DataTypes';
 
 // Shared list of supported currencies
-export const SUPPORTED_CURRENCIES: Currency[] = [
+export const SUPPORTED_CURRENCIES: string[] = [
   'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'CNY', 'JPY', 'INR',
   'BRL', 'MXN', 'RUB', 'ZAR', 'HKD', 'SGD', 'NOK', 'SEK', 'NZD'
-] as Currency[];
+] as string[];
 
 /**
  * Formats a number as currency with the specified currency code

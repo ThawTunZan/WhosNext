@@ -13,7 +13,6 @@ import {
 import {
     ProposeActivityModalProps,
     NewProposedActivityData,
-    Currency,
 } from '@/src/types/DataTypes';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
 import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
@@ -24,14 +23,13 @@ const ProposeActivityModal = ({
     visible,
     onClose,
     onSubmit,
-    currentUserId,
     currentUserName,
     initialData,
 }: ProposeActivityModalProps) => {
     const [activityName, setActivityName] = useState('');
     const [description, setDescription] = useState('');
     const [estCostStr, setEstCostStr] = useState('');
-    const [selectedCurrency, setSelectedCurrency] = useState<Currency>(initialData?.currency || 'USD');
+    const [selectedCurrency, setSelectedCurrency] = useState<string>(initialData?.currency || 'USD');
     const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -89,7 +87,7 @@ const ProposeActivityModal = ({
             description: description.trim() || null,
             estCost: !isNaN(cost) && cost > 0 ? cost : null,
             currency: selectedCurrency,
-            suggestedByID: currentUserId,
+            suggestedByName: currentUserName,
             createdAt: Timestamp.fromDate(activityDate),
         };
 
