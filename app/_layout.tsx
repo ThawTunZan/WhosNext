@@ -13,6 +13,7 @@ import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService";
 import { ThemeProvider } from '@/src/context/ThemeContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import { UserTripsProvider } from "@/src/context/UserTripsContext";
 
 // NavButton component memoized
 const NavButton = React.memo(({
@@ -84,7 +85,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
         <ThemeProvider>
-          <AuthGateAndStack />
+          <UserTripsProvider>
+            <AuthGateAndStack />
+          </UserTripsProvider>
         </ThemeProvider>
       </ClerkProvider>
     </SafeAreaProvider>

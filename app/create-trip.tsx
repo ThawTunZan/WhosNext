@@ -21,7 +21,7 @@ import {
 } from 'react-native-paper';
 import { Redirect, useRouter } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, updateDoc, doc, arrayUnion } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '@/src/context/ThemeContext';
@@ -113,7 +113,7 @@ export default function CreateTripScreen() {
     };
 
     try {
-      await addDoc(collection(db, 'trips'), {
+      const tripRef = await addDoc(collection(db, 'trips'), {
         destination: destination.trim(),
         totalBudget: parsedBudget,
         totalAmtLeft: parsedBudget,
@@ -126,6 +126,12 @@ export default function CreateTripScreen() {
         isTripPremium,
         expensesCount: 0,
         activitiesCount: 0,
+      });
+
+      // Add trip ID to user's trips array
+      const userDocRef = doc(db, 'users', username);
+      await updateDoc(userDocRef, {
+        trips: arrayUnion(tripRef.id)
       });
 
       router.push('/');

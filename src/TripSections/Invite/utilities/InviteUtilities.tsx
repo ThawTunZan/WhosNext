@@ -7,6 +7,7 @@ import {
   doc,
   updateDoc,
   Timestamp,
+  arrayUnion, // <-- add this import
 } from "firebase/firestore"
 import { addMemberToTrip } from "../../../utilities/TripUtilities"
 import { AddMemberType } from "@/src/types/DataTypes"
@@ -80,6 +81,11 @@ export async function acceptInvite(
           addMemberType: AddMemberType.INVITE_LINK
         }
       )
+      // Add tripId to user's trips array
+      const userDocRef = doc(db, "users", user.id)
+      await updateDoc(userDocRef, {
+        trips: arrayUnion(invite.tripId)
+      })
     }
 
     // Mark invite as accepted
@@ -91,5 +97,11 @@ export async function acceptInvite(
   }
 
   // For regular invites, we'll show the choose modal
+  // Add tripId to user's trips array here as well
+  const userDocRef = doc(db, "users", user.id)
+  await updateDoc(userDocRef, {
+    trips: arrayUnion(invite.tripId)
+  })
+
   return { tripId: invite.tripId, shouldShowChooseModal: true }
 }

@@ -3,8 +3,10 @@ import { useState, useEffect } from 'react';
 import { doc, collection, onSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { TripData, Expense, Payment } from '@/src/types/DataTypes';
+import { useUserTripsContext } from "@/src/context/UserTripsContext";
 
 export const useTripData = (tripId: string | null | undefined) => {
+    const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext?.() || {};
     const [trip, setTrip] = useState<TripData | null>(null);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -21,6 +23,20 @@ export const useTripData = (tripId: string | null | undefined) => {
             return;
         }
 
+        // Try to get trip from context first
+        if (trips) {
+            const foundTrip = trips.find(t => t.id === tripId);
+            if (foundTrip) {
+                setTrip(foundTrip);
+                setExpenses([]); // Optionally, fetch expenses if needed
+                setPayments([]);
+                setLoading(false);
+                setError(null);
+                return;
+            }
+        }
+
+        // Fallback to original Firestore fetch logic
         setLoading(true);
         setError(null);
         console.log(`useTripData: Subscribing to trip ${tripId}`);
