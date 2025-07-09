@@ -2,6 +2,54 @@
 
 import { FieldValue, Timestamp } from "firebase/firestore";
 
+// Firestore Trip Document Type
+export type FirestoreTrip = {
+  activitiesCount: number;
+  createdBy: string;
+  currency: string;
+  debts: {
+    [currency: string]: {
+      [pair: string]: number;
+    };
+  };
+  destination: string;
+  endDate: any; // Timestamp or string
+  expensesCount: number;
+  isTripPremium: boolean;
+  members: {
+    [username: string]: {
+      addMemberType: string;
+      amtLeft: number;
+      budget: number;
+      currency: string;
+      owesTotalMap: {
+        [currency: string]: number;
+      };
+      receiptsCount: number;
+      username: string;
+    };
+  };
+  startDate: any; // Timestamp or string
+  totalAmtLeft: number;
+  totalBudget: number;
+};
+
+export type FirestoreExpense = {
+  id: string;
+  activityName: string;
+  createdAt: any; // Timestamp or string
+  currency: string;
+  paidByAndAmounts: {
+    amount: string;
+    memberName: string;
+  }[];
+  sharedWith: {
+    amount: number;
+    currency: string;
+    payeeName: string;
+  }[];
+};
+
 export type UserFromFirebase = {
     username?: string
     fullName?: string

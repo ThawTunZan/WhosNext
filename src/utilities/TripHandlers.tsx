@@ -16,14 +16,13 @@ import {
 	editExpense,
 } from "@/src/services/expenseService";
 import { deleteProposedActivity } from "@/src/TripSections/Activity/utilities/ActivityUtilities";
-import { type Expense, type ProposedActivity, type AddMemberType, type Currency, ErrorType } from "@/src/types/DataTypes";
-import { getFirestore, collection, getDocs, updateDoc, doc, getDoc, deleteDoc } from "firebase/firestore";
-
-import { useTripData } from '@/src/hooks/useTripData';
+import { type Expense, type ProposedActivity, type AddMemberType, type Currency, ErrorType, FirestoreExpense, FirestoreTrip } from "@/src/types/DataTypes";
+import { getFirestore, collection, updateDoc, doc, getDoc, deleteDoc, getDocs } from "firebase/firestore";
+import { useTripExpensesContext } from "../context/TripExpensesContext";
+import { useUserTripsContext } from "../context/UserTripsContext";
 
 interface UseTripHandlersParams {
 	tripId: string;
-	trip: any;
 	activityToDeleteId: string | null;
 	openAddExpenseModal: (d: Partial<Expense> | null, isEditing?: boolean) => void;
 	closeAddExpenseModal: () => void;
@@ -43,7 +42,10 @@ export function useTripHandlers({
 	const currentUserName = user.username;
 	const router = useRouter();
 	const [isDeletingTrip, setIsDeletingTrip] = useState(false);
-	const { trip, expenses } = useTripData(tripId);
+	const { expenses, loading: expensesLoading } = useTripExpensesContext();
+	const { trips } = useUserTripsContext();
+
+	const trip = trips.find(t => t.id === tripId);
 
 	const handleAddMember = useCallback(
 		async (memberName: string, budget: number, currency: Currency, addMemberType: AddMemberType) => {
@@ -75,7 +77,7 @@ export function useTripHandlers({
 			try {
 				await claimMockUser(tripId, mockUsername, claimCode, currentUserName);
 				// call a function that update firebase database expenses and activity and settle debt
-				await updateFirebaseAfterClaiming(mockUsername, currentUserName, tripId);
+				await updateFirebaseAfterClaiming(mockUsername, currentUserName, tripId, expenses, trip);
 				setSnackbarMessage("Successfully claimed mock profile!");
 				setSnackbarVisible(true);
 			} catch (err: any) {
@@ -158,15 +160,17 @@ export function useTripHandlers({
 
 			try {
 				if (editingExpenseId) {
+					const expense = expenses.find(e => e.id === editingExpenseId);
 					await editExpense(
 						tripId,
 						editingExpenseId,
 						expenseData,
 						members,
+						expense
 					);
 					setSnackbarMessage("Expense updated successfully!");
 				} else {
-					await addExpenseAndCalculateDebts(tripId, expenseData, members);
+					await addExpenseAndCalculateDebts(tripId, expenseData, members,trip);
 					setSnackbarMessage("Expense added successfully!");
 					if (activityToDeleteId) {
 						await deleteProposedActivity(tripId, activityToDeleteId);
@@ -281,38 +285,31 @@ export function useTripHandlers({
  * Function is called when new user join in and claims a mock member
  * To update in the backend the expenses, activities and other stuff the mockmember participated in 
  */
-async function updateFirebaseAfterClaiming(mockUserId: string, currentUserName: string, tripId: string) {
+async function updateFirebaseAfterClaiming(mockUserId: string, currentUserName: string, tripId: string, expenses: FirestoreExpense[], tripData: FirestoreTrip) {
 	const db = getFirestore();
 
 	// 1. Update Expenses
-	const expensesRef = collection(db, "trips", tripId, "expenses");
-	const expensesSnap = await getDocs(expensesRef);
-	for (const expenseDoc of expensesSnap.docs) {
-		const expense = expenseDoc.data();
+	for (const expense of expenses) {
 		let updated = false;
-
-		// Update paidByAndAmounts
-		if (expense.paidByAndAmounts) {
-			expense.paidByAndAmounts = expense.paidByAndAmounts.map(pba =>
-				pba.memberName === mockUserId ? { ...pba, memberName: currentUserName } : pba
-			);
-			updated = true;
-		}
-
-		// Update sharedWith
-		if (expense.sharedWith) {
-			expense.sharedWith = expense.sharedWith.map(sw =>
-				sw.payeeName === mockUserId ? { ...sw, payeeName: currentUserName } : sw
-			);
-			updated = true;
-		}
-
-		if (updated) {
-			await updateDoc(expenseDoc.ref, {
-				paidByAndAmounts: expense.paidByAndAmounts,
-				sharedWith: expense.sharedWith,
-			});
-		}
+    	const newPaidBy = expense.paidByAndAmounts.map(pba =>
+    	  pba.memberName === mockUserId ? { ...pba, memberName: currentUserName } : pba
+    	);
+    	const newSharedWith = expense.sharedWith.map(sw =>
+    	  sw.payeeName === mockUserId ? { ...sw, payeeName: currentUserName } : sw
+    	);
+    	if (
+    	  JSON.stringify(newPaidBy) !== JSON.stringify(expense.paidByAndAmounts) ||
+    	  JSON.stringify(newSharedWith) !== JSON.stringify(expense.sharedWith)
+    	) {
+    	  updated = true;
+    	}
+		//TODO maybe try updating all at once?
+    	if (updated) {
+    	  await updateDoc(doc(db, "trips", tripId, "expenses", expense.id), {
+    	    paidByAndAmounts: newPaidBy,
+    	    sharedWith: newSharedWith,
+    	  });
+    	}
 	}
 
 	// 2. Update Proposed Activities
@@ -336,10 +333,7 @@ async function updateFirebaseAfterClaiming(mockUserId: string, currentUserName: 
 
 	// 3. Update Debts
 	const tripRef = doc(db, "trips", tripId);
-    const tripSnap = await getDoc(tripRef);
-    const tripData = tripSnap.data();
 	if (tripData) {
-		console.log("TRIP DATA EXIST!!")
 		let updated = false;
 		const newDebts = {};
 
@@ -348,9 +342,7 @@ async function updateFirebaseAfterClaiming(mockUserId: string, currentUserName: 
 			for (const [key, value] of Object.entries(currencyDebts)) {
 				let newKey = key;
 				if (key.includes(mockUserId)) {
-					console.log("FOUND DEBT WITH MOCKUSERID")
 					newKey = key.replace(mockUserId, currentUserName);
-					console.log("NEW KEY IS "+newKey)
 					updated = true;
 				}		
 				newCurrencyDebts[newKey] = value;		//remains old value if mockUserId is not found

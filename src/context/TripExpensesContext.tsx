@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { db } from "@/firebase";
 import { collection, onSnapshot } from "firebase/firestore";
+import { FirestoreExpense } from "../types/DataTypes";
 
 const TripExpensesContext = createContext(null);
 
 export const TripExpensesProvider = ({ tripId, children }) => {
-  const [expenses, setExpenses] = useState([]);
+  const [expenses, setExpenses] = useState<FirestoreExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -16,7 +17,17 @@ export const TripExpensesProvider = ({ tripId, children }) => {
     const unsubscribe = onSnapshot(
       expensesColRef,
       (snapshot) => {
-        setExpenses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setExpenses(snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            activityName: data.activityName ?? "",
+            createdAt: data.createdAt ?? null,
+            currency: data.currency ?? "",
+            paidByAndAmounts: data.paidByAndAmounts ?? [],
+            sharedWith: data.sharedWith ?? [],
+          };
+        }));
         setLoading(false);
       },
       (err) => {

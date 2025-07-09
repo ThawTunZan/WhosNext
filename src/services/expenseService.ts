@@ -2,36 +2,29 @@
 // Utility functions
 import {
 	collection,
-	onSnapshot,
 	doc,
-	deleteDoc,
 	increment,
 	writeBatch,
-	Timestamp,
-	getDoc,
-	arrayUnion,
-	arrayRemove,
 } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Expense, Member, Currency, Debt, FREE_USER_LIMITS, PREMIUM_USER_LIMITS, ErrorType } from '@/src/types/DataTypes';
+import { Expense, Member, Currency, Debt, FREE_USER_LIMITS, PREMIUM_USER_LIMITS, ErrorType, FirestoreExpense, TripData, FirestoreTrip } from '@/src/types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
 const TRIPS_COLLECTION = 'trips';
 const EXPENSES_SUBCOLLECTION = 'expenses';
 
-export const updateExpense = async (expenseId: string, tripId: string, updatedExpenseData: Expense, members: Record<string, Member>): Promise<void> => {
+export const updateExpense = async (expenseId: string, tripId: string, updatedExpenseData: Expense, members: Record<string, Member>, expense: FirestoreExpense): Promise<void> => {
 
 	const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
 	const batch = writeBatch(db);
 
 	try {
-		const originalExpenseSnap = await getDoc(expenseDocRef);
-		if (!originalExpenseSnap.exists()) {
-			throw new Error(`Original expense with ID ${expenseId} not found.`);
+		if (!expense) {
+			throw new Error(`Original expense not found.`);
 		}
 
-		const originalExpense = originalExpenseSnap.data() as Expense
+		const originalExpense = expense as Expense
 
 		const reversalRaw = generateExpenseImpactUpdate({}, originalExpense, members, true);
 		reversalRaw['totalAmtLeft'] = getTotalPaid(originalExpense.paidByAndAmounts);
@@ -60,7 +53,6 @@ export const updateBalanceAndDebts = (batch: any, tripId: string, combinedUpdate
 	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
 	try {
 		batch.update(tripDocRef, combinedUpdates);
-
 	} catch (error) {
 		console.error(`Error updating expense ${expenseId}: `, error);
 		throw error;
@@ -73,13 +65,14 @@ export const editExpense = async (
 	expenseId: string | null,
 	updatedExpenseData: Expense,
 	members: Record<string, Member>,
+	expense: FirestoreExpense
 ): Promise<void> => {
 	if (!tripId || !expenseId) {
 		throw new Error("Trip ID and Expense ID are required for update.");
 	}
 
 	try {
-		await updateExpense(expenseId, tripId, updatedExpenseData, members);
+		await updateExpense(expenseId, tripId, updatedExpenseData, members, expense);
 	} catch (error) {
 		console.error(`Error updating expense ${expenseId}: `, error);
 		throw error;
@@ -277,46 +270,15 @@ export async function calculateNextPayer(members: Record<string, Member> | null 
 	return null;
 }
 
-// To get real-time updates on expenses
-export const subscribeToExpenses = (
-	tripId: string,
-	callback: (expenses: Expense[]) => void
-): (() => void) => { // Returns the unsubscribe function
-	const expensesColRef = collection(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION);
-
-	const unsubscribe = onSnapshot(expensesColRef, (snapshot) => {
-		const data: Expense[] = snapshot.docs.map((doc) => {
-			const raw = doc.data();
-			return {
-				id: doc.id,
-				activityName: raw.activityName,
-				paidByAndAmounts: raw.paidByAndAmounts,
-				sharedWith: raw.sharedWith,
-				// Handle potential Timestamp conversion if you store dates as Timestamps
-				createdAt: raw.createdAt?.toDate ? raw.createdAt.toDate().toLocaleDateString() : 'N/A',
-				currency: raw.currency,
-			};
-		});
-		callback(data);
-	}, (error) => {
-		console.error("Error fetching expenses: ", error);
-		// Handle error appropriately, update UI state. TBD later
-		callback([]); // Clear expenses on error or show an error state
-	});
-
-	return unsubscribe;
-};
-
 // To add a new expense and update related balances/debts
 export const addExpenseAndCalculateDebts = async (
 	tripId: string,
 	expenseData: Expense,
 	members: Record<string, Member>,
+	tripData: FirestoreTrip
 ): Promise<void> => {
 
 	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
-	const tripSnap = await getDoc(tripDocRef);
-	const tripData = tripSnap.data();
 
 	if (tripData.expensesCount >= FREE_USER_LIMITS.maxExpensesPerDayPerTrip && !tripData.isTripPremium) {
 		throw new Error(ErrorType.MAX_EXPENSES_FREE_USER);
@@ -375,17 +337,12 @@ export const addExpenseAndCalculateDebts = async (
 
 // Function to delete an expense
 // IMPORTANT: Deleting an expense requires recalculating/reversing the debt updates.
-export const deleteExpense = async (tripId: string, expenseId: string): Promise<void> => {
+export const deleteExpense = async (tripId: string, expenseId: string, expense: FirestoreExpense, tripData: FirestoreTrip): Promise<void> => {
 	try {
 		// Get the expense data first
 		const expenseRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
-		const expenseSnap = await getDoc(expenseRef);
-		
-		if (!expenseSnap.exists()) {
-			throw new Error('Expense not found');
-		}
 
-		const expenseData = expenseSnap.data() as Expense;
+		const expenseData = expense as Expense;
 		const { sharedWith, currency, paidByAndAmounts } = expenseData;
 
 		// Create a batch for atomic operations
@@ -396,13 +353,11 @@ export const deleteExpense = async (tripId: string, expenseId: string): Promise<
 
 		// Get current debts
 		const tripRef = doc(db, TRIPS_COLLECTION, tripId);
-		const tripSnap = await getDoc(tripRef);
 		
-		if (!tripSnap.exists()) {
+		if (tripData) {
 			throw new Error('Trip not found');
 		}
-		
-		const tripData = tripSnap.data();
+
 		const debts = tripData?.debts || {};
 		const currencyDebts = debts[currency] || {};
 
@@ -466,27 +421,26 @@ export const reverseExpensesAndUpdate = async (
 	expenseId: string,
 	members: Record<string, Member>, // Needed for payer ID lookup if not stored on expense
 	reverse: boolean,
+	expenses: FirestoreExpense,
 ): Promise<void> => {
 	const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
 	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
 	const batch = writeBatch(db);
 
 	try {
-		const expenseSnap = await getDoc(expenseDocRef);
 
-		if (!expenseSnap.exists()) {
-			console.warn(`Expense document with ID ${expenseId} not found. Cannot reverse debts.`);
+		if (!expenses) {
+			console.warn(`Expense document not found. Cannot reverse debts.`);
 			return;
 		}
 
 		let reversalUpdatesRaw: { [key: string]: number } = {}
-		reversalUpdatesRaw = generateExpenseImpactUpdate(reversalUpdatesRaw, expenseSnap.data() as Expense, members, reverse, expenseId);
+		reversalUpdatesRaw = generateExpenseImpactUpdate(reversalUpdatesRaw, expenses as Expense, members, reverse, expenseId);
 		let reversalUpdates = formatToFirebase(reversalUpdatesRaw)
 
 		batch.update(tripDocRef, reversalUpdates);
 		batch.delete(expenseDocRef);
 		await batch.commit();
-		console.log(`Expense ${expenseId} deleted and debt changes reversed successfully.`);
 
 	} catch (error) {
 		console.error(`Error deleting expense ${expenseId} and reversing debts: `, error);
