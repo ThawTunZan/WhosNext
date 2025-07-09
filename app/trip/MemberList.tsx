@@ -16,7 +16,7 @@ import QRCode from 'react-native-qrcode-svg';
 
 type MemberListProps = {
   members: { [username: string]: Member };
-  onAddMember: (memberKey: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
+  onAddMember: (name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
   onRemoveMember: (name: string) => void;
   onGenerateClaimCode?: (memberId: string) => Promise<string>;
   onClaimMockUser?: (memberId: string, claimCode: string) => Promise<void>;
@@ -117,14 +117,14 @@ export default function MemberList({
     }
 
     // Use the name directly as the member key instead of generating an ID
-    onAddMember(trimmedName, trimmedName, newMemberBudget, selectedCurrency, addMemberType);
+    onAddMember(trimmedName, newMemberBudget, selectedCurrency, addMemberType);
     setNewMember("");
     setNewMemberBudget(null);
     setShowMockMemberModal(false);
   };
 
-  const handleFriendSelect = (friendId: string, friendName: string, budget: number) => {
-    onAddMember(friendName, friendName, budget, "USD", AddMemberType.FRIENDS);
+  const handleFriendSelect = (friendName: string, budget: number) => {
+    onAddMember(friendName, budget, "USD", AddMemberType.FRIENDS);
   };
 
   const memberCount = Object.keys(members).length;

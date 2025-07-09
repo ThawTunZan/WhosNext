@@ -33,7 +33,6 @@ export const UserTripsProvider = ({ children }) => {
         const tripIds = userDocData?.trips || [];
         let tripsList = [];
         if (tripIds.length > 0) {
-            //TODO: refine probably
           // Firestore 'in' query supports up to 10 IDs per query
           const batchSize = 10;
           for (let i = 0; i < tripIds.length; i += batchSize) {

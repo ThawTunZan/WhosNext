@@ -18,12 +18,8 @@ import {
 import { deleteProposedActivity } from "@/src/TripSections/Activity/utilities/ActivityUtilities";
 import { type Expense, type ProposedActivity, type AddMemberType, type Currency, ErrorType } from "@/src/types/DataTypes";
 import { getFirestore, collection, getDocs, updateDoc, doc, getDoc, deleteDoc } from "firebase/firestore";
-import {
-	checkIfPartOfExpenses,
-	checkIfPartOfActivities,
-	checkIfUploadedReceipts,
-	checkIfPartOfDebts,
-} from '@/src/services/FirebaseServices';
+
+import { useTripData } from '@/src/hooks/useTripData';
 
 interface UseTripHandlersParams {
 	tripId: string;
@@ -37,7 +33,6 @@ interface UseTripHandlersParams {
 
 export function useTripHandlers({
 	tripId,
-	trip,
 	activityToDeleteId,
 	openAddExpenseModal,
 	closeAddExpenseModal,
@@ -48,16 +43,16 @@ export function useTripHandlers({
 	const currentUserName = user.username;
 	const router = useRouter();
 	const [isDeletingTrip, setIsDeletingTrip] = useState(false);
+	const { trip, expenses } = useTripData(tripId);
 
 	const handleAddMember = useCallback(
-		async (memberName: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => {
+		async (memberName: string, budget: number, currency: Currency, addMemberType: AddMemberType) => {
 			if (!tripId) return;
 			try {
 				await addMemberToTrip(
 					tripId,
 					memberName,
 					{
-						name,
 						budget,
 						addMemberType,
 						currency,
@@ -94,15 +89,20 @@ export function useTripHandlers({
 	);
 
 	async function canBeRemoved(memberName: string) {
-		if (
-			await checkIfPartOfExpenses(memberName, tripId) ||
-			await checkIfPartOfActivities(memberName, tripId) ||
-			await checkIfUploadedReceipts(memberName, tripId) ||
-			await checkIfPartOfDebts(memberName, tripId)
-		) {
-			return false;
-		}
-		return true;
+		
+		// TODO
+		const isPartOfTrip = (
+			expenses.some(expense =>
+				expense.paidByAndAmounts?.some(pba => pba.memberName === memberName) ||
+				expense.sharedWith?.some(sw => sw.payeeName === memberName)
+			) /*||
+			(trip?.activities || []).some(activity => activity.suggestedByName === memberName) ||
+			(trip?.receipts || []).some(receipt => receipt.uploaderName === memberName) */||
+			Object.values(trip?.debts || {}).some(currencyDebts =>
+				Object.keys(currencyDebts).some(pair => pair.includes(memberName))
+			)
+		);
+		return !isPartOfTrip;
 	}
 
 	const handleRemoveMember = useCallback(

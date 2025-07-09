@@ -74,9 +74,8 @@ export async function acceptInvite(
       // Add the real user
       await addMemberToTrip(
         invite.tripId,
-        user.id,
+        user.name,
         {
-          name: user.name,
           budget: initialBudget,
           addMemberType: AddMemberType.INVITE_LINK
         }

@@ -17,7 +17,8 @@ import {
 } from '@/src/TripSections/SettleUp/utilities/SettleUpUtilities'; 
 import { Member, Debt, Currency, Payment } from '@/src/types/DataTypes';
 import RecordPaymentModal from '@/src/TripSections/Payment/components/RecordPaymentModal';
-import { firebaseRecordPayment, firebaseGetTripPayments, firebaseDeletePayment } from '@/src/services/FirebaseServices';
+import { firebaseRecordPayment, firebaseDeletePayment } from '@/src/services/FirebaseServices';
+import { useTripData } from '@/src/hooks/useTripData';
 
 // Props type specific to this component
 type SettleUpProps = {
@@ -41,7 +42,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
 
   const [value, setValue] = useState('all'); // 'all' | 'simplified' | 'currency'
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const { payments, loading: paymentsLoading, error: paymentsError } = useTripData(tripId);
   const [shownDebts, setShownDebts] = useState<DebtSection[]>([]);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -59,17 +60,6 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
       return newSet;
     });
   }, []);
-
-  // Fetch payments when component mounts or tripId changes
-  useEffect(() => {
-    const fetchPayments = async () => {
-      if (tripId) {
-        const fetchedPayments = await firebaseGetTripPayments(tripId);
-        setPayments(fetchedPayments);
-      }
-    };
-    fetchPayments();
-  }, [tripId]);
 
   // Transform debts from DB format to array format
   const transformDebts = useCallback((rawDebts: any): Debt[] => {
@@ -144,7 +134,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
     await firebaseRecordPayment(paymentData);
 
     // Update UI
-    setPayments(prevPayments => [...prevPayments, paymentData]);
+    // setPayments(prevPayments => [...prevPayments, paymentData]); // This line is removed as payments are now managed by useTripData
 
     setShowPaymentModal(false);
   };
@@ -152,9 +142,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   const handleDeletePayment = useCallback(async (payment: Payment) => {
     try {
       await firebaseDeletePayment(tripId, payment);
-      // Refresh payments list
-      const updatedPayments = await firebaseGetTripPayments(tripId);
-      setPayments(updatedPayments);
+      // Optionally, you can refetch payments by calling useTripData again or rely on the listener
       setSnackbarMessage("Payment deleted successfully");
       setSnackbarVisible(true);
     } catch (error) {
@@ -409,7 +397,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
           onDismiss={() => setShowPaymentModal(false)}
           onSubmit={handlePaymentSubmit}
           debts={debts}
-          currentUserId={user?.id || ''}
+          currentUsername={user?.username || ''}
           tripId={tripId}
           defaultCurrency={tripCurrency}
           members={members}

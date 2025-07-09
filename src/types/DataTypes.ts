@@ -2,6 +2,16 @@
 
 import { FieldValue, Timestamp } from "firebase/firestore";
 
+export type UserFromFirebase = {
+    username?: string
+    fullName?: string
+    primaryEmailAddress?: { emailAddress: string }
+    profileImageUrl?: string
+    friends?: string[]
+    incomingFriendRequests?: { senderId: string, senderUsername: string, status: string, timestamp: string }[]
+    outgoingFriendRequests?: { receiverId: string, receiverUsername: string, status: string, timestamp: string }[]
+}
+
 export enum ErrorType {
   MAX_EXPENSES_FREE_USER = 'maxExpensesFreeUser',
   MAX_EXPENSES_PREMIUM_USER = 'maxExpensesPremiumUser',

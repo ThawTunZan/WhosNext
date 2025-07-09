@@ -17,7 +17,7 @@ import { lightTheme, darkTheme } from '@/src/theme/theme'
 import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService"
 import { useProfileActions } from "@/src/utilities/profileAction"
 import { useTrips } from '@/src/hooks/useTrips'
-import { getFriendsList } from "@/src/services/FirebaseServices"
+import { useUserTripsContext } from "@/src/context/UserTripsContext"
 
 
 const SECTIONS = [
@@ -50,6 +50,7 @@ export default function ProfileScreen() {
   const theme = isDarkMode ? darkTheme : lightTheme
   const { trips } = useTrips()
   const [friendCount, setFriendCount] = useState<number>(0);
+  const { userFirebase } = useUserTripsContext();
 
 
   if (!isLoaded || !isSignedIn) {
@@ -58,13 +59,11 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (user) {
+      if (user && userFirebase?.friends) {
         upsertClerkUserToFirestore(user).catch(console.error);
-        getFriendsList(user.id)
-          .then(friends => setFriendCount(friends.length))
-          .catch(console.error);
+        setFriendCount(userFirebase.friends.length);
       }
-    }, [user])
+    }, [user, userFirebase?.friends])
   );
 
   const handleImagePick = async () => {

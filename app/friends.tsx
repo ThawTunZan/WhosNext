@@ -15,8 +15,6 @@ import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { useUser } from '@clerk/clerk-expo';
 import { StatusBar } from 'expo-status-bar';
 import {
-  getFriendsList,
-  getUserById,
   sendFriendRequest,
   acceptFriendRequest,
   declineFriendRequest,
@@ -26,6 +24,7 @@ import {
   getUserByUsername,
   cancelFriendRequest,
 } from '@/src/services/FirebaseServices';
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 type Friend = {
   username: string;
@@ -64,6 +63,7 @@ export default function FriendsScreen() {
   const [newFriendUsername, setNewFriendUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [cancelingRequestId, setCancelingRequestId] = useState<string | null>(null);
+  const { userFirebase } = useUserTripsContext();
 
   // Load friends and friend requests
   useEffect(() => {
@@ -77,11 +77,11 @@ export default function FriendsScreen() {
     
     try {
       setIsLoading(true);
-      let friendsUsernames = await getFriendsList(user.username);
+      let friendsUsernames = await userFirebase.friends;
       if (!Array.isArray(friendsUsernames)) friendsUsernames = [];
       const friendsData: Friend[] = await Promise.all(
         friendsUsernames.map(async (friendUsername: string) => {
-          const friendData = await getUserByUsername(friendUsername) as FirebaseUser;
+          const friendData = await userFirebase as FirebaseUser;
           if (!friendData || typeof friendData !== 'object') return { username: '', name: '', email: '', timestamp: null };
           const name = ('fullName' in friendData && typeof friendData.fullName === 'string' && friendData.fullName.length > 0)
             ? friendData.fullName
@@ -98,7 +98,7 @@ export default function FriendsScreen() {
       setFriends(friendsData.filter((friend) => !!friend.username));
       
       // Load friend requests if they exist in user data
-      const userDataRaw = await getUserByUsername(user.username) as FirebaseUser;
+      const userDataRaw = await userFirebase as FirebaseUser;
       const userData = (userDataRaw && typeof userDataRaw === 'object') ? userDataRaw : {};
       // Handle incoming requests
       const incomingRequests = Array.isArray((userData as FirebaseUser)?.incomingFriendRequests) ? (userData as FirebaseUser).incomingFriendRequests : [];
@@ -187,6 +187,7 @@ export default function FriendsScreen() {
 
     try {
       setIsLoading(true);
+      //TODO
       const targetUser = await getUserByUsername(newFriendUsername.trim()) as FirebaseUser;
       console.log('Found target user:', targetUser);
       
@@ -201,7 +202,7 @@ export default function FriendsScreen() {
       }
 
       // Check if we already have an outgoing request to this user
-      const userData = await getUserByUsername(user.username) as FirebaseUser;
+      const userData = await userFirebase as FirebaseUser;
       console.log('Current user data before sending request:', userData);
       
       const hasExistingRequest = userData?.outgoingFriendRequests?.some(

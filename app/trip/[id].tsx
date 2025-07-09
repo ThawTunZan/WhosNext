@@ -26,21 +26,27 @@ import { useTripHandlers } from "@/src/utilities/TripHandlers";
 import { useTripState } from "@/src/hooks/useTripState";
 import { AddMemberType } from "@/src/types/DataTypes";
 import TripLeaderboard from "../(sections)/TripLeaderboard";
+import { TripExpensesProvider } from '@/src/context/TripExpensesContext';
 
-export default function TripPage() {
-  const { id: routeIdParam, showChooseModal: showChooseModalParam } = useLocalSearchParams<{ 
-    id?: string | string[]; 
-    showChooseModal?: string;
-  }>();
-  const tripIdFromParams = Array.isArray(routeIdParam) ? routeIdParam[0] : routeIdParam;
+export default function TripPageWrapper() {
+  const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();
+  const tripId = Array.isArray(routeIdParam) ? routeIdParam[0] : routeIdParam;
 
+  return (
+    <TripExpensesProvider tripId={tripId}>
+      <TripPage tripId={tripId} />
+    </TripExpensesProvider>
+  );
+}
+
+function TripPage({ tripId }) {
   const { isLoaded, isSignedIn, user } = useUser();
   const currentUserId = user?.id;
 
-  const { trip, expenses, payments, loading, error: dataError } = useTripData(tripIdFromParams);
+  const { trip, expenses, payments, loading, error: dataError } = useTripData(tripId);
 
   const [nextPayer, setNextPayer] = React.useState<string | null>(null);
-  const [showChooseModal, setShowChooseModal] = useState(showChooseModalParam === 'true');
+  const [showChooseModal, setShowChooseModal] = useState(false);
 
   const nextPayerParams = React.useMemo(() => ({
     members: trip?.members || null,
@@ -82,7 +88,7 @@ export default function TripPage() {
     setHasLeftTrip,
     setActivityToDeleteId,
     setSnackbarMessage,
-  } = useTripState(tripIdFromParams!, currentUserId!);
+  } = useTripState(tripId!, currentUserId!);
 
   const {
     handleAddMember,
@@ -96,7 +102,7 @@ export default function TripPage() {
     handleClaimMockUser,
     isDeletingTrip,
   } = useTripHandlers({
-    tripId: tripIdFromParams!,
+    tripId: tripId!,
     trip: trip!,
     activityToDeleteId,
     openAddExpenseModal,
@@ -128,7 +134,6 @@ export default function TripPage() {
   const handleJoinAsNew = async () => {
     try {
       await handleAddMember(
-        user.id,
         user.fullName || user.username || user.primaryEmailAddress?.emailAddress || 'Unknown User',
         0,
         'USD',
@@ -184,14 +189,14 @@ export default function TripPage() {
                 isDeletingTrip={isDeletingTrip}
                 nextPayer={nextPayer}
                 onClaimMockUser={handleClaimMockUser}
-                tripId={tripIdFromParams}
+                tripId={tripId}
                 tripCurrency={trip.currency}
               />
             )}
 
             {selectedTab === "expenses" && (
               <ExpensesSection
-                tripId={tripIdFromParams!}
+                tripId={tripId!}
                 members={trip.members}
                 onAddExpensePress={() => openAddExpenseModal(null, false)}
                 onEditExpense={handleEditExpense}
@@ -203,23 +208,23 @@ export default function TripPage() {
               <SettleUpSection
                 debts={trip.debts}
                 members={trip.members}
-                tripId={tripIdFromParams!}
+                tripId={tripId!}
                 tripCurrency={trip.currency}
               />
             )}
 
             {selectedTab === "activities" && (
               <ActivityVotingSection
-                tripId={tripIdFromParams!}
+                tripId={tripId!}
                 members={trip.members}
                 onAddExpenseFromActivity={handleAddExpenseFromActivity}
                 onDeleteActivity={handleDeleteActivity}
               />
             )}
 
-            {selectedTab === "receipts" && <ReceiptSection tripId={tripIdFromParams!} />}
+            {selectedTab === "receipts" && <ReceiptSection tripId={tripId!} />}
 
-            {selectedTab === "invite" && <InviteSection tripId={tripIdFromParams!} />}
+            {selectedTab === "invite" && <InviteSection tripId={tripId!} />}
 
             {selectedTab === "leaderboard" && <TripLeaderboard trip={trip} expenses={expenses} payments={payments}/>}
 
@@ -239,7 +244,7 @@ export default function TripPage() {
               onDismiss={closeAddExpenseModal}
               onSubmit={handleAddOrUpdateExpenseSubmit}
               members={trip.members}
-              tripId={tripIdFromParams!}
+              tripId={tripId!}
               initialData={initialExpenseData}
               editingExpenseId={editingExpenseId}
               suggestedPayerName={nextPayer}

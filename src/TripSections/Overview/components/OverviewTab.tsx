@@ -16,7 +16,7 @@ type OverviewTabProps = {
   totalBudget: number;
   totalAmtLeft: number;
   currentUserId: string;
-  onAddMember: (memberKey: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
+  onAddMember: ( name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
   onRemoveMember: (memberId: string) => void;
   onEditBudget: () => void;
   onLeaveTrip: () => void;

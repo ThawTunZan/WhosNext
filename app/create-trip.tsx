@@ -30,6 +30,7 @@ import { Currency, AddMemberType, PremiumStatus } from '@/src/types/DataTypes';
 import { getUserPremiumStatus } from '@/src/utilities/PremiumUtilities';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateButton from '@/src/trip/components/DateButton';
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 const { width } = Dimensions.get('window');
 
@@ -55,6 +56,7 @@ export default function CreateTripScreen() {
   const [tripDate, setTripDate] = useState<Date>(new Date());
   const [tripEndDate, setTripEndDate] = useState<Date>(new Date());
   const [errors, setErrors] = useState<{ name?: string; budget?: string; date?: string }>({});
+  const { user: userFirebase } = useUserTripsContext();
 
   const selectedCurrencyInfo = CURRENCIES.find(c => c.code === selectedCurrency);
 
@@ -89,7 +91,7 @@ export default function CreateTripScreen() {
 
     const username = user.username;
     let isTripPremium = false;
-    const userPremiumStatus = await getUserPremiumStatus(username);
+    const userPremiumStatus = await getUserPremiumStatus(userFirebase);
     if (userPremiumStatus === PremiumStatus.PREMIUM || userPremiumStatus === PremiumStatus.TRIAL) {
       isTripPremium = true;
     }

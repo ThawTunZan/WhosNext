@@ -1,12 +1,11 @@
 // src/utils/tripUtils.ts
 import {
 	collection, getDocs, doc, updateDoc, increment, deleteField, deleteDoc, query, where, runTransaction,
-	Timestamp,
 	setDoc,
 	getDoc,
 } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Currency, Member, AddMemberType, PremiumStatus } from '@/src/types/DataTypes';
+import { Currency, Member, AddMemberType, } from '@/src/types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
@@ -95,7 +94,6 @@ export const addMemberToTrip = async (
 	tripId: string,
 	memberName: string,
 	options: {
-		name?: string,
 		budget?: number,
 		addMemberType?: AddMemberType,
 		currency?: Currency,
@@ -108,7 +106,6 @@ export const addMemberToTrip = async (
 	}
 
 	const {
-		name,
 		budget,
 		addMemberType = AddMemberType.MOCK,
 		currency = "USD",
@@ -164,17 +161,17 @@ export const addMemberToTrip = async (
 		});
 
 		// 2) Update user profile if name is provided
-		if (name) {
+		if (memberName) {
 			const userRef = doc(db, "users", memberName);
 			await setDoc(
 				userRef,
-				{ username: name.trim() },
+				{ username: memberName.trim() },
 				{ merge: true }
 			);
 		}
 
 		// 3) Send notifications if enabled and not a mock user
-		if (sendNotifications && addMemberType !== AddMemberType.MOCK && name) {
+		if (sendNotifications && addMemberType !== AddMemberType.MOCK && memberName) {
 			const updatedTripSnap = await getDoc(tripRef);
 			const updatedTripData = updatedTripSnap.data();
 			if (updatedTripData && updatedTripData.members) {
@@ -182,7 +179,7 @@ export const addMemberToTrip = async (
 					if (existingmemberName !== memberName) {
 						await NotificationService.sendTripUpdate(
 							"New Member Joined",
-							`${name.trim()} has joined the trip!`,
+							`${memberName.trim()} has joined the trip!`,
 							{
 								type: NOTIFICATION_TYPES.TRIP_UPDATE,
 								tripId: tripId,
