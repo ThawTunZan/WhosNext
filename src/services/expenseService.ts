@@ -337,7 +337,7 @@ export const deleteExpense = async (tripId: string, expenseId: string, expense: 
 		// Get current debts
 		const tripRef = doc(db, TRIPS_COLLECTION, tripId);
 		
-		if (tripData) {
+		if (!tripData) {
 			throw new Error('Trip not found');
 		}
 

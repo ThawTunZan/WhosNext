@@ -61,8 +61,13 @@ const ExpensesSection = ({ tripId, onAddExpensePress, onEditExpense, nextPayerNa
   const handleDeleteExpense = async (id: string) => {
     // To add confirmation dialog here
     try {
-      const currTrip = trips.find(t => t.id === tripId)
-      await deleteExpense(tripId, id, expenses, currTrip); 
+      const expenseToDelete = expenses.find(e => e.id === id);
+      if (!expenseToDelete) {
+        setSnackbarMessage('Expense not found.');
+        setSnackbarVisible(true);
+        return;
+      }
+      await deleteExpense(tripId, id, expenseToDelete, trip); 
       setSnackbarMessage('Expense deleted.');
       setSnackbarVisible(true);
 
