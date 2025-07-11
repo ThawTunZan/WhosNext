@@ -1,5 +1,5 @@
 // app/create.tsx - Create Trip Screen
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,14 +10,21 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
+  Animated,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import {
   Text,
   TextInput,
   Button,
   List,
   Portal,
-  Modal,
+  IconButton,
+  Surface,
+  Menu,
+  Divider,
 } from 'react-native-paper';
 import { Redirect, useRouter } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
@@ -47,7 +54,9 @@ export default function CreateTripScreen() {
   const [destination, setDestination] = useState('');
   const [totalBudget, setTotalBudget] = useState('');
   const [selectedCurrency, setSelectedCurrency] = useState<string>('USD');
-  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  const [showCurrencyMenu, setShowCurrencyMenu] = useState(false);
+  const [showFormDrawer, setShowFormDrawer] = useState(false);
+  const bottomSheetRef = useRef<BottomSheet>(null);
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   const { isDarkMode } = useTheme();
@@ -58,13 +67,65 @@ export default function CreateTripScreen() {
   const [errors, setErrors] = useState<{ name?: string; budget?: string; date?: string }>({});
   const { user: userFirebase } = useUserTripsContext();
 
+  // Bottom sheet snap points
+  const snapPoints = useMemo(() => ['25%', '75%'], []);
+
+  // Callbacks
+  const handleSheetChanges = useCallback((index: number) => {
+    if (index === -1) {
+      setShowFormDrawer(false);
+    }
+  }, []);
+
+  const handlePresentModalPress = useCallback(() => {
+    setShowFormDrawer(true);
+    bottomSheetRef.current?.expand();
+  }, []);
+
+  const handleCloseModalPress = useCallback(() => {
+    bottomSheetRef.current?.close();
+  }, []);
+
+  // Backdrop component
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+      />
+    ),
+    []
+  );
+
   const selectedCurrencyInfo = CURRENCIES.find(c => c.code === selectedCurrency);
+
+  const openDrawer = () => {
+    setShowFormDrawer(true);
+    bottomSheetRef.current?.expand();
+  };
+
+  const closeDrawer = () => {
+    // Close currency menu if it's open
+    if (showCurrencyMenu) {
+      setShowCurrencyMenu(false);
+    }
+    
+    bottomSheetRef.current?.close();
+  };
+  
+  useEffect(() => {
+    if (showFormDrawer) {
+      bottomSheetRef.current?.expand();
+    }
+  }, [showFormDrawer]);
 
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />;
   const Wrapper = Platform.OS === 'web' ? React.Fragment : TouchableWithoutFeedback;
 
   const handleCreateTrip = async () => {
+    setShowFormDrawer(false);
     let hasError = false;
     const newErrors: { name?: string; budget?: string; date?: string } = {};
     if (!destination.trim()) {
@@ -142,139 +203,173 @@ export default function CreateTripScreen() {
     }
   };
 
-  return (
-    <Wrapper {...(Platform.OS !== 'web' ? { onPress: Keyboard.dismiss } : {})}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1, backgroundColor: theme.colors.background, paddingBottom: insets.bottom + 60 }}
-      >
-        <StatusBar style={isDarkMode ? "light" : "dark"} />
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-          <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
-            <Text style={[styles.logo, { color: theme.colors.text }]}>Who's Next</Text>
-          </View>
-
-          <ScrollView 
-            style={{ flex: 1 }}
-            contentContainerStyle={{ flexGrow: 1 }}
-            keyboardShouldPersistTaps="handled"
+        return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Wrapper {...(Platform.OS !== 'web' ? { onPress: Keyboard.dismiss } : {})}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1, backgroundColor: theme.colors.background, paddingBottom: insets.bottom + 60 }}
           >
-            <View style={styles.illustrationContainer}>
-              {/* Placeholder for illustration */}
-              <View style={[styles.illustrationPlaceholder, { backgroundColor: theme.colors.surfaceVariant }]} />
-            </View>
-
-            <View style={[styles.bottomCard, { backgroundColor: theme.colors.surface }]}>
-              <Text style={[styles.title, { color: theme.colors.text }]}>Plan your next adventure</Text>
-              
-              <TextInput
-                mode="flat"
-                placeholder="Where are you going?"
-                value={destination}
-                onChangeText={text => text.length <= 25 ? setDestination(text) : null}
-                style={[styles.input]}
-                theme={{ 
-                  colors: { 
-                    primary: theme.colors.primary,
-                    text: theme.colors.text,
-                    placeholder: theme.colors.subtext,
-                  }
-                }}
-                maxLength={25}
-                error={!!errors.name}
-              />
-              {errors.name && <Text style={{ color: theme.colors.error, marginBottom: 8 }}>{errors.name}</Text>}
-
-              <View style={styles.budgetContainer}>
-                <TextInput
-                  mode="flat"
-                  placeholder="What's your budget?"
-                  value={totalBudget}
-                  onChangeText={setTotalBudget}
-                  keyboardType="numeric"
-                  style={[styles.budgetInput]}
-                  theme={{ 
-                    colors: { 
-                      primary: theme.colors.primary,
-                      text: theme.colors.text,
-                      placeholder: theme.colors.subtext,
-                    }
-                  }}
-                  error={!!errors.budget}
-                />
-                <Button
-                  mode="outlined"
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setShowCurrencyModal(true);
-                  }}
-                  style={styles.currencyButton}
-                >
-                  {selectedCurrency}
-                </Button>
+            <StatusBar style={isDarkMode ? "light" : "dark"} />
+            <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+              <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+                <Text style={[styles.logo, { color: theme.colors.text }]}>Who's Next</Text>
               </View>
-              {errors.budget && <Text style={{ color: theme.colors.error, marginBottom: 8 }}>{errors.budget}</Text>}
 
-              <DateButton
-                value={tripDate}
-                onChange={setTripDate}
-                label="Trip Start Date"
-                style={{ marginBottom: 16 }}
-              />
-              <DateButton
-                value={tripEndDate}
-                onChange={setTripEndDate}
-                label="Trip End Date"
-                style={{ marginBottom: 16 }}
-              />
-              {errors.date && <Text style={{ color: theme.colors.error, marginBottom: 8 }}>{errors.date}</Text>}
-
-              <Button 
-                mode="contained" 
-                onPress={handleCreateTrip}
-                style={styles.button}
-                contentStyle={styles.buttonContent}
-                labelStyle={[styles.buttonLabel, { color: theme.colors.text }]}
+              <ScrollView 
+                style={{ flex: 1 }}
+                contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}
+                keyboardShouldPersistTaps="handled"
               >
-                Get Started
-              </Button>
-            </View>
-          </ScrollView>
+                <View style={styles.heroContainer}>
+                  <View style={[styles.illustrationPlaceholder, { backgroundColor: theme.colors.surfaceVariant }]} />
+                  <Text style={[styles.heroTitle, { color: theme.colors.text }]}>Ready to explore?</Text>
+                  <Text style={[styles.heroSubtitle, { color: theme.colors.subtext }]}>
+                    Create your next adventure and start planning with friends
+                  </Text>
+                  <Button 
+                    mode="contained" 
+                    onPress={openDrawer}
+                    style={styles.heroButton}
+                    contentStyle={styles.heroButtonContent}
+                    labelStyle={styles.heroButtonLabel}
+                    icon="plus"
+                  >
+                    Create New Trip
+                  </Button>
+                </View>
+              </ScrollView>
 
-          <Portal>
-            <Modal
-              visible={showCurrencyModal}
-              onDismiss={() => setShowCurrencyModal(false)}
-              contentContainerStyle={[styles.modal, { backgroundColor: theme.colors.surface }]}
-            >
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Select Currency</Text>
-              {CURRENCIES.map((currency) => (
-                <List.Item
-                  key={currency.code}
-                  title={`${currency.code} - ${currency.name}`}
-                  description={`Symbol: ${currency.symbol}`}
-                  onPress={() => {
-                    setSelectedCurrency(currency.code);
-                    setShowCurrencyModal(false);
-                  }}
-                  left={props => (
-                    <List.Icon
-                      {...props}
-                      icon={selectedCurrency === currency.code ? "check" : "currency-usd"}
+              <BottomSheet
+                ref={bottomSheetRef}
+                index={-1}
+                snapPoints={snapPoints}
+                onChange={handleSheetChanges}
+                enablePanDownToClose={true}
+                backdropComponent={renderBackdrop}
+                backgroundStyle={{ backgroundColor: theme.colors.surface }}
+                handleIndicatorStyle={{ backgroundColor: theme.colors.outline }}
+              >
+                <BottomSheetView style={[styles.bottomSheetContent, { backgroundColor: theme.colors.surface }]}>
+                  <View style={styles.drawerHeader}>
+                    <Text style={[styles.drawerTitle, { color: theme.colors.text }]}>Plan your next adventure</Text>
+                    <IconButton
+                      icon="close"
+                      onPress={closeDrawer}
+                      size={24}
                     />
-                  )}
-                  style={[
-                    styles.currencyItem,
-                    selectedCurrency === currency.code && { backgroundColor: theme.colors.surfaceVariant }
-                  ]}
-                />
-              ))}
-            </Modal>
-          </Portal>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
-    </Wrapper>
-  );
+                  </View>
+                  
+                  <ScrollView 
+                    style={{ flex: 1 }}
+                    contentContainerStyle={{ paddingBottom: 20 }}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    <TextInput
+                      mode="outlined"
+                      placeholder="Where are you going?"
+                      value={destination}
+                      onChangeText={text => text.length <= 25 ? setDestination(text) : null}
+                      style={styles.input}
+                      left={<TextInput.Icon icon="map-marker" />}
+                      theme={{ 
+                        colors: { 
+                          primary: theme.colors.primary,
+                          text: theme.colors.text,
+                          placeholder: theme.colors.subtext,
+                        }
+                      }}
+                      maxLength={25}
+                      error={!!errors.name}
+                    />
+                    {errors.name && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.name}</Text>}
+
+                    <View style={styles.budgetContainer}>
+                                          <TextInput
+                      mode="outlined"
+                      placeholder="What's your budget?"
+                      value={totalBudget}
+                      onChangeText={setTotalBudget}
+                      keyboardType="numeric"
+                      returnKeyType="done"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                      style={styles.budgetInput}
+                      left={<TextInput.Icon icon="currency-usd" />}
+                      theme={{ 
+                        colors: { 
+                          primary: theme.colors.primary,
+                          text: theme.colors.text,
+                          placeholder: theme.colors.subtext,
+                        }
+                      }}
+                      error={!!errors.budget}
+                    />
+                      <Menu
+                        visible={showCurrencyMenu}
+                        onDismiss={() => setShowCurrencyMenu(false)}
+                        anchor={
+                          <Button
+                            mode="outlined"
+                            onPress={() => {
+                              Keyboard.dismiss();
+                              setShowCurrencyMenu(true);
+                            }}
+                            style={styles.currencyButton}
+                          >
+                            {selectedCurrency}
+                          </Button>
+                        }
+                      >
+                        {CURRENCIES.map((currency) => (
+                          <Menu.Item
+                            key={currency.code}
+                            onPress={() => {
+                              setSelectedCurrency(currency.code);
+                              setShowCurrencyMenu(false);
+                            }}
+                            title={`${currency.code} - ${currency.name}`}
+                            leadingIcon={selectedCurrency === currency.code ? "check" : "currency-usd"}
+                          />
+                        ))}
+                      </Menu>
+                    </View>
+                    {errors.budget && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.budget}</Text>}
+                    
+                    <View style={styles.dateContainer}>
+                      <DateButton
+                        value={tripDate}
+                        onChange={setTripDate}
+                        label="Trip Start Date"
+                        style={styles.dateInput}
+                      />
+                      <DateButton
+                        value={tripEndDate}
+                        onChange={setTripEndDate}
+                        label="Trip End Date"
+                        style={styles.dateInput}
+                      />
+                    </View>
+                    {errors.date && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.date}</Text>}
+            
+
+                    <Button 
+                      mode="contained" 
+                      onPress={handleCreateTrip}
+                      style={styles.submitButton}
+                      contentStyle={styles.submitButtonContent}
+                      labelStyle={styles.submitButtonLabel}
+                      icon="check"
+                    >
+                      Create Trip
+                    </Button>
+                  </ScrollView>
+                </BottomSheetView>
+              </BottomSheet>
+            </SafeAreaView>
+          </KeyboardAvoidingView>
+        </Wrapper>
+      </GestureHandlerRootView>
+    );
 }
 
 const styles = StyleSheet.create({
@@ -293,73 +388,106 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
   },
-  illustrationContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  heroContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 40,
   },
   illustrationPlaceholder: {
-    width: width * 0.6,
-    height: width * 0.6,
-    borderRadius: width * 0.3,
+    width: width * 0.4,
+    height: width * 0.4,
+    borderRadius: width * 0.2,
+    marginBottom: 32,
   },
-  bottomCard: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 30,
-    paddingTop: 40,
-  },
-  title: {
-    fontSize: 28,
+  heroTitle: {
+    fontSize: 32,
     fontWeight: '700',
-    marginBottom: 30,
+    marginBottom: 12,
     textAlign: 'center',
   },
+  heroSubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 32,
+    paddingHorizontal: 20,
+    lineHeight: 24,
+  },
+  heroButton: {
+    borderRadius: 30,
+    paddingHorizontal: 32,
+  },
+  heroButtonContent: {
+    paddingVertical: 8,
+    height: 56,
+  },
+  heroButtonLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  bottomSheetContent: {
+    flex: 1,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  drawerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    flex: 1,
+  },
   input: {
-    marginBottom: 20,
+    marginBottom: 16,
+    marginHorizontal: 24,
   },
   budgetContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    gap: 10,
+    marginBottom: 16,
+    marginHorizontal: 24,
+    gap: 12,
   },
   budgetInput: {
-    flex: 1,    
+    flex: 1,
   },
   currencyButton: {
     minWidth: 80,
   },
-  button: {
-    marginTop: 20,
+  dateContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    marginHorizontal: 24,
+    gap: 12,
+  },
+  dateInput: {
+    flex: 1,
+  },
+  errorText: {
+    fontSize: 12,
+    marginBottom: 8,
+    marginHorizontal: 24,
+  },
+  submitButton: {
+    marginTop: 24,
+    marginHorizontal: 24,
     borderRadius: 30,
   },
-  buttonContent: {
+  submitButtonContent: {
     paddingVertical: 8,
     height: 56,
   },
-  buttonLabel: {
+  submitButtonLabel: {
     fontSize: 16,
     fontWeight: '600',
   },
-  progressDots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 30,
-  },
-  modal: {
-    margin: 20,
-    padding: 20,
-    borderRadius: 8,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  currencyItem: {
-    borderRadius: 8,
-    marginVertical: 2,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
 });

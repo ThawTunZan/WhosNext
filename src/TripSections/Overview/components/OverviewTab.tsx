@@ -49,7 +49,7 @@ export default function OverviewTab({
   const {trips} = useUserTripsContext();
   const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
   const members = trip?.members || {};
-  console.log("MEMBERS IN OVERVIEW TAB ARE ",members)
+  //console.log("MEMBERS IN OVERVIEW TAB ARE ",members)
 
   return (
     <ScrollView 
