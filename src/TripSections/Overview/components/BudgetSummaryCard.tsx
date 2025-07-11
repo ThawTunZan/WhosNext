@@ -37,16 +37,16 @@ export default function BudgetSummaryCard({
       <Card.Content>
         <View style={styles.totalBudgetSection}>
           <Text variant="titleMedium" style={[styles.totalLabel, { color: theme.colors.text }]}>
-            Total Budget ({tripCurrency})
+            Remaining ({tripCurrency})
           </Text>
           <Text variant="headlineMedium" style={[styles.amount, { color: theme.colors.text }]}>
-            {currencySymbol}{totalBudget.toFixed(2)}
+            {currencySymbol}{totalAmtLeft.toFixed(2)}
           </Text>
           <Text variant="titleSmall" style={[styles.remaining, { color: theme.colors.subtext }]}>
-            Remaining
+          Total Budget 
           </Text>
           <Text variant="titleSmall" style={[styles.remainingAmt, { color: theme.colors.subtext }]}>
-            {currencySymbol}{totalAmtLeft.toFixed(2)}
+            {currencySymbol}{totalBudget.toFixed(2)}
           </Text>
           <ProgressBar 
             progress={Math.min(1, Math.max(0, totalProgress))} 
