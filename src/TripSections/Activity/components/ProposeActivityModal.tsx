@@ -109,19 +109,33 @@ const ProposeActivityModal = ({
 
     useEffect(() => {
         if (visible) {
-            if (initialData && initialData.createdAt) {
-                // If editing, set to the activity's date
+            if (initialData) {
+                setActivityName(initialData.name || '');
+                setDescription(initialData.description || '');
+                setEstCostStr(
+                  initialData.estCost !== undefined && initialData.estCost !== null
+                    ? initialData.estCost.toString()
+                    : ''
+                );
+                setSelectedCurrency(initialData.currency || 'USD');
                 setActivityDate(
-                    typeof initialData.createdAt === 'string'
-                        ? new Date(initialData.createdAt)
-                        : (typeof (initialData.createdAt as any).toDate === 'function'
-                            ? (initialData.createdAt as any).toDate()
-                            : new Date())
+                    initialData.createdAt
+                        ? (typeof initialData.createdAt === 'string'
+                            ? new Date(initialData.createdAt)
+                            : (typeof (initialData.createdAt as any).toDate === 'function'
+                                ? (initialData.createdAt as any).toDate()
+                                : new Date()))
+                        : new Date()
                 );
             } else {
-                // If adding new, set to today
+                setActivityName('');
+                setDescription('');
+                setEstCostStr('');
+                setSelectedCurrency('USD');
                 setActivityDate(new Date());
             }
+            setErrors({});
+            setIsSubmitting(false);
         }
     }, [visible, initialData]);
 

@@ -173,6 +173,11 @@ export const generateExpenseImpactUpdate = (
 	for (const payer of paidByAndAmounts) {
 	  const paidAmount = Number(payer.amount);
 	  if (!isNaN(paidAmount) && paidAmount !== 0) {
+		// update individual's amt left
+		console.log("UPDATING ")
+		updates[`members.${payer.memberName}.amtLeft`] =
+      		(updates[`members.${payer.memberName}.amtLeft`] || 0) + multiplier * paidAmount;
+		//update the total amt left in the trip
 	    totalPaidAmt += paidAmount;
 	  }
 	}
@@ -288,6 +293,7 @@ export const addExpenseAndCalculateDebts = async (
 	updates['expensesCount'] = increment(1);
 
 	batch.update(tripDocRef, updates);
+	
 	try {
 		await batch.commit();
 		console.log("Expense added and debts updated successfully.");

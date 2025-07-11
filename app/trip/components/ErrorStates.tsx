@@ -39,6 +39,7 @@ export default function ErrorStates({
     );
   }
 
+  /*
   if (!tripExists || hasLeftTrip) {
     return (
       <View style={styles.container}>
@@ -46,7 +47,7 @@ export default function ErrorStates({
       </View>
     );
   }
-
+*/
   return null;
 }
 

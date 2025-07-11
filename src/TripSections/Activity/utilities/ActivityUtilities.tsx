@@ -53,7 +53,7 @@ export const subscribeToProposedActivities = (
                 id: doc.id,
                 name: raw.name,
                 description: raw.description,
-                suggestedByID: raw.suggestedByID,
+                suggestedByName: raw.suggestedByName,
                 estCost: raw.estCost,
                 currency: raw.currency,
                 createdAt: raw.createdAt, 
@@ -109,7 +109,7 @@ export const addProposedActivity = async (
         throw new Error("No Trip ID provided to add activity.");
     }
     // if the ID o the name of the person who suggested the activity is not provided
-     if (!activityData.suggestedByID) {
+     if (!activityData.suggestedByName) {
          throw new Error("Activity proposer ID is required.");
      }
 
@@ -134,13 +134,13 @@ export const addProposedActivity = async (
 
         if (tripData && tripData.members) {
             // Get proposer's name from users collection
-            const userRef = doc(db, "users", activityData.suggestedByID);
+            const userRef = doc(db, "users", activityData.suggestedByName);
             const userSnap = await getDoc(userRef);
             const proposerName = userSnap.exists() ? userSnap.data().username : 'Someone';
 
             // Notify all members except the proposer
             Object.keys(tripData.members).forEach(async (memberId) => {
-                if (memberId !== activityData.suggestedByID) {
+                if (memberId !== activityData.suggestedByName) {
                     await NotificationService.sendTripReminder(
                         "New Activity Proposed",
                         `${proposerName} proposed "${activityData.name}" - Vote now!`,
@@ -171,10 +171,10 @@ export const addProposedActivity = async (
 export const castVote = async (
     tripId: string,
     activityId: string,
-    userId: string,
+    userName: string,
     voteType: VoteType
 ): Promise<void> => {
-    if (!tripId || !activityId || !userId) {
+    if (!tripId || !activityId || !userName) {
          throw new Error("Trip ID, Activity ID, and User ID are required to cast a vote.");
      }
     const activityDocRef = doc(db, TRIPS_COLLECTION, tripId, ACTIVITIES_SUBCOLLECTION, activityId);
@@ -188,7 +188,7 @@ export const castVote = async (
 
             const data = activitySnap.data();
             const currentVotes = (data.votes || {}) as { [uid: string]: VoteType };
-            const previousVote = currentVotes[userId]; // 'up', 'down', or undefined
+            const previousVote = currentVotes[userName]; // 'up', 'down', or undefined
 
             let votesUpIncrement = 0;
             let votesDownIncrement = 0;
@@ -201,7 +201,7 @@ export const castVote = async (
                 } else if (voteType === 'down') {
                     votesDownIncrement -= 1;
                 }
-                delete updatedVotes[userId];
+                delete updatedVotes[userName];
                 // Prepare update payload for unvote
                 const updatePayload: { votes: any; votesUp?: any; votesDown?: any } = {
                     votes: updatedVotes,
@@ -213,7 +213,7 @@ export const castVote = async (
                     updatePayload.votesDown = increment(votesDownIncrement);
                 }
                 transaction.update(activityDocRef, updatePayload);
-                console.log(`User ${userId} unvoted ${voteType} on ${activityId}.`);
+                console.log(`User ${userName} unvoted ${voteType} on ${activityId}.`);
                 return;
             }
 
@@ -226,10 +226,10 @@ export const castVote = async (
 
             if (voteType === 'up') {
                 votesUpIncrement = 1; // Add new upvote
-                updatedVotes[userId] = 'up';
+                updatedVotes[userName] = 'up';
             } else if (voteType === 'down') {
                 votesDownIncrement = 1; // Add new downvote
-                updatedVotes[userId] = 'down';
+                updatedVotes[userName] = 'down';
             }
             // Potential 'unvote' logic: else { delete updatedVotes[userId]; }
 
@@ -246,7 +246,7 @@ export const castVote = async (
 
             transaction.update(activityDocRef, updatePayload);
         });
-        console.log(`Vote (${voteType}) by user ${userId} on activity ${activityId} recorded successfully.`);
+        console.log(`Vote (${voteType}) by user ${userName} on activity ${activityId} recorded successfully.`);
     } catch (error) {
         console.error("Error casting vote: ", error);
         throw error;

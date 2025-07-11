@@ -290,7 +290,6 @@ function TripPage({ tripId }) {
             {selectedTab === "activities" && (
               <ActivityVotingSection
                 tripId={tripId!}
-                members={safeMembers as Record<string, Member>}
                 onAddExpenseFromActivity={handleAddExpenseFromActivity}
                 onDeleteActivity={handleDeleteActivity}
               />

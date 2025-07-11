@@ -9,6 +9,7 @@ export default function EditProfileScreen({ navigation }) {
   const { user, isLoaded } = useUser();
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Password modal state
@@ -21,6 +22,7 @@ export default function EditProfileScreen({ navigation }) {
     if (isLoaded && user) {
       setUsername(user.username || "");
       setAvatarUrl(user.imageUrl || "");
+      setEmail(user.primaryEmailAddress?.emailAddress || "");
     }
   }, [isLoaded, user]);
 
@@ -66,9 +68,10 @@ export default function EditProfileScreen({ navigation }) {
     <>
       <EditProfileView
         username={username}
+        email={email}
         avatarUrl={avatarUrl}
         loading={loading}
-        onChangeUsername={setUsername}
+        onChangeUsername={() => {}}
         onPickAvatar={onPickAvatar}
         onSave={onSave}
         onCancel={() => navigation.goBack()}
