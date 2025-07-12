@@ -48,7 +48,7 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
       const validFriends = friendsData.filter((friend): friend is Friend => friend !== null);
       setFriends(validFriends);
     } catch (err) {
-      console.error('Error loading friends:', err);
+      console.error('Error loading friend:', err);
       setError('Failed to load friends list');
     } finally {
       setLoading(false);
