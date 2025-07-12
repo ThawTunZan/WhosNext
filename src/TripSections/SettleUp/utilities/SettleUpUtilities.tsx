@@ -79,11 +79,11 @@ export async function calculateSimplifiedDebtsToTripCurrency(
 
     // Separate users into debtors and creditors
     const debtors = Object.entries(balances)
-        .filter(([userId, balance]) => balance < -epsilon)
+        .filter(([username, balance]) => balance < -epsilon)
         .sort(([, balanceA], [, balanceB]) => balanceA - balanceB);
     
     const creditors = Object.entries(balances)
-        .filter(([userId, balance]) => balance > epsilon)
+        .filter(([username, balance]) => balance > epsilon)
         .sort(([, balanceA], [, balanceB]) => balanceB - balanceA);
 
     // Match debtors with creditors

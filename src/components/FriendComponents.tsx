@@ -6,10 +6,8 @@ import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 type Friend = {
-  id: string;
-  name: string;
-  email: string;
-  timestamp?: any;
+  username: string;
+  timestamp: any;
 };
 
 interface FriendCardProps {
@@ -23,19 +21,16 @@ export const FriendCard: React.FC<FriendCardProps> = ({ friend, onMenuPress }) =
 
   const handleMenuPress = (event: any) => {
     const { pageX, pageY } = event.nativeEvent;
-    onMenuPress(friend.id, { x: pageX, y: pageY });
+    onMenuPress(friend.username, { x: pageX, y: pageY });
   };
 
   return (
     <Surface style={[styles.friendCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
       <View style={styles.friendInfo}>
-        <Avatar.Text size={50} label={friend.name.charAt(0).toUpperCase()} />
+        <Avatar.Text size={50} label={friend.username.charAt(0).toUpperCase()} />
         <View style={styles.friendDetails}>
           <Text style={[styles.friendName, { color: theme.colors.text }]}>
-            {friend.name}
-          </Text>
-          <Text style={[styles.friendEmail, { color: theme.colors.subtext }]}>
-            {friend.email}
+            {friend.username}
           </Text>
         </View>
       </View>
@@ -70,10 +65,10 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
   return (
     <Surface style={[styles.requestCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
       <View style={styles.requestInfo}>
-        <Avatar.Text size={40} label={friend.name.charAt(0).toUpperCase()} />
+        <Avatar.Text size={40} label={friend.username.charAt(0).toUpperCase()} />
         <View style={styles.requestDetails}>
           <Text style={[styles.requestName, { color: theme.colors.text }]}>
-            {friend.name}
+            {friend.username}
           </Text>
           <Text style={[styles.requestText, { color: theme.colors.subtext }]}>
             {type === 'incoming' ? 'wants to be your friend' : 'friend request sent'}
@@ -85,7 +80,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
         <View style={styles.requestActions}>
           <Button
             mode="contained"
-            onPress={() => onAccept?.(friend.id)}
+            onPress={() => onAccept?.(friend.username)}
             disabled={isLoading}
             style={styles.acceptButton}
             contentStyle={styles.buttonContent}
@@ -94,7 +89,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
           </Button>
           <Button
             mode="outlined"
-            onPress={() => onDecline?.(friend.id)}
+            onPress={() => onDecline?.(friend.username)}
             disabled={isLoading}
             style={styles.declineButton}
             contentStyle={styles.buttonContent}
@@ -115,7 +110,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({
 
 interface SearchResultCardProps {
   user: Friend;
-  onSendRequest: (userId: string) => void;
+  onSendRequest: (username: string) => void;
   isLoading?: boolean;
 }
 
@@ -130,19 +125,16 @@ export const SearchResultCard: React.FC<SearchResultCardProps> = ({
   return (
     <Surface style={[styles.searchCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
       <View style={styles.searchInfo}>
-        <Avatar.Text size={40} label={user.name.charAt(0).toUpperCase()} />
+        <Avatar.Text size={40} label={user.username.charAt(0).toUpperCase()} />
         <View style={styles.searchDetails}>
           <Text style={[styles.searchName, { color: theme.colors.text }]}>
-            {user.name}
-          </Text>
-          <Text style={[styles.searchEmail, { color: theme.colors.subtext }]}>
-            {user.email}
+            {user.username}
           </Text>
         </View>
       </View>
       <Button
         mode="contained"
-        onPress={() => onSendRequest(user.id)}
+        onPress={() => onSendRequest(user.username)}
         disabled={isLoading}
         contentStyle={styles.buttonContent}
       >

@@ -10,7 +10,7 @@ import {
   arrayUnion, // <-- add this import
 } from "firebase/firestore"
 import { addMemberToTrip } from "../../../utilities/TripUtilities"
-import { AddMemberType } from "@/src/types/DataTypes"
+import { AddMemberType, FirestoreTrip } from "@/src/types/DataTypes"
 
 export interface Invite {
   inviteId: string
@@ -74,7 +74,7 @@ export async function acceptInvite(
       await addMemberToTrip(
         invite.tripId,
         user.name,
-        tripData,
+        tripData as FirestoreTrip,
         {
           budget: initialBudget,
           addMemberType: AddMemberType.INVITE_LINK

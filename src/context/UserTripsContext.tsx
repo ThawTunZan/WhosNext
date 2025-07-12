@@ -33,7 +33,7 @@ export const UserTripsProvider = ({ children }) => {
     }
 
     // Listen to user doc for trips array
-    const userDocRef = doc(db, "users", user.username || user.id);
+    const userDocRef = doc(db, "users", user.username || user.fullName);
     userUnsubRef.current = onSnapshot(userDocRef, async (userDocSnap) => {
       incrementFirestoreRead();
       if (!userDocSnap.exists()) {

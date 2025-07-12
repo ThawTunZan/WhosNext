@@ -248,7 +248,7 @@ export default function ContactUsScreen() {
 
       // Store in Firestore
       await addDoc(collection(db, 'contact_messages'), {
-        userId: user?.id,
+        username: user?.username,
         userEmail: user?.primaryEmailAddress?.emailAddress,
         subject: subject.trim(),
         message: message.trim(),

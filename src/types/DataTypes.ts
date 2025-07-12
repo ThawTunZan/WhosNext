@@ -218,7 +218,7 @@ export type ProposedActivity = {
   currency: string;
   createdAt: Timestamp;  // Firestore Timestamp
   votes: {
-      [userId: string]: VoteType; // Map of UserID -> 'up' or 'down'
+      [username: string]: VoteType; // Map of UserID -> 'up' or 'down'
   };
   votesUp: number;
   votesDown: number;
@@ -302,4 +302,9 @@ export interface NotificationData {
   route?: string;
   [key: string]: any;
 } 
+
+// Receipt upload limits
+export const MAX_CLOUD_RECEIPTS_PER_USER = 5; // Max cloud receipts per user per trip
+export const MAX_CLOUD_RECEIPTS_PER_TRIP = 20; // Max cloud receipts per trip (all users combined)
+export const MAX_LOCAL_RECEIPTS_PER_USER = Number.POSITIVE_INFINITY; // Unlimited local receipts 
 

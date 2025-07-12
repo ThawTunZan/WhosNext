@@ -4,7 +4,7 @@ import { db } from "@/firebase"
 import { getUserPremiumStatus } from "@/src/utilities/PremiumUtilities"
 import { PremiumStatus, UserFromFirebase } from "@/src/types/DataTypes"
 
-/** The shape we'll keep in `/users/{userId}` */
+/** The shape we'll keep in `/users/{username}` */
 export interface UserProfile {
   username: string
   avatarUrl: string
@@ -13,7 +13,7 @@ export interface UserProfile {
 }
 
 /**
- * Mirror a Clerk user object into Firestore `users/{userId}`.
+ * Mirror a Clerk user object into Firestore `users/{username}`.
  * Creates or merges the document with the latest Clerk fields.
  */
 export async function upsertClerkUserToFirestore(user: UserFromFirebase) {

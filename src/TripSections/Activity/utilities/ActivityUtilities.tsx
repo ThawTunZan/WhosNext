@@ -165,7 +165,7 @@ export const addProposedActivity = async (
  * Records a user's vote on a proposed activity. Handles changing votes.
  * @param tripId The ID of the trip.
  * @param activityId The ID of the proposed activity.
- * @param userId The ID of the user voting.
+ * @param userName The username of the user voting.
  * @param voteType The vote being cast ('up' or 'down').
  */
 export const castVote = async (
