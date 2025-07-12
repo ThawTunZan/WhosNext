@@ -88,6 +88,18 @@ export default function OverviewTab({
             onEditBudget={onEditBudget}
           />
         )}
+        {/* Watch Ad button for increasing daily expense limit */}
+        <Button
+          mode="outlined"
+          icon="video"
+          style={{ marginTop: 12 }}
+          onPress={() => {
+            // TODO: Implement ad modal or handler
+            alert('Watch ad to increase daily expense limit!');
+          }}
+        >
+          Watch Ad to Increase Daily Limit
+        </Button>
       </View>
 
       {nextPayer && (
