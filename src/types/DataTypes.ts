@@ -57,9 +57,10 @@ export type UserFromFirebase = {
     primaryEmailAddress?: { emailAddress: string }
     profileImageUrl?: string
     friends?: string[]
-    incomingFriendRequests?: { senderId: string, senderUsername: string, status: string, timestamp: string }[]
-    outgoingFriendRequests?: { receiverId: string, receiverUsername: string, status: string, timestamp: string }[]
-    trips: string[]
+    incomingFriendRequests?: { senderUsername: string, status: string, timestamp: string }[]
+    outgoingFriendRequests?: { receiverUsername: string, status: string, timestamp: string }[]
+    trips: string[],
+    premiumStatus: string,
 }
 
 export enum ErrorType {

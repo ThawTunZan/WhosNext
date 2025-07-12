@@ -20,27 +20,44 @@ import {
   Timestamp,
   FieldValue,
 } from 'firebase/firestore';
-import { Debt, Payment } from '@/src/types/DataTypes';
+import { Debt, Payment, UserFromFirebase } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 import { deletePayment } from '@/src/TripSections/Payment/utilities/PaymentUtilities';
 
-// User-related operations (now use context)
-// Usage: const { user } = useUserTripsContext();
-export const getUserById = (userId: string) => {
-  // Deprecated: Use useUserTripsContext().user in components
-  throw new Error('getUserById is deprecated. Use useUserTripsContext().user instead.');
-};
 
-export const getUserByUsername = (username: string) => {
-  // Deprecated: Use useUserTripsContext().user in components
-  throw new Error('getUserByUsername is deprecated. Use useUserTripsContext().user instead.');
-};
-
-export const addFriend = async (userId: string, friendId: string) => {
+export const getUserByUsername = async (username: string): Promise<UserFromFirebase | null> => {
+  if (!username || typeof username !== 'string' || username.trim() === '') {
+    console.error('getUserByUsername called with invalid username:', username);
+    return null;
+  }
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(db, 'users', username);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return null;
+    const data = userSnap.data() || {};
+    return {
+      username: data.username || '',
+      fullName: data.fullName || '',
+      primaryEmailAddress: data.primaryEmailAddress || { emailAddress: data.email || '' },
+      profileImageUrl: data.profileImageUrl || '',
+      friends: data.friends || [],
+      incomingFriendRequests: data.incomingFriendRequests || [],
+      outgoingFriendRequests: data.outgoingFriendRequests || [],
+      trips: data.trips || [],
+      premiumStatus: data.premiumStatus || 'free'
+      // Add any other required fields with defaults
+    };
+  } catch (error) {
+    console.error('Error fetching user by username:', error);
+    throw error;
+  }
+};
+
+export const addFriend = async (userName: string, friendUsername: string) => {
+  try {
+    const userRef = doc(db, 'users', userName);
     await updateDoc(userRef, {
-      friends: arrayUnion(friendId),
+      friends: arrayUnion(friendUsername),
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
@@ -49,11 +66,11 @@ export const addFriend = async (userId: string, friendId: string) => {
   }
 };
 
-export const removeFriend = async (userId: string, friendId: string) => {
+export const removeFriend = async (userName: string, friendUsername: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(db, 'users', userName);
     await updateDoc(userRef, {
-      friends: arrayRemove(friendId),
+      friends: arrayRemove(friendUsername),
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
@@ -63,15 +80,15 @@ export const removeFriend = async (userId: string, friendId: string) => {
 };
 
 // Friend requests operations
-export const sendFriendRequest = async (senderId: string, receiverId: string) => {
+export const sendFriendRequest = async (senderUsername: string, receiverUsername: string) => {
   try {
-    const receiverRef = doc(db, 'users', receiverId);
-    const senderRef = doc(db, 'users', senderId);
+    const receiverRef = doc(db, 'users', receiverUsername);
+    const senderRef = doc(db, 'users', senderUsername);
     const timestamp = new Date().toISOString(); // Use ISO string instead of serverTimestamp
     
     await updateDoc(senderRef, {
       outgoingFriendRequests: arrayUnion({
-        receiverId: receiverId,
+        username: receiverUsername,
         status: 'pending',
         timestamp: timestamp,
       }),
@@ -79,7 +96,7 @@ export const sendFriendRequest = async (senderId: string, receiverId: string) =>
 
     await updateDoc(receiverRef, {
         incomingFriendRequests: arrayUnion({
-          senderId: senderId,
+          username: senderUsername,
           status: 'pending',
           timestamp: timestamp,
         }),
@@ -91,27 +108,60 @@ export const sendFriendRequest = async (senderId: string, receiverId: string) =>
   }
 };
 
-export const acceptFriendRequest = async (userId: string, requesterId: string) => {
-  // Deprecated: This function relies on getUserById, which is now deprecated. Refactor to use context-based user data in components.
-  throw new Error('acceptFriendRequest is deprecated. Use context-based user data and update logic in components.');
-};
-
-export const declineFriendRequest = async (userId: string, requesterId: string) => {
+export const acceptFriendRequest = async (username: string, requesterUsername: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
-    const requesterRef = doc(db, 'users', requesterId);
+    // Add each other as friends
+    const userRef = doc(db, 'users', username);
+    const requesterRef = doc(db, 'users', requesterUsername);
     await updateDoc(userRef, {
-      incomingFriendRequests: arrayRemove({
-        senderId: requesterId,
-        status: 'pending',
-      }),
+      friends: arrayUnion(requesterUsername),
+      updatedAt: serverTimestamp(),
     });
     await updateDoc(requesterRef, {
-        outgoingFriendRequests: arrayRemove({
-          receiverId: userId,
-          status: 'pending',
-        }),
-      });
+      friends: arrayUnion(username),
+      updatedAt: serverTimestamp(),
+    });
+
+    // Remove from user's incomingFriendRequests
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const incoming = userSnap.data().incomingFriendRequests || [];
+      const updatedIncoming = incoming.filter((req: any) => req.username !== requesterUsername);
+      await updateDoc(userRef, { incomingFriendRequests: updatedIncoming });
+    }
+
+    // Remove from requester's outgoingFriendRequests
+    const requesterSnap = await getDoc(requesterRef);
+    if (requesterSnap.exists()) {
+      const outgoing = requesterSnap.data().outgoingFriendRequests || [];
+      const updatedOutgoing = outgoing.filter((req: any) => req.username !== username);
+      await updateDoc(requesterRef, { outgoingFriendRequests: updatedOutgoing });
+    }
+  } catch (error) {
+    console.error('Error accepting friend request:', error);
+    throw error;
+  }
+};
+
+export const declineFriendRequest = async (username: string, requesterUsername: string) => {
+  try {
+    // Remove from user's incomingFriendRequests
+    const userRef = doc(db, 'users', username);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const incoming = userSnap.data().incomingFriendRequests || [];
+      const updatedIncoming = incoming.filter((req: any) => req.username !== requesterUsername);
+      await updateDoc(userRef, { incomingFriendRequests: updatedIncoming });
+    }
+
+    // Remove from requester's outgoingFriendRequests
+    const requesterRef = doc(db, 'users', requesterUsername);
+    const requesterSnap = await getDoc(requesterRef);
+    if (requesterSnap.exists()) {
+      const outgoing = requesterSnap.data().outgoingFriendRequests || [];
+      const updatedOutgoing = outgoing.filter((req: any) => req.username !== username);
+      await updateDoc(requesterRef, { outgoingFriendRequests: updatedOutgoing });
+    }
   } catch (error) {
     console.error('Error declining friend request:', error);
     throw error;
@@ -139,16 +189,16 @@ export const searchUsers = async (searchTerm: string, currentUserId: string) => 
 };
 
 // Block user operations
-export const blockUser = async (userId: string, blockedUserId: string) => {
+export const blockUser = async (userName: string, blockUserName: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(db, 'users', userName);
     await updateDoc(userRef, {
-      blockedUsers: arrayUnion(blockedUserId),
-      friends: arrayRemove(blockedUserId), // Remove from friends if they were friends
+      blockedUsers: arrayUnion(blockUserName),
+      friends: arrayRemove(blockUserName), // Remove from friends if they were friends
     });
-    const blockedUserRef = doc(db, 'users', blockedUserId);
+    const blockedUserRef = doc(db, 'users', blockUserName);
     await updateDoc(blockedUserRef, {
-      blockedBy: arrayUnion(userId),
+      blockedBy: arrayUnion(userName),
     });
   } catch (error) {
     console.error('Error blocking user:', error);
@@ -156,15 +206,15 @@ export const blockUser = async (userId: string, blockedUserId: string) => {
   }
 };
 
-export const unblockUser = async (userId: string, blockedUserId: string) => {
+export const unblockUser = async (username: string, blockUsername: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(db, 'users', username);
     await updateDoc(userRef, {
-      blockedUsers: arrayRemove(blockedUserId),
+      blockedUsers: arrayRemove(blockUsername),
     });
-    const blockedUserRef = doc(db, 'users', blockedUserId);
+    const blockedUserRef = doc(db, 'users', blockUsername);
     await updateDoc(blockedUserRef, {
-      blockedBy: arrayRemove(userId),
+      blockedBy: arrayRemove(username),
     });
   } catch (error) {
     console.error('Error unblocking user:', error);
@@ -172,14 +222,14 @@ export const unblockUser = async (userId: string, blockedUserId: string) => {
   }
 };
 
-export const checkIfBlocked = async (userId: string, targetUserId: string) => {
+export const checkIfBlocked = async (username: string, targetUsername: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(db, 'users', username);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) return false;
     
     const userData = userSnap.data();
-    return userData.blockedUsers?.includes(targetUserId) || false;
+    return userData.blockedUsers?.includes(targetUsername) || false;
   } catch (error) {
     console.error('Error checking if blocked:', error);
     throw error;
@@ -294,22 +344,22 @@ export const firebaseDeletePayment = async (tripId: string, payment: Payment): P
   }
 };
 
-export async function cancelFriendRequest(senderId, receiverId) {
+export async function cancelFriendRequest(senderUsername, receiverUsername) {
   // Remove from sender's outgoingFriendRequests
-  const senderRef = doc(db, "users", senderId);
+  const senderRef = doc(db, "users", senderUsername);
   const senderSnap = await getDoc(senderRef);
   if (senderSnap.exists()) {
     const outgoing = senderSnap.data().outgoingFriendRequests || [];
-    const updatedOutgoing = outgoing.filter(req => req.receiverId !== receiverId);
+    const updatedOutgoing = outgoing.filter(req => req.username !== receiverUsername);
     await updateDoc(senderRef, { outgoingFriendRequests: updatedOutgoing });
   }
 
   // Remove from receiver's incomingFriendRequests
-  const receiverRef = doc(db, "users", receiverId);
+  const receiverRef = doc(db, "users", receiverUsername);
   const receiverSnap = await getDoc(receiverRef);
   if (receiverSnap.exists()) {
     const incoming = receiverSnap.data().incomingFriendRequests || [];
-    const updatedIncoming = incoming.filter(req => req.senderId !== senderId);
+    const updatedIncoming = incoming.filter(req => req.username !== senderUsername);
     await updateDoc(receiverRef, { incomingFriendRequests: updatedIncoming });
   }
 }

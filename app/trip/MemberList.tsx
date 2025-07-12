@@ -64,10 +64,7 @@ export default function MemberList({
   const paperTheme = useTheme();
   const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
   const trip = trips.find(t => t.id === tripId);
-  //console.log("TRIP IN MEMBERLIST IS ", trip)
   const members: membersType = (trip && trip.members) ? trip.members : {};
-  //console.log("MEMBERS IN MEMBERLIST ARE ",members)
-
 
   // Only render valid members
   const validMembers: [string, Member][] = Object.entries(members).filter(
@@ -104,7 +101,7 @@ export default function MemberList({
     if (showClaimModal && user && !inviteId) {
       setInviteLoading(true);
       const userName = user.fullName ?? user.username ?? user.primaryEmailAddress?.emailAddress ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
-      createInvite(tripId, { id: user.id, name: userName })
+      createInvite(tripId, {name: userName })
         .then(id => {
           setInviteId(id);
           console.log('DEV INVITE URL:', Linking.createURL(`invite/${id}`));

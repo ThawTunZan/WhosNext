@@ -24,10 +24,9 @@ export interface Invite {
 /**
  * Generate a new invite in Firestore and return its ID.
  */
-export async function createInvite(tripId: string, createdBy: { id: string; name: string }): Promise<string> {
+export async function createInvite(tripId: string, createdBy: {name: string }): Promise<string> {
   const ref = await addDoc(collection(db, "invites"), {
     tripId,
-    createdById: createdBy.id,
     createdByName: createdBy.name,
     createdAt: Timestamp.now(),
   })
@@ -50,7 +49,7 @@ export async function getInvite(inviteId: string): Promise<Invite> {
  */
 export async function acceptInvite(
   inviteId: string,
-  user: { id: string; name: string },
+  user: {name: string },
   mockUserId?: string
 ): Promise<{ tripId: string; shouldShowChooseModal: boolean }> {
   const invite = await getInvite(inviteId)
@@ -75,13 +74,14 @@ export async function acceptInvite(
       await addMemberToTrip(
         invite.tripId,
         user.name,
+        tripData,
         {
           budget: initialBudget,
           addMemberType: AddMemberType.INVITE_LINK
         }
       )
       // Add tripId to user's trips array
-      const userDocRef = doc(db, "users", user.id)
+      const userDocRef = doc(db, "users", user.name)
       await updateDoc(userDocRef, {
         trips: arrayUnion(invite.tripId)
       })
@@ -89,7 +89,7 @@ export async function acceptInvite(
 
     // Mark invite as accepted
     await updateDoc(doc(db, "invites", inviteId), {
-      [`acceptedBy.${user.id}`]: Timestamp.now(),
+      [`acceptedBy.${user.name}`]: Timestamp.now(),
     })
 
     return { tripId: invite.tripId, shouldShowChooseModal: false }
@@ -97,7 +97,7 @@ export async function acceptInvite(
 
   // For regular invites, we'll show the choose modal
   // Add tripId to user's trips array here as well
-  const userDocRef = doc(db, "users", user.id)
+  const userDocRef = doc(db, "users", user.name)
   await updateDoc(userDocRef, {
     trips: arrayUnion(invite.tripId)
   })

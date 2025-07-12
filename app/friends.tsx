@@ -16,38 +16,29 @@ import { useUser } from '@clerk/clerk-expo';
 import { StatusBar } from 'expo-status-bar';
 import {
   sendFriendRequest,
-  acceptFriendRequest,
   declineFriendRequest,
   removeFriend,
   blockUser,
   searchUsers,
   getUserByUsername,
   cancelFriendRequest,
+  acceptFriendRequest,
 } from '@/src/services/FirebaseServices';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
+import { UserFromFirebase } from '@/src/types/DataTypes';
 
 type Friend = {
   username: string;
-  name: string;
-  email: string;
   timestamp: any;
 };
 
-type FirebaseUser = {
-  id: string;
-  name?: string;
-  username?: string;
-  email?: string;
-  fullName?: string;
-  incomingFriendRequests?: any[];
-  outgoingFriendRequests?: any[];
-};
 
 export default function FriendsScreen() {
 
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { user: clerkUser, isLoaded, isSignedIn } = useUser(); // from Clerk
+  const { user: userData, trips, loading, error } = useUserTripsContext(); // from your context
   const [searchQuery, setSearchQuery] = useState('');
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedTab, setSelectedTab] = useState('all');
@@ -57,102 +48,110 @@ export default function FriendsScreen() {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const buttonRefs = useRef<{ [key: string]: View | null }>({});
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [incomingFriendRequests, setIncomingFriendRequests] = useState<Friend[]>([]);
-  const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<Friend[]>([]);
+  // Derive incoming and outgoing friend requests from userData
+  const incomingFriendRequests: Friend[] = React.useMemo(() => {
+    if (!userData?.incomingFriendRequests) return [];
+    return userData.incomingFriendRequests
+      .filter((request: any) => request.status === 'pending')
+      .map((request: any) => ({
+        username: request.username,
+        timestamp: request.timestamp,
+      }));
+  }, [userData]);
+
+  const outgoingFriendRequests: Friend[] = React.useMemo(() => {
+    if (!userData?.outgoingFriendRequests) return [];
+    return userData.outgoingFriendRequests
+      .filter((request: any) => request.status === 'pending')
+      .map((request: any) => ({
+        username: request.username,
+        timestamp: request.timestamp,
+      }));
+  }, [userData]);
+
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [newFriendUsername, setNewFriendUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [cancelingRequestId, setCancelingRequestId] = useState<string | null>(null);
-  const { userFirebase } = useUserTripsContext();
+
+  // contexts
+  // const { userData } = useUserTripsContext(); // This line is removed as per the edit hint
 
   // Load friends and friend requests
   useEffect(() => {
-    if (isSignedIn && user) {
+    if (isSignedIn && clerkUser && userData) {
       loadFriendsData();
     }
-  }, [isSignedIn, user]);
+  }, [isSignedIn, clerkUser, userData]);
 
   const loadFriendsData = async () => {
-    if (!user) return;
+    if (!clerkUser) return;
     
     try {
       setIsLoading(true);
-      let friendsUsernames = await userFirebase.friends;
+      let friendsUsernames = userData?.friends || [];
+      //console.log("FRIENDS USERNAMES ARE ",friendsUsernames)
       if (!Array.isArray(friendsUsernames)) friendsUsernames = [];
       const friendsData: Friend[] = await Promise.all(
         friendsUsernames.map(async (friendUsername: string) => {
-          const friendData = await userFirebase as FirebaseUser;
-          if (!friendData || typeof friendData !== 'object') return { username: '', name: '', email: '', timestamp: null };
-          const name = ('fullName' in friendData && typeof friendData.fullName === 'string' && friendData.fullName.length > 0)
-            ? friendData.fullName
-            : (('username' in friendData && typeof friendData.username === 'string') ? friendData.username : 'Unknown');
-          const email = ('email' in friendData && typeof friendData.email === 'string') ? friendData.email : '';
+          const friendData = await userData as UserFromFirebase;
+          if (!friendData || typeof friendData !== 'object') return { username: '', name: '', timestamp: null };
           return {
             username: friendUsername,
-            name,
-            email,
             timestamp: null,
           };
         })
       );
+      //console.log("FRIENDS DATA ARE ", friendsData)
       setFriends(friendsData.filter((friend) => !!friend.username));
-      
-      // Load friend requests if they exist in user data
-      const userDataRaw = await userFirebase as FirebaseUser;
-      const userData = (userDataRaw && typeof userDataRaw === 'object') ? userDataRaw : {};
+      //console.log("FRIENDS ARE ", friends)
+
       // Handle incoming requests
-      const incomingRequests = Array.isArray((userData as FirebaseUser)?.incomingFriendRequests) ? (userData as FirebaseUser).incomingFriendRequests : [];
-      const incomingRequestsData = await Promise.all(
-        incomingRequests
-          .filter((request: any) => request.status === 'pending')
-          .map(async (request: any) => {
-            try {
-              const username = request.senderUsername || request.senderId;
-              const requesterData = await getUserByUsername(username) as FirebaseUser;
-              if (!requesterData || typeof requesterData !== 'object') return null;
-              const name = ('fullName' in requesterData && typeof requesterData.fullName === 'string' && requesterData.fullName.length > 0)
-                ? requesterData.fullName
-                : (('username' in requesterData && typeof requesterData.username === 'string') ? requesterData.username : 'Unknown');
-              const email = ('email' in requesterData && typeof requesterData.email === 'string') ? requesterData.email : '';
-              return {
-                username: request.senderUsername || request.senderId,
-                name,
-                email,
-                timestamp: request.timestamp,
-              };
-            } catch (error) {
-              return null;
-            }
-          })
-      );
-      setIncomingFriendRequests(incomingRequestsData.filter((request): request is Friend => !!request && 'username' in request && 'name' in request && 'email' in request));
+      // const incomingRequests = Array.isArray((userData as UserFromFirebase)?.incomingFriendRequests) ? (userData as UserFromFirebase).incomingFriendRequests : [];
+      //console.log("INCOMING REQUESTS ARE ", incomingRequests)
+      // const incomingRequestsData = await Promise.all(
+      //   incomingRequests
+      //     .filter((request: any) => request.status === 'pending')
+      //     .map(async (request: any) => {
+      //       try {
+      //         const username = request.username;
+      //         if (!username) return null;
+      //         const requesterData = await getUserByUsername(username) as UserFromFirebase;
+      //         if (!requesterData || typeof requesterData !== 'object') return null;
+      //         return {
+      //           username: request.username,
+      //           timestamp: request.timestamp,
+      //         };
+      //       } catch (error) {
+      //         return null;
+      //       }
+      //     })
+      // );
+      // setIncomingFriendRequests(incomingRequestsData.filter((request): request is Friend => !!request && 'username' in request));
 
       // Handle outgoing requests
-      const outgoingRequests = Array.isArray((userData as FirebaseUser)?.outgoingFriendRequests) ? (userData as FirebaseUser).outgoingFriendRequests : [];
-      const outgoingRequestsData = await Promise.all(
-        outgoingRequests
-          .filter((request: any) => request.status === 'pending')
-          .map(async (request: any) => {
-            try {
-              const username = request.receiverUsername || request.receiverId;
-              const recipientData = await getUserByUsername(username) as FirebaseUser;
-              if (!recipientData || typeof recipientData !== 'object') return null;
-              const name = ('fullName' in recipientData && typeof recipientData.fullName === 'string' && recipientData.fullName.length > 0)
-                ? recipientData.fullName
-                : (('username' in recipientData && typeof recipientData.username === 'string') ? recipientData.username : 'Unknown');
-              const email = ('email' in recipientData && typeof recipientData.email === 'string') ? recipientData.email : '';
-              return {
-                username: request.receiverUsername || request.receiverId,
-                name,
-                email,
-                timestamp: request.timestamp,
-              };
-            } catch (error) {
-              return null;
-            }
-          })
-      );
-      setOutgoingFriendRequests(outgoingRequestsData.filter((request): request is Friend => !!request && 'username' in request && 'name' in request && 'email' in request));
+      // const outgoingRequests = Array.isArray((userData as UserFromFirebase)?.outgoingFriendRequests) ? (userData as UserFromFirebase).outgoingFriendRequests : [];
+      //console.log("OUTGOING REQUESTS ARE ", outgoingRequests)
+      // const outgoingRequestsData = await Promise.all(
+      //   outgoingRequests
+      //     .filter((request: any) => request.status === 'pending')
+      //     .map(async (request: any) => {
+      //       try {
+      //         const username = request.username;
+      //         if (!username) return null;
+      //         const recipientData = await getUserByUsername(username) as UserFromFirebase;
+      //         if (!recipientData || typeof recipientData !== 'object') return null;              return {
+      //           username: request.username,
+      //           timestamp: request.timestamp,
+      //         };
+      //       } catch (error) {
+      //         return null;
+      //       }
+      //     })
+      // );
+      // //console.log("OUTGOING REQUESTS DATA ARE ", outgoingRequestsData)
+      // //console.log("OUTGOING FRIEND REQUESTS ARE ",outgoingFriendRequests)
+      // setOutgoingFriendRequests(outgoingRequestsData.filter((request): request is Friend => !!request && 'username' in request));
       
     } catch (error) {
       console.error('Error loading friends data:', error);
@@ -164,17 +163,15 @@ export default function FriendsScreen() {
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    if (!user || query.trim() === '') {
+    if (!clerkUser || query.trim() === '') {
       setSearchResults([]);
       return;
     }
 
     try {
-      const results = await searchUsers(query, user.username);
-      setSearchResults(results.map((result: FirebaseUser) => ({
+      const results = await searchUsers(query, clerkUser.username);
+      setSearchResults(results.map((result: any) => ({
         username: result.username || '',
-        name: result.fullName || result.username || 'Unknown',
-        email: result.email || '',
         timestamp: null, // Add this line
       })));
     } catch (error) {
@@ -183,12 +180,12 @@ export default function FriendsScreen() {
   };
 
   const handleSendFriendRequest = async () => {
-    if (!user || !newFriendUsername.trim()) return;
+    if (!clerkUser || !newFriendUsername.trim()) return;
 
     try {
       setIsLoading(true);
       //TODO
-      const targetUser = await getUserByUsername(newFriendUsername.trim()) as FirebaseUser;
+      const targetUser = await getUserByUsername(newFriendUsername.trim()) as UserFromFirebase;
       console.log('Found target user:', targetUser);
       
       if (!targetUser) {
@@ -196,13 +193,11 @@ export default function FriendsScreen() {
         return;
       }
 
-      if (targetUser.username === user.username) {
+      if (targetUser.username === clerkUser.username) {
         Alert.alert('Error', 'You cannot send a friend request to yourself');
         return;
       }
 
-      // Check if we already have an outgoing request to this user
-      const userData = await userFirebase as FirebaseUser;
       console.log('Current user data before sending request:', userData);
       
       const hasExistingRequest = userData?.outgoingFriendRequests?.some(
@@ -214,11 +209,8 @@ export default function FriendsScreen() {
         return;
       }
 
-      await sendFriendRequest(user.username, targetUser.username);
+      await sendFriendRequest(clerkUser.username, targetUser.username);
       console.log('Friend request sent successfully');
-      
-      // Reload friends data to get updated requests
-      await loadFriendsData();
       
       Alert.alert('Success', 'Friend request sent successfully');
       setAddModalVisible(false);
@@ -232,12 +224,11 @@ export default function FriendsScreen() {
   };
 
   const handleAcceptRequest = async (requesterUsername: string) => {
-    if (!user) return;
+    if (!clerkUser) return;
 
     try {
       setIsLoading(true);
-      await acceptFriendRequest(user.username, requesterUsername);
-      await loadFriendsData(); // Reload friends data after accepting
+      await acceptFriendRequest(clerkUser.username, requesterUsername);
       Alert.alert('Success', 'Friend request accepted');
     } catch (error) {
       console.error('Error accepting friend request:', error);
@@ -248,12 +239,12 @@ export default function FriendsScreen() {
   };
 
   const handleDeclineRequest = async (requesterUsername: string) => {
-    if (!user) return;
+    if (!clerkUser) return;
 
     try {
       setIsLoading(true);
-      await declineFriendRequest(user.username, requesterUsername);
-      setIncomingFriendRequests(prev => prev.filter(request => request.username !== requesterUsername));
+      await declineFriendRequest(clerkUser.username, requesterUsername);
+      // Do not update local state here; let context update trigger UI refresh
     } catch (error) {
       console.error('Error declining friend request:', error);
       Alert.alert('Error', 'Failed to decline friend request');
@@ -263,12 +254,12 @@ export default function FriendsScreen() {
   };
 
   const handleRemoveFriend = useCallback(async (friendUsername: string) => {
-    if (!user) return;
+    if (!clerkUser) return;
 
     try {
       setIsLoading(true);
-      await removeFriend(user.username, friendUsername);
-      await removeFriend(friendUsername, user.username); // Remove from both users
+      await removeFriend(clerkUser.username, friendUsername);
+      await removeFriend(friendUsername, clerkUser.username); // Remove from both users
       setFriends(prev => prev.filter(friend => friend.username !== friendUsername));
       Alert.alert('Success', 'Friend removed successfully');
     } catch (error) {
@@ -278,14 +269,14 @@ export default function FriendsScreen() {
       setIsLoading(false);
       setMenuVisible(false);
     }
-  }, [user]);
+  }, [clerkUser]);
 
   const handleBlockUser = async (friendUsername: string) => {
-    if (!user) return;
+    if (!clerkUser) return;
 
     try {
       setIsLoading(true);
-      await blockUser(user.username, friendUsername);
+      await blockUser(clerkUser.username, friendUsername);
       setFriends(prev => prev.filter(friend => friend.username !== friendUsername));
       Alert.alert('Success', 'User blocked successfully');
     } catch (error) {
@@ -313,12 +304,12 @@ export default function FriendsScreen() {
   }, []);
 
   const handleCancelRequest = async (receiverUsername: string) => {
-    if (!user) return;
+    if (!clerkUser) return;
     try {
       setCancelingRequestId(receiverUsername);
       setIsLoading(true);
-      await cancelFriendRequest(user.username, receiverUsername);
-      setOutgoingFriendRequests(prev => prev.filter(request => request.username !== receiverUsername));
+      await cancelFriendRequest(clerkUser.username, receiverUsername);
+      // Do not update local state here; let context update trigger UI refresh
       Alert.alert('Success', 'Friend request cancelled');
     } catch (error) {
       console.error('Error cancelling friend request:', error);
@@ -333,9 +324,9 @@ export default function FriendsScreen() {
     <Surface style={[styles.friendCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
       <View style={styles.friendCardContent}>
         <View style={styles.friendInfo}>
-          <Avatar.Text size={50} label={friend.name.charAt(0)} />
+          <Avatar.Text size={50} label={friend.username.charAt(0)} />
           <View style={styles.friendDetails}>
-            <Text style={[styles.friendName, { color: theme.colors.text }]}>{friend.name}</Text>
+            <Text style={[styles.friendName, { color: theme.colors.text }]}>{friend.username}</Text>
           </View>
         </View>
         <View style={styles.friendActions}>
@@ -370,11 +361,11 @@ export default function FriendsScreen() {
         <View style={styles.friendInfo}>
           <Avatar.Text 
             size={60} 
-            label={friend.name.charAt(0)} 
+            label={friend.username.charAt(0)} 
             style={{ backgroundColor: type === 'incoming' ? theme.colors.primary : theme.colors.info }}
           />
           <View style={styles.friendDetails}>
-            <Text style={[styles.friendName, { color: theme.colors.text }]}>{friend.name}</Text>
+            <Text style={[styles.friendName, { color: theme.colors.text }]}>{friend.username}</Text>
           </View>
         </View>
         <View style={styles.requestActions}>
@@ -425,18 +416,15 @@ export default function FriendsScreen() {
 
   // Add filtered friends computation
   const filteredFriends = friends.filter(friend => 
-    (friend.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (friend.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+    (friend.username || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredIncomingFriendRequests = incomingFriendRequests.filter(request => 
-    (request.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (request.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+    (request.username || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredOutgoingFriendRequests = outgoingFriendRequests.filter(request => 
-    (request.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (request.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+    (request.username || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
 
@@ -502,7 +490,7 @@ export default function FriendsScreen() {
 
         {/* Search Bar */}
         <Searchbar
-          placeholder="Search by name or email..."
+          placeholder="Search by name..."
           onChangeText={handleSearch}
           value={searchQuery}
           style={[styles.searchBar, { backgroundColor: theme.colors.surface }]}
