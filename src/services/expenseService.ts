@@ -5,6 +5,7 @@ import {
 	doc,
 	increment,
 	writeBatch,
+	updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { Expense, Member, Debt, FREE_USER_LIMITS, PREMIUM_USER_LIMITS, ErrorType, FirestoreExpense, TripData, FirestoreTrip } from '@/src/types/DataTypes';
@@ -268,12 +269,14 @@ export const addExpenseAndCalculateDebts = async (
 
 	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
 
-	if (tripData.expensesCount >= FREE_USER_LIMITS.maxExpensesPerDayPerTrip && !tripData.isTripPremium) {
-		throw new Error(ErrorType.MAX_EXPENSES_FREE_USER);
-	}
+	const isPremium = tripData.isTripPremium || tripData.premiumStatus === 'premium';
+	const today = new Date().toISOString().slice(0, 10);
 
-	if (tripData.expensesCount >= PREMIUM_USER_LIMITS.maxExpensesPerDayPerTrip && tripData.isTripPremium) {
-		throw new Error(ErrorType.MAX_EXPENSES_PREMIUM_USER);
+	if (!isPremium) {
+		const amtLeft = tripData.dailyExpenseLimit?.[today] ?? FREE_USER_LIMITS.maxExpensesPerDayPerTrip;
+		if (amtLeft <= 0) {
+			throw new Error(ErrorType.MAX_EXPENSES_FREE_USER);
+		}
 	}
 
 	const expenseDocData = {
@@ -291,6 +294,13 @@ export const addExpenseAndCalculateDebts = async (
 	updatesRaw['totalAmtLeft'] = -convertedPaidAmt;
 	let updates = formatToFirebase(updatesRaw);
 	updates['expensesCount'] = increment(1);
+
+	// For non-premium, decrement amtLeft for today
+	if (!isPremium) {
+		const amtLeft = tripData.dailyExpenseLimit?.[today] ?? FREE_USER_LIMITS.maxExpensesPerDayPerTrip;
+		const newAmtLeft = amtLeft - 1;
+		updates[`dailyExpenseLimit.${today}`] = newAmtLeft;
+	}
 
 	batch.update(tripDocRef, updates);
 	
@@ -439,4 +449,11 @@ export const reverseExpensesAndUpdate = async (
 // Helper to sum total paid from paidByAndAmounts
 function getTotalPaid(paidByAndAmounts: {memberName: string, amount: string}[]): number {
 	return paidByAndAmounts.reduce((sum, p) => sum + Number(p.amount), 0);
+}
+
+export async function incrementDailyExpenseLimitForTrip(tripId: string, trip: any, incrementBy = 10) {
+  const today = new Date().toISOString().slice(0, 10);
+  const dailyExpenseLimit = { ...(trip.dailyExpenseLimit || {}) };
+  dailyExpenseLimit[today] = (dailyExpenseLimit[today] || FREE_USER_LIMITS.maxExpensesPerDayPerTrip) + incrementBy;
+  await updateDoc(doc(db, "trips", tripId), { dailyExpenseLimit });
 }

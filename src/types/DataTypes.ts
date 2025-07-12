@@ -32,7 +32,8 @@ export type FirestoreTrip = {
   startDate: any; // Timestamp or string
   totalAmtLeft: number;
   totalBudget: number;
-  premiumStatus: string
+  premiumStatus: string;
+  dailyExpenseLimit?: { [date: string]: number };
 };
 
 export type FirestoreExpense = {

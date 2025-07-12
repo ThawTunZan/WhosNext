@@ -4,7 +4,7 @@ import { Modal, View, StyleSheet, TouchableOpacity, ScrollView } from 'react-nat
 import { Button, Card, Text, TextInput, HelperText, Caption, useTheme, Surface, Divider, Portal } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { AddExpenseModalProps, Expense, SharedWith } from '@/src/types/DataTypes';
+import { AddExpenseModalProps, Expense, SharedWith, FREE_USER_LIMITS, PREMIUM_USER_LIMITS } from '@/src/types/DataTypes';
 import { useUser } from '@clerk/clerk-expo';
 import { Redirect } from 'expo-router';
 import { db } from "@/firebase";
@@ -15,8 +15,12 @@ import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
 import IconRadioSelector from './IconRadioSelector';
 import AvatarRadioSelector from './AvatarRadioSelector';
 import DateButton from '@/src/trip/components/DateButton';
+import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
+import { incrementDailyExpenseLimitForTrip } from '@/src/services/expenseService';
 
-const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerName }: AddExpenseModalProps) => {
+const AddExpenseModal = ({
+  visible, onDismiss, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerName, trip, onWatchAd
+}: AddExpenseModalProps & { trip: any, onWatchAd: () => void }) => {
 	const [expenseName, setExpenseName] = useState('');
 	const [expenseAmt, setexpenseAmt] = useState('');
 	const [expenseType, setExpenseType] = useState<'group' | 'personal'>('group');
@@ -309,6 +313,12 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 	const theme = isDarkMode ? darkTheme : lightTheme;
 	const paperTheme = useTheme();
 
+	const today = new Date().toISOString().slice(0, 10);
+	const isPremium = trip?.isTripPremium || trip?.premiumStatus === 'premium';
+	const amtLeft = isPremium
+		? undefined
+		: (trip?.dailyExpenseLimit?.[today] ?? FREE_USER_LIMITS.maxExpensesPerDayPerTrip);
+
 	return (
 		<>
 			<Portal>
@@ -554,13 +564,28 @@ const AddExpenseModal = ({ visible, onDismiss, onSubmit, members, tripId, initia
 									mode="contained"
 									onPress={handleInternalSubmit}
 									loading={isSubmitting}
-									disabled={isSubmitting}
+									disabled={isSubmitting || (!isPremium && amtLeft !== undefined && amtLeft <= 0)}
 									icon="check"
 								>
 									{editingExpenseId ? "Save Changes" : "Add Expense"}
 								</Button>
 							</Card.Actions>
 
+							{!isPremium && amtLeft !== undefined && amtLeft <= 0 ? (
+								<>
+									<Text style={{ color: theme.colors.error, textAlign: 'center', marginTop: 8 }}>
+										Daily expense limit reached. Watch an ad to increase your limit!
+									</Text>
+									<Button
+										mode="contained"
+										icon="video"
+										onPress={onWatchAd}
+										style={{ margin: 12 }}
+									>
+										Watch Ad to Increase Daily Limit
+									</Button>
+								</>
+							) : null}
 
 						</Card>
 						<CurrencyModal
