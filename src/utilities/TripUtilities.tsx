@@ -145,9 +145,11 @@ export const addMemberToTrip = async (
 		addMemberType: addMemberType,
 	};
 
-	//TODO to be used when it is working
-	//const newMemberDefaultCurrencyBudget = await convertCurrency(newMemberData.budget, newMemberData.currency, tripData.currency);
-	const newMemberDefaultCurrencyBudget = newMemberData.budget
+	const newMemberDefaultCurrencyBudget = await convertCurrency(
+		newMemberData.budget,
+		newMemberData.currency,
+		tripData.currency
+	);
 	try {
 		// 1) Update the trip's members map and totals
 		await updateDoc(tripRef, {
@@ -155,16 +157,6 @@ export const addMemberToTrip = async (
 			totalBudget: increment(newMemberDefaultCurrencyBudget),
 			totalAmtLeft: increment(newMemberDefaultCurrencyBudget),
 		});
-
-		// 2) Update user profile if name is provided
-		if (memberName) {
-			const userRef = doc(db, "users", memberName);
-			await setDoc(
-				userRef,
-				{ username: memberName.trim() },
-				{ merge: true }
-			);
-		}
 
 		// 3) Send notifications if enabled and not a mock user
 		if (sendNotifications && addMemberType !== AddMemberType.MOCK && memberName) {
@@ -321,12 +313,6 @@ export const removeMemberFromTrip = async (
 			[`members.${memberNameToRemove}`]: deleteField(),
 		});
 		console.log(`Member ${memberNameToRemove} removed from trip ${tripId}`);
-
-		// Remove from users collection if mock member
-		if (memberToRemoveData.addMemberType === AddMemberType.MOCK) {
-			await deleteDoc(userRef);
-			console.log(`Mock member ${memberNameToRemove} deleted from users collection`);
-		}
 
 		// Get remaining members and notify them
 		if (tripData && tripData.members) {

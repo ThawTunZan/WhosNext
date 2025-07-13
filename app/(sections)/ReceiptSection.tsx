@@ -95,7 +95,7 @@ export default function ReceiptSection({ tripId }: Props) {
   // Filter out expenses that already have a receipt
   const availableExpenses = useMemo(() => {
     return (expenses || []).filter(
-      (e) => !receipts.some((r) => r.expenseId === e.id)
+    (e) => !receipts.some((r) => r.expenseId === e.id)
     );
   }, [expenses, receipts]);
 
@@ -243,12 +243,12 @@ export default function ReceiptSection({ tripId }: Props) {
     return receipts.map((receipt) => {
       const isCloud = !!receipt.id && !!receipt.path && receipt.path.startsWith('receipts/');
       return (
-        <CommonCard
-          key={receipt.id}
+      <CommonCard
+        key={receipt.id}
           title={receipt.expenseName || "Receipt"}
           subtitle={`By: ${receipt.createdByName || "Unknown"}  |  ${receipt.createdAt ? new Date(receipt.createdAt.seconds * 1000).toLocaleDateString() : ''}`}
-          leftIcon="receipt"
-          actions={
+        leftIcon="receipt"
+        actions={
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{
                 backgroundColor: isCloud ? theme.colors.primary : theme.colors.outline,
@@ -259,23 +259,23 @@ export default function ReceiptSection({ tripId }: Props) {
               }}>
                 <Text style={{ color: isCloud ? '#fff' : theme.colors.text, fontSize: 12, fontWeight: 'bold' }}>{isCloud ? 'Cloud' : 'Local'}</Text>
               </View>
-              <Button
-                onPress={() => handleDelete(receipt)}
-                mode="outlined"
-                loading={loading}
-                icon="delete"
-              >
-                Delete
-              </Button>
+          <Button
+            onPress={() => handleDelete(receipt)}
+            mode="outlined"
+            loading={loading}
+            icon="delete"
+          >
+            Delete
+          </Button>
             </View>
-          }
-        >
-          <Image
-            source={{ uri: receipt.url }}
-            style={{ width: '100%', height: 200, marginVertical: 8 }}
-            resizeMode="contain"
-          />
-        </CommonCard>
+        }
+      >
+        <Image
+          source={{ uri: receipt.url }}
+          style={{ width: '100%', height: 200, marginVertical: 8 }}
+          resizeMode="contain"
+        />
+      </CommonCard>
       );
     });
   };
@@ -294,12 +294,12 @@ export default function ReceiptSection({ tripId }: Props) {
         </View>
       ) : (
         <>
-          <View style={{ alignItems: 'center', marginBottom: 16 }}>
-            <Image
-              source={{ uri: pickedImageUri }}
-              style={{ width: '100%', height: 200, marginBottom: 8 }}
-              resizeMode="contain"
-            />
+        <View style={{ alignItems: 'center', marginBottom: 16 }}>
+          <Image
+            source={{ uri: pickedImageUri }}
+            style={{ width: '100%', height: 200, marginBottom: 8 }}
+            resizeMode="contain"
+          />
             <TouchableOpacity onPress={() => setPickedImageUri(null)} style={{ padding: 10, borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 6, alignItems: 'center', marginTop: 8 }}>
               <Text style={{ color: theme.colors.text }}>Remove</Text>
             </TouchableOpacity>
@@ -384,7 +384,7 @@ export default function ReceiptSection({ tripId }: Props) {
                 </View>
               )}
             </View>
-          </View>
+        </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
             <TouchableOpacity
               onPress={async () => {
@@ -422,7 +422,7 @@ export default function ReceiptSection({ tripId }: Props) {
             >
               <Text style={{ color: (tripInfo && isCloudTrip(tripInfo.premiumStatus)) ? '#fff' : theme.colors.text, fontWeight: 'bold' }}>Upload to Cloud</Text>
             </TouchableOpacity>
-          </View>
+        </View>
         </>
       )}
     </View>
@@ -435,8 +435,8 @@ export default function ReceiptSection({ tripId }: Props) {
           <MaterialIcons name="info-outline" size={22} color={theme.colors.text} />
         </TouchableOpacity>
       </View>
-      <Button
-        mode="contained"
+        <Button
+          mode="contained"
         onPress={() => {
           if (
             tripInfo && isCloudTrip(tripInfo.premiumStatus)
@@ -451,11 +451,11 @@ export default function ReceiptSection({ tripId }: Props) {
           setModalVisible(true);
         }}
         style={[sectionStyles.actionButton, { marginHorizontal: 16, marginTop: 8, marginBottom: 8 }]}
-        icon="plus"
+          icon="plus"
         disabled={tripInfo && isCloudTrip(tripInfo.premiumStatus) && (receipts.filter(r => r.createdByName === currentUsername).length >= 5 || receipts.length >= 20)}
-      >
-        Add Receipt
-      </Button>
+        >
+          Add Receipt
+        </Button>
       <ScrollView style={{ flex: 1 }}>
         {renderReceiptsList()}
       </ScrollView>

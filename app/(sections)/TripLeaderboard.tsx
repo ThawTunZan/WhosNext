@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Text, Button, Avatar, Card, Badge, useTheme, Surface } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { useRouter } from 'expo-router';
 import { TripData, Payment, Expense, FirestoreTrip } from '@/src/types/DataTypes';
+import { convertCurrency } from '@/src/services/CurrencyService';
 
 interface TripLeaderboardProps {
   trip: FirestoreTrip;
@@ -20,14 +21,67 @@ export default function TripLeaderboard({ trip, expenses, payments }: TripLeader
   const [rotationType, setRotationType] = useState<'Recency' | 'AmountLeft' | 'PaymentNum'>('Recency')
   const [excludedMembers, setExcludedMembers] = useState<string[]>([])
   // Members as array with id
-  const members = trip.members
-    ? Object.entries(trip.members).map(([username, m]) => ({ ...m, username }))
-    : [];
+  const members = useMemo(() => (
+    trip.members
+      ? Object.entries(trip.members).map(([username, m]) => ({ ...m, username }))
+      : []
+  ), [trip.members]);
+
+  const [leaderboardTotals, setLeaderboardTotals] = useState<{ [username: string]: number }>({});
+  const [loadingTotals, setLoadingTotals] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    async function calcTotals() {
+      setLoadingTotals(true);
+      const totals: { [username: string]: number } = {};
+      for (const member of members) {
+        let total = 0;
+        for (const e of expenses) {
+          for (const pba of e.paidByAndAmounts || []) {
+            if (pba.memberName === member.username) {
+              const cur = (pba as any).currency || e.currency || trip.currency || 'USD';
+              const amt = parseFloat(pba.amount || '0');
+              const converted = await convertCurrency(amt, cur, trip.currency || 'USD');
+              total += converted;
+            }
+          }
+        }
+        totals[member.username] = total;
+      }
+      if (!cancelled) setLeaderboardTotals(totals);
+      setLoadingTotals(false);
+    }
+    calcTotals();
+    return () => { cancelled = true; };
+  }, [members, expenses, trip.currency]);
+
+  // each person's amount left converted to the trip's currency
+  const [amtLeftInTripCurrency, setAmtLeftInTripCurrency] = useState<{ [username: string]: number }>({});
+  useEffect(() => {
+    let cancelled = false;
+    async function calcAmtLeft() {
+      const result: { [username: string]: number } = {};
+      for (const member of members) {
+        const converted = await convertCurrency(
+          member.amtLeft,
+          member.currency || trip.currency || 'USD',
+          trip.currency || 'USD'
+        );
+        result[member.username] = converted;
+      }
+      if (!cancelled) setAmtLeftInTripCurrency(result);
+    }
+    calcAmtLeft();
+    return () => { cancelled = true; };
+  }, [members, trip.currency]);
 
   // Payment rotation: choose logic based on rotationType
   const paymentRotation = useMemo(() => {
     if (rotationType === 'AmountLeft') {
-      return [...members].sort((a, b) => b.amtLeft - a.amtLeft);
+      // Sort by amtLeft in trip currency
+      return [...members].sort((a, b) =>
+        (amtLeftInTripCurrency[b.username] || 0) - (amtLeftInTripCurrency[a.username] || 0)
+      );
     } else if (rotationType === 'Recency') {
       // Sort members by how recently they paid (least recent on the left, most recent on the right)
       // For each member, find the most recent expense they paid for
@@ -149,12 +203,11 @@ export default function TripLeaderboard({ trip, expenses, payments }: TripLeader
       {/* Leaderboard Section */}
       <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]}> 
         <Text style={styles.sectionTitle}>Leaderboard</Text>
-        {leaderboard.map((member, idx) => {
+        {loadingTotals ? (
+          <Text>Loading totals...</Text>
+        ) : leaderboard.map((member, idx) => {
           // Calculate total paid by this member
-          const totalPaid = expenses
-            .flatMap(e => e.paidByAndAmounts)
-            .filter(pba => pba.memberName === member.username)
-            .reduce((sum, pba) => sum + parseFloat(pba.amount || '0'), 0);
+          const totalPaid = leaderboardTotals[member.username] || 0;
           const numPaid = expenses.filter(e => e.paidByAndAmounts?.[0]?.memberName === member.username).length;
 
           // Badges
@@ -202,7 +255,7 @@ export default function TripLeaderboard({ trip, expenses, payments }: TripLeader
                 )}
               </View>
               <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                <Text style={{ color: theme.colors.text, fontSize: 13 }}>Paid: ${member.totalPaid.toFixed(2)}</Text>
+                <Text style={{ color: theme.colors.text, fontSize: 13 }}>Paid: {trip.currency || 'USD'} {totalPaid.toFixed(2)}</Text>
               </View>
               {/* Add badges if available */}
             </View>

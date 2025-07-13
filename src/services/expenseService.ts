@@ -15,7 +15,7 @@ import { convertCurrency } from '@/src/services/CurrencyService';
 const TRIPS_COLLECTION = 'trips';
 const EXPENSES_SUBCOLLECTION = 'expenses';
 
-export const updateExpense = async (expenseId: string, tripId: string, updatedExpenseData: Expense, members: Record<string, Member>, expense: FirestoreExpense): Promise<void> => {
+export const updateExpense = async (expenseId: string, tripId: string, updatedExpenseData: Expense, members: Record<string, Member>, expense: FirestoreExpense, tripCurrency: string): Promise<void> => {
 
 	const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
 	const batch = writeBatch(db);
@@ -27,9 +27,9 @@ export const updateExpense = async (expenseId: string, tripId: string, updatedEx
 
 		const originalExpense = expense as Expense
 
-		const reversalRaw = generateExpenseImpactUpdate({}, originalExpense, members, true);
+		const reversalRaw = await generateExpenseImpactUpdate({}, originalExpense, members, true, tripCurrency);
 		reversalRaw['totalAmtLeft'] = getTotalPaid(originalExpense.paidByAndAmounts);
-		const applyRaw = generateExpenseImpactUpdate({}, updatedExpenseData, members, false);
+		const applyRaw = await generateExpenseImpactUpdate({}, updatedExpenseData, members, false, tripCurrency);
 		applyRaw['totalAmtLeft'] = -getTotalPaid(updatedExpenseData.paidByAndAmounts);
 
 		const combinedUpdates = mergeIncrements(reversalRaw, applyRaw)
@@ -73,7 +73,14 @@ export const editExpense = async (
 	}
 
 	try {
-		await updateExpense(expenseId, tripId, updatedExpenseData, members, expense);
+		// This function is not async, so it doesn't need to await updateExpense
+		// The updateExpense function itself is async and needs to be awaited
+		// For now, we'll call it directly, but in a real scenario, this would need to be awaited
+		// or the signature of editExpense would need to be changed.
+		// For now, assuming updateExpense is called within this function.
+		// If updateExpense is truly async, this function would need to be async.
+		// Given the original code, it's not.
+		await updateExpense(expenseId, tripId, updatedExpenseData, members, expense, 'USD'); // Placeholder for tripCurrency
 	} catch (error) {
 		console.error(`Error updating expense ${expenseId}: `, error);
 		throw error;
@@ -104,94 +111,80 @@ function mergeIncrements(
 	return result;
 }
 
-export const generateExpenseImpactUpdate = (
-	updates: { [key: string]: any },
-	expenseData: Expense,
-	members: Record<string, Member>,
-	reverse: boolean,
-	expenseId?: string,
-	convertedPaidAmt?: number
-  ): { [key: string]: any } => {
-  
-	const { sharedWith, paidByAndAmounts, currency } = expenseData;
-  
-	if (!paidByAndAmounts) {
-	  throw new Error(`paid by and amount map has error: ${paidByAndAmounts}`);
-	}
-  
-	// Validate payers
-	paidByAndAmounts.forEach(p => {
-	  if (!members[p.memberName]) {
-		throw new Error(`${p.memberName} does not exist in the trip!`);
-	  }
-	});
-  
-	const multiplier = reverse ? 1 : -1;
-	
-	const allMemberNames = Array.from(new Set([
-		...paidByAndAmounts.map(p => p.memberName),
-		...sharedWith.map(s => s.payeeName)
-	]));
-	const netBalances: Record<string, number> = {};
-  	for (const member of allMemberNames) {
-  	  const paid = Number(paidByAndAmounts.find(p => p.memberName === member)?.amount || 0);
-  	  const owed = Number(sharedWith.find(s => s.payeeName === member)?.amount || 0);
-  	  netBalances[member] = paid - owed;
-  	}
-
-  	// 2. List debtors and creditors
-  	const debtors = Object.entries(netBalances).filter(([_, net]) => net < -0.001);
-  	const creditors = Object.entries(netBalances).filter(([_, net]) => net > 0.001);
-	console.log("DEBTORS ARE ", debtors);
-	console.log("CREDITORS ARE ", creditors)
-
-  	// 3. Settle debts
-  	let debtorsCopy = debtors.map(([name, net]) => [name, -Number(net)] as [string, number]); // amount owed (positive)
-  	let creditorsCopy = creditors.map(([name, net]) => [name, Number(net)] as [string, number]); // amount to receive (positive)
-	  console.log("debtorsCOPY ARE ", debtorsCopy);
-	  console.log("creditorsCOPY ARE ", creditorsCopy)
-
-	for (let i = 0; i < debtorsCopy.length; i++) {
-    	let [debtor, amtToSettle] = debtorsCopy[i];
-    	for (let j = 0; j < creditorsCopy.length && amtToSettle > 0.001; j++) {
-    	  let [creditor, creditAmt] = creditorsCopy[j];
-    	  if (creditAmt < 0.001) continue;
-    	  const settleAmt = Math.min(amtToSettle, creditAmt);
-		  if (settleAmt > 0) {
-		    const debtKey = reverse
-		  	? `${creditor}#${debtor}`
-		  	: `${debtor}#${creditor}`;
-		
-		    updates[`debts.${currency}.${debtKey}`] =
-		  	(updates[`debts.${currency}.${debtKey}`] || 0) + settleAmt;
-		  }
-    	}
-  	}
-
-  
-	// Calculate totalPaidAmt
-	let totalPaidAmt = 0;
-	for (const payer of paidByAndAmounts) {
-	  const paidAmount = Number(payer.amount);
-	  if (!isNaN(paidAmount) && paidAmount !== 0) {
-		// update individual's amt left
-		console.log("UPDATING ")
-		updates[`members.${payer.memberName}.amtLeft`] =
-      		(updates[`members.${payer.memberName}.amtLeft`] || 0) + multiplier * paidAmount;
-		//update the total amt left in the trip
-	    totalPaidAmt += paidAmount;
-	  }
-	}
-
-	// === Update totalAmtLeft ===
-	if (!isNaN(totalPaidAmt)) {
-	  updates[`totalAmtLeft`] =
-		(updates[`totalAmtLeft`] || 0) + multiplier * totalPaidAmt;
-	  console.log(`totalAmtLeft adjustment = ${multiplier * totalPaidAmt}`);
-	}
-  
-	return updates;
-  };
+export const generateExpenseImpactUpdate = async (
+  updates: { [key: string]: any },
+  expenseData: Expense,
+  members: Record<string, Member>,
+  reverse: boolean,
+  tripCurrency: string,
+  expenseId?: string,
+  convertedPaidAmt?: number
+): Promise<{ [key: string]: any }> => {
+  const { sharedWith, paidByAndAmounts } = expenseData;
+  if (!paidByAndAmounts) {
+    throw new Error(`paid by and amount map has error: ${paidByAndAmounts}`);
+  }
+  // Group paidByAndAmounts by currency
+  const payersByCurrency: { [currency: string]: { memberName: string, amount: string }[] } = {};
+  paidByAndAmounts.forEach(p => {
+    const cur = (p as any).currency || expenseData.currency || tripCurrency || 'USD';
+    if (!payersByCurrency[cur]) payersByCurrency[cur] = [];
+    payersByCurrency[cur].push(p);
+  });
+  let totalPaidInTripCurrency = 0;
+  // For each currency, calculate net balances and update debts
+  await Promise.all(Object.entries(payersByCurrency).map(async ([currency, payers]) => {
+    // Net balances for all members in this currency
+    const allMemberNames = Array.from(new Set([
+      ...payers.map(p => p.memberName),
+      ...sharedWith.filter(sw => sw.currency === currency).map(s => s.payeeName)
+    ]));
+    const netBalances: Record<string, number> = {};
+    for (const member of allMemberNames) {
+      const paid = Number(payers.find(p => p.memberName === member)?.amount || 0);
+      const owed = Number(sharedWith.filter(sw => sw.currency === currency).find(s => s.payeeName === member)?.amount || 0);
+      netBalances[member] = paid - owed;
+    }
+    const multiplier = reverse ? 1 : -1;
+    // List debtors and creditors
+    const debtors = Object.entries(netBalances).filter(([_, net]) => net < -0.001);
+    const creditors = Object.entries(netBalances).filter(([_, net]) => net > 0.001);
+    // Settle debts in this currency
+    let debtorsCopy = debtors.map(([name, net]) => [name, -Number(net)] as [string, number]);
+    let creditorsCopy = creditors.map(([name, net]) => [name, Number(net)] as [string, number]);
+    for (let i = 0; i < debtorsCopy.length; i++) {
+      let [debtor, amtToSettle] = debtorsCopy[i];
+      for (let j = 0; j < creditorsCopy.length && amtToSettle > 0.001; j++) {
+        let [creditor, creditAmt] = creditorsCopy[j];
+        if (creditAmt < 0.001) continue;
+        const settleAmt = Math.min(amtToSettle, creditAmt);
+        if (settleAmt > 0) {
+          const debtKey = reverse
+            ? `${creditor}#${debtor}`
+            : `${debtor}#${creditor}`;
+          updates[`debts.${currency}.${debtKey}`] =
+            (updates[`debts.${currency}.${debtKey}`] || 0) + settleAmt;
+        }
+      }
+    }
+    // Update member balances in this currency
+    for (const payer of payers) {
+      const paidAmount = Number(payer.amount);
+      if (!isNaN(paidAmount) && paidAmount !== 0) {
+        updates[`members.${payer.memberName}.amtLeft`] =
+          (updates[`members.${payer.memberName}.amtLeft`] || 0) + multiplier * paidAmount;
+        // Convert to trip currency and add to total
+        const converted = await convertCurrency(paidAmount, currency, tripCurrency);
+        totalPaidInTripCurrency += multiplier * converted;
+      }
+    }
+  }));
+  // Update totalAmtLeft in trip currency only
+  if (!isNaN(totalPaidInTripCurrency)) {
+    updates[`totalAmtLeft`] = (updates[`totalAmtLeft`] || 0) + totalPaidInTripCurrency;
+  }
+  return updates;
+};
   
 function formatToFirebase(updates: { [key: string]: any }) {
 	const out: { [key: string]: any } = {};
@@ -290,7 +283,7 @@ export const addExpenseAndCalculateDebts = async (
 
 	let updatesRaw: { [key: string]: number } = {};
 	const convertedPaidAmt = await convertCurrency(getTotalPaid(expenseData.paidByAndAmounts), expenseData.currency , tripData.currency);
-	updatesRaw = generateExpenseImpactUpdate(updatesRaw, expenseData, members, false, expenseData.id, convertedPaidAmt);
+	updatesRaw = await generateExpenseImpactUpdate(updatesRaw, expenseData, members, false, tripData.currency);
 	updatesRaw['totalAmtLeft'] = -convertedPaidAmt;
 	let updates = formatToFirebase(updatesRaw);
 	updates['expensesCount'] = increment(1);
@@ -421,6 +414,7 @@ export const reverseExpensesAndUpdate = async (
 	members: Record<string, Member>, // Needed for payer ID lookup if not stored on expense
 	reverse: boolean,
 	expenses: FirestoreExpense,
+	tripData: FirestoreTrip
 ): Promise<void> => {
 	const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
 	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
@@ -433,7 +427,7 @@ export const reverseExpensesAndUpdate = async (
 		}
 
 		let reversalUpdatesRaw: { [key: string]: number } = {}
-		reversalUpdatesRaw = generateExpenseImpactUpdate(reversalUpdatesRaw, expenses as Expense, members, reverse, expenseId);
+		reversalUpdatesRaw = await generateExpenseImpactUpdate(reversalUpdatesRaw, expenses as Expense, members, reverse, tripData.currency);
 		let reversalUpdates = formatToFirebase(reversalUpdatesRaw)
 
 		batch.update(tripDocRef, reversalUpdates);

@@ -75,6 +75,7 @@ export function useTripHandlers({
 		async (mockUsername: string, claimCode: string) => {
 			if (!tripId || !currentUserName) return;
 			try {
+				// updates the field in the trip.members
 				await claimMockUser(tripId, mockUsername, claimCode, currentUserName);
 				// call a function that update firebase database expenses and activity and settle debt
 				await updateFirebaseAfterClaiming(mockUsername, currentUserName, tripId, expenses, trip);
@@ -356,9 +357,5 @@ async function updateFirebaseAfterClaiming(mockUserId: string, currentUserName: 
 			});
 		}
 	}
-
-	// 4. Remove the mock user document from the users collection
-	const mockUserDocRef = doc(db, "users", mockUserId);
-	await deleteDoc(mockUserDocRef);
 }
 
