@@ -14,6 +14,7 @@ import { ThemeProvider } from '@/src/context/ThemeContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { UserTripsProvider, useUserTripsContext } from "@/src/context/UserTripsContext";
+import { useAuth } from '@clerk/clerk-expo';
 
 // NavButton component memoized
 const NavButton = React.memo(({
@@ -96,6 +97,10 @@ export default function RootLayout() {
 
 function AuthGateAndStack() {
   const { isLoaded, isSignedIn, user } = useUser();
+  const { isSignedIn: authSignedIn, userId: authUserId } = useAuth();
+  React.useEffect(() => {
+    console.log('[Clerk Debug] Session state:', { isSignedIn: authSignedIn, userId: authUserId });
+  }, [authSignedIn, authUserId]);
   const path = usePathname();
   const { isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
