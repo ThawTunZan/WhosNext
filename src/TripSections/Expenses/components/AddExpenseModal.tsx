@@ -230,45 +230,48 @@ const AddExpenseModal = ({
 			});
 			// --- Even split cannot have multiple paidBy currencies ---
 			if (splitType === 'even' && Object.keys(paidBySums).length > 1) {
-				console.log("cant have even and multi currencies at the same time")
 				newErrors['evenSplitMultiCurrency'] = 'Even split is only allowed when all payers use the same currency.';
 				isValid = false;
 			}
-			// 2. Sum sharedWith amounts per currency
-			const sharedWithSums: { [currency: string]: number } = {};
-			sharedWithNames.forEach(id => {
-				let cur = selectedCurrency;
-				let amt = 0;
-				if (splitType === 'custom') {
-					cur = customSplitCurrencies[id] || selectedCurrency;
-					amt = parseFloat(customSplitAmount[id] || '0');
-				} else {
-					// Even split
-					cur = selectedCurrency; // already set to payer's currency by useEffect
-					const totalPaid = Object.values(customPaidAmount)
-						.map(a => parseFloat(a || '0'))
-						.reduce((sum, v) => isNaN(v) ? sum : sum + v, 0);
-					amt = sharedWithNames.length > 0 ? totalPaid / sharedWithNames.length : 0;
-				}
-				if (!sharedWithSums[cur]) sharedWithSums[cur] = 0;
-				sharedWithSums[cur] += isNaN(amt) ? 0 : amt;
-			});
-			// 3. For each currency, check sums match
-			Object.keys(paidBySums).forEach(cur => {
-				const paid = paidBySums[cur] || 0;
-				const shared = sharedWithSums[cur] || 0;
-				if (Math.abs(paid - shared) > 0.01) {
-					newErrors[`currencySum_${cur}`] = `Total paid (${cur}) ${paid.toFixed(2)} does not match total shared (${cur}) ${shared.toFixed(2)}.`;
-					isValid = false;
-				}
-			});
-			// Also check for currencies in sharedWithSums not in paidBySums
-			Object.keys(sharedWithSums).forEach(cur => {
-				if (!(cur in paidBySums)) {
-					newErrors[`currencySum_${cur}`] = `No paid amount entered for currency ${cur}, but shared amount exists.`;
-					isValid = false;
-				}
-			});
+
+			// Only check currency sums if not in the evenSplitMultiCurrency error state
+			if (!newErrors['evenSplitMultiCurrency']) {
+				// 2. Sum sharedWith amounts per currency
+				const sharedWithSums: { [currency: string]: number } = {};
+				sharedWithNames.forEach(id => {
+					let cur = selectedCurrency;
+					let amt = 0;
+					if (splitType === 'custom') {
+						cur = customSplitCurrencies[id] || selectedCurrency;
+						amt = parseFloat(customSplitAmount[id] || '0');
+					} else {
+						// Even split
+						cur = selectedCurrency; // already set to payer's currency by useEffect
+						const totalPaid = Object.values(customPaidAmount)
+							.map(a => parseFloat(a || '0'))
+							.reduce((sum, v) => isNaN(v) ? sum : sum + v, 0);
+						amt = sharedWithNames.length > 0 ? totalPaid / sharedWithNames.length : 0;
+					}
+					if (!sharedWithSums[cur]) sharedWithSums[cur] = 0;
+					sharedWithSums[cur] += isNaN(amt) ? 0 : amt;
+				});
+				// 3. For each currency, check sums match
+				Object.keys(paidBySums).forEach(cur => {
+					const paid = paidBySums[cur] || 0;
+					const shared = sharedWithSums[cur] || 0;
+					if (Math.abs(paid - shared) > 0.01) {
+						newErrors[`currencySum_${cur}`] = `Total paid (${cur}) ${paid.toFixed(2)} does not match total shared (${cur}) ${shared.toFixed(2)}.`;
+						isValid = false;
+					}
+				});
+				// Also check for currencies in sharedWithSums not in paidBySums
+				Object.keys(sharedWithSums).forEach(cur => {
+					if (!(cur in paidBySums)) {
+						newErrors[`currencySum_${cur}`] = `No paid amount entered for currency ${cur}, but shared amount exists.`;
+						isValid = false;
+					}
+				});
+			}
 			
 			const totalPaidAmount = Object.values(customPaidAmount)
 				.map(amt => parseFloat(amt || '0')) // Default to '0' if undefined or empty
@@ -359,7 +362,7 @@ const AddExpenseModal = ({
 						parsedSharedWith = sharedWithNames.map(username => ({
 							payeeName: username,
 							amount: parseFloat(customSplitAmount[username] || '0'),
-							currency: selectedCurrency
+							currency: customSplitCurrencies[username] || selectedCurrency
 						}));
 					} else if (splitType === 'even') { // Even split
 						totalPaid = Object.values(customPaidAmount)
@@ -450,6 +453,14 @@ const AddExpenseModal = ({
 							<ScrollView>
 								<Card.Title title={editingExpenseId ? "Edit Expense" : "Add New Expense"} />
 								<Card.Content>
+									{/* Show currency sum and even split multi-currency errors at the top */}
+									{Object.entries(errors)
+										.filter(([key]) => key.startsWith('currencySum_') || key === 'evenSplitMultiCurrency')
+										.map(([key, msg]) => (
+											<HelperText key={key} type="error" style={{ fontWeight: 'bold', fontSize: 15, marginBottom: 4 }}>
+												{msg}
+											</HelperText>
+										))}
 									<TextInput
 										label="Expense Name"
 										value={expenseName}

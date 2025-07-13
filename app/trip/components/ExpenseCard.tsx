@@ -67,7 +67,8 @@ export default function ExpenseCard({
     return sharedWith
       .map(share => ({
         name: share.payeeName || "Unknown",
-        amount: share.amount
+        amount: share.amount,
+        currency: share.currency || 'USD',
       }))
       .sort((a, b) => b.amount - a.amount);
   };
@@ -75,61 +76,51 @@ export default function ExpenseCard({
   const getPayerNames = (paidByAndAmounts: {
     memberName: string;
     amount: string;
+    currency?: string;
     }[]) => {
       return paidByAndAmounts.map(each => ({
         name: each.memberName || 'unknown',
-        amount: parseFloat(each.amount) || 0
+        amount: parseFloat(each.amount) || 0,
+        currency: each.currency || 'USD',
       }))
   }
 
   const renderExpandedContent = () => (
     <Card.Content style={styles.expandedContent}>
       <Divider style={styles.divider} />
-      
       <View style={styles.detailsContainer}>
-        <Text variant="titleMedium" style={[styles.detailsTitle, { color: theme.colors.text }]}>
-          Payment Details
-        </Text>
-        
+        <Text variant="titleMedium" style={[styles.detailsTitle, { color: theme.colors.text }]}>Payment Details</Text>
         <View style={styles.detailRow}>
           <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Paid by</Text>
         </View>
-
         {getPayerNames(expense.paidByAndAmounts).map((payer, index) => (
           <View key={index} style={styles.splitRow}>
             <Text style={[styles.payeeName, { color: theme.colors.text }]}>{payer.name}</Text>
-            <Text style={[styles.payeeAmount, { color: theme.colors.text }]}>
-              ${payer.amount.toFixed(2)}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[styles.payeeAmount, { color: theme.colors.text }]}> {payer.currency} </Text>
+              <Text style={[styles.payeeAmount, { color: theme.colors.text }]}>${payer.amount.toFixed(2)}</Text>
+            </View>
           </View>
         ))}
-
         <View style={styles.detailRow}>
           <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Date</Text>
           <Text style={[styles.detailValue, { color: theme.colors.text }]}>{formattedDate}</Text>
         </View>
-
-        <Text variant="titleMedium" style={[styles.splitTitle, { color: theme.colors.text }]}>
-          Split Details
-        </Text>
-
+        <Text variant="titleMedium" style={[styles.splitTitle, { color: theme.colors.text }]}>Split Details</Text>
         {getPayeeNames(expense.sharedWith).map((payee, index) => (
           <View key={index} style={styles.splitRow}>
             <Text style={[styles.payeeName, { color: theme.colors.text }]}>{payee.name}</Text>
-            <Text style={[styles.payeeAmount, { color: theme.colors.text }]}>
-              ${payee.amount.toFixed(2)}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={[styles.payeeAmount, { color: theme.colors.text }]}> {payee.currency} </Text>
+              <Text style={[styles.payeeAmount, { color: theme.colors.text }]}>${payee.amount.toFixed(2)}</Text>
+            </View>
           </View>
         ))}
-
         <View style={styles.totalRow}>
           <Text style={[styles.totalLabel, { color: theme.colors.primary }]}>Total Split</Text>
-          <Text style={[styles.totalAmount, { color: theme.colors.primary }]}>
-            ${totalShared.toFixed(2)}
-          </Text>
+          <Text style={[styles.totalAmount, { color: theme.colors.primary }]}>${totalShared.toFixed(2)}</Text>
         </View>
       </View>
-
       <View style={styles.actionButtons}>
         <IconButton
           icon="pencil"

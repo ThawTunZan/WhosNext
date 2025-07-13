@@ -105,17 +105,8 @@ export default function OverviewTab({
         </Button>
       </View>
 
-      {nextPayer && (
-        <View style={styles.section}>
-          <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            ⏭️ Next Up
-          </Text>
-          <NextPayerCard name={nextPayer} />
-        </View>
-      )}
-
       <View style={styles.actionButtons}>
-        {Object.keys(members)[0] === currentUsername && (
+        {trip.createdBy === currentUsername && (
           <Button
             mode="contained"
             onPress={onDeleteTrip}

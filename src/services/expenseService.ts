@@ -112,21 +112,21 @@ function mergeIncrements(
 }
 
 export const generateExpenseImpactUpdate = async (
-  updates: { [key: string]: any },
-  expenseData: Expense,
-  members: Record<string, Member>,
-  reverse: boolean,
+	updates: { [key: string]: any },
+	expenseData: Expense,
+	members: Record<string, Member>,
+	reverse: boolean,
   tripCurrency: string,
-  expenseId?: string,
-  convertedPaidAmt?: number
+	expenseId?: string,
+	convertedPaidAmt?: number
 ): Promise<{ [key: string]: any }> => {
   const { sharedWith, paidByAndAmounts } = expenseData;
-  if (!paidByAndAmounts) {
-    throw new Error(`paid by and amount map has error: ${paidByAndAmounts}`);
-  }
+	if (!paidByAndAmounts) {
+	  throw new Error(`paid by and amount map has error: ${paidByAndAmounts}`);
+	}
   // Group paidByAndAmounts by currency
   const payersByCurrency: { [currency: string]: { memberName: string, amount: string }[] } = {};
-  paidByAndAmounts.forEach(p => {
+	paidByAndAmounts.forEach(p => {
     const cur = (p as any).currency || expenseData.currency || tripCurrency || 'USD';
     if (!payersByCurrency[cur]) payersByCurrency[cur] = [];
     payersByCurrency[cur].push(p);
@@ -135,56 +135,56 @@ export const generateExpenseImpactUpdate = async (
   // For each currency, calculate net balances and update debts
   await Promise.all(Object.entries(payersByCurrency).map(async ([currency, payers]) => {
     // Net balances for all members in this currency
-    const allMemberNames = Array.from(new Set([
+	const allMemberNames = Array.from(new Set([
       ...payers.map(p => p.memberName),
       ...sharedWith.filter(sw => sw.currency === currency).map(s => s.payeeName)
-    ]));
-    const netBalances: Record<string, number> = {};
-    for (const member of allMemberNames) {
+	]));
+	const netBalances: Record<string, number> = {};
+  	for (const member of allMemberNames) {
       const paid = Number(payers.find(p => p.memberName === member)?.amount || 0);
       const owed = Number(sharedWith.filter(sw => sw.currency === currency).find(s => s.payeeName === member)?.amount || 0);
-      netBalances[member] = paid - owed;
-    }
+  	  netBalances[member] = paid - owed;
+  	}
     const multiplier = reverse ? 1 : -1;
     // List debtors and creditors
-    const debtors = Object.entries(netBalances).filter(([_, net]) => net < -0.001);
-    const creditors = Object.entries(netBalances).filter(([_, net]) => net > 0.001);
+  	const debtors = Object.entries(netBalances).filter(([_, net]) => net < -0.001);
+  	const creditors = Object.entries(netBalances).filter(([_, net]) => net > 0.001);
     // Settle debts in this currency
     let debtorsCopy = debtors.map(([name, net]) => [name, -Number(net)] as [string, number]);
     let creditorsCopy = creditors.map(([name, net]) => [name, Number(net)] as [string, number]);
-    for (let i = 0; i < debtorsCopy.length; i++) {
-      let [debtor, amtToSettle] = debtorsCopy[i];
-      for (let j = 0; j < creditorsCopy.length && amtToSettle > 0.001; j++) {
-        let [creditor, creditAmt] = creditorsCopy[j];
-        if (creditAmt < 0.001) continue;
-        const settleAmt = Math.min(amtToSettle, creditAmt);
-        if (settleAmt > 0) {
-          const debtKey = reverse
-            ? `${creditor}#${debtor}`
-            : `${debtor}#${creditor}`;
-          updates[`debts.${currency}.${debtKey}`] =
-            (updates[`debts.${currency}.${debtKey}`] || 0) + settleAmt;
-        }
-      }
-    }
+	for (let i = 0; i < debtorsCopy.length; i++) {
+    	let [debtor, amtToSettle] = debtorsCopy[i];
+    	for (let j = 0; j < creditorsCopy.length && amtToSettle > 0.001; j++) {
+    	  let [creditor, creditAmt] = creditorsCopy[j];
+    	  if (creditAmt < 0.001) continue;
+    	  const settleAmt = Math.min(amtToSettle, creditAmt);
+		  if (settleAmt > 0) {
+		    const debtKey = reverse
+		  	? `${creditor}#${debtor}`
+		  	: `${debtor}#${creditor}`;
+		    updates[`debts.${currency}.${debtKey}`] =
+		  	(updates[`debts.${currency}.${debtKey}`] || 0) + settleAmt;
+		  }
+    	}
+  	}
     // Update member balances in this currency
     for (const payer of payers) {
-      const paidAmount = Number(payer.amount);
-      if (!isNaN(paidAmount) && paidAmount !== 0) {
-        updates[`members.${payer.memberName}.amtLeft`] =
-          (updates[`members.${payer.memberName}.amtLeft`] || 0) + multiplier * paidAmount;
+	  const paidAmount = Number(payer.amount);
+	  if (!isNaN(paidAmount) && paidAmount !== 0) {
+		updates[`members.${payer.memberName}.amtLeft`] =
+      		(updates[`members.${payer.memberName}.amtLeft`] || 0) + multiplier * paidAmount;
         // Convert to trip currency and add to total
         const converted = await convertCurrency(paidAmount, currency, tripCurrency);
         totalPaidInTripCurrency += multiplier * converted;
-      }
-    }
+	  }
+	}
   }));
   // Update totalAmtLeft in trip currency only
   if (!isNaN(totalPaidInTripCurrency)) {
     updates[`totalAmtLeft`] = (updates[`totalAmtLeft`] || 0) + totalPaidInTripCurrency;
-  }
-  return updates;
-};
+	}
+	return updates;
+  };
   
 function formatToFirebase(updates: { [key: string]: any }) {
 	const out: { [key: string]: any } = {};
@@ -268,8 +268,8 @@ export const addExpenseAndCalculateDebts = async (
 	if (!isPremium) {
 		const amtLeft = tripData.dailyExpenseLimit?.[today] ?? FREE_USER_LIMITS.maxExpensesPerDayPerTrip;
 		if (amtLeft <= 0) {
-			throw new Error(ErrorType.MAX_EXPENSES_FREE_USER);
-		}
+		throw new Error(ErrorType.MAX_EXPENSES_FREE_USER);
+	}
 	}
 
 	const expenseDocData = {
