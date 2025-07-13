@@ -10,7 +10,7 @@ import MemberList from '@/app/trip/MemberList';
 import NextPayerCard from '@/app/trip/components/NextPayerCard';
 import { UpgradeTripButton } from '@/src/components';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
-import { showRewardedAd } from '@/CommonComponents/AdMob';
+//import { showRewardedAd } from '@/CommonComponents/AdMob';
 
 type OverviewTabProps = {
   usernames: Record<string, string>;
@@ -95,10 +95,10 @@ export default function OverviewTab({
           icon="video"
           style={{ marginTop: 12 }}
           onPress={async () => {
-            await showRewardedAd(() => {
+            //await showRewardedAd(() => {
               // TODO: Call backend to increment daily limit
               alert('Ad watched! Increase daily limit here.');
-            });
+            //});
           }}
         >
           Watch Ad to Increase Daily Limit

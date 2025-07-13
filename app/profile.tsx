@@ -25,16 +25,16 @@ const SECTIONS = [
     title: 'Account',
     items: [
       { label: 'App Settings', icon: 'settings-outline', route: '/profile_screens/AppSettings' },
-      { label: 'Edit Profile', icon: 'pencil-outline', route: '/profile_screens/EditProfileScreen' },
+      { label: 'Edit Profile', icon: 'create-outline', route: '/profile_screens/EditProfileScreen' },
       { label: 'Payment Methods', icon: 'card-outline', route: '/profile_screens/PaymentMethodsScreen' },
     ],
   },
   {
     title: 'Support',
     items: [
-      { label: 'Notification Settings', icon: 'lock-closed-outline', route: '/profile_screens/NotificationSettingsScreen' },
+      { label: 'Notification Settings', icon: 'notifications-outline', route: '/profile_screens/NotificationSettingsScreen' },
       { label: 'Rate Who\'s Next', icon: 'star-outline', route: '/profile_screens/rate' },
-      { label: 'Contact Us', icon: 'call-outline', route: '/profile_screens/ContactUsScreen' },
+      { label: 'Contact Us', icon: 'mail-outline', route: '/profile_screens/ContactUsScreen' },
       { label: 'Logout', icon: 'log-out-outline', action: 'onLogout', danger: true },
     ],
   },
@@ -152,7 +152,7 @@ export default function ProfileScreen() {
                 >
                   <View style={styles.settingLeft}>
                     <Ionicons 
-                      name={item.icon} 
+                      name={item.icon as any} 
                       size={22} 
                       color={item.danger ? '#EF4444' : theme.colors.text} 
                     />

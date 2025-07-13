@@ -333,6 +333,11 @@ function TripPage({ tripId }) {
               initialData={initialExpenseData}
               editingExpenseId={editingExpenseId}
               suggestedPayerName={nextPayer}
+              trip={trip}
+              onWatchAd={() => {
+                // TODO: Implement ad watching functionality
+                console.log('Watch ad functionality not implemented yet');
+              }}
             />
 
             <ChooseExistingOrNew

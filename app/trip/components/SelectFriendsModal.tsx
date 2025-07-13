@@ -35,7 +35,7 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
   }, []);
 
   const loadFriends = async () => {
-    if (!user?.id) return;
+    if (!user?.username && !userData) return;
     try {
       setLoading(true);
       const friends = userData.friends || [];

@@ -100,7 +100,7 @@ export default function MemberList({
   useEffect(() => {
     if (showClaimModal && user && !inviteId) {
       setInviteLoading(true);
-      const userName = user.fullName ?? user.username ?? user.primaryEmailAddress?.emailAddress ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+      const userName = user.username ?? user.fullName ??  user.primaryEmailAddress?.emailAddress ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
       createInvite(tripId, {name: userName })
         .then(id => {
           setInviteId(id);
@@ -215,14 +215,17 @@ export default function MemberList({
                 iconColor="white"
               />
             )}
-            <IconButton
-              icon="account-remove"
-              size={20}
-              onPress={() => onRemoveMember(username)}
-              mode="contained-tonal"
-              containerColor={theme.colors.error}
-              iconColor="white"
-            />
+            {/* Only show remove button if the member is not the current user */}
+            {user && username !== user.username && (
+              <IconButton
+                icon="account-remove"
+                size={20}
+                onPress={() => onRemoveMember(username)}
+                mode="contained-tonal"
+                containerColor={theme.colors.error}
+                iconColor="white"
+              />
+            )}
           </View>
         </View>
       </View>
@@ -253,6 +256,7 @@ export default function MemberList({
           <View style={styles.memberGrid}>
             {validMembers.map(([username, member]) => (
               <MemberCard
+                key={username}
                 username={username}
                 member={member}
                 profileName={username}

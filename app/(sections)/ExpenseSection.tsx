@@ -146,6 +146,11 @@ const ExpensesSection = ({ tripId, onAddExpensePress, onEditExpense, nextPayerNa
           onSubmit={handleAddExpenseSubmit}
           members={members}
           tripId={tripId}
+          trip={trip}
+          onWatchAd={() => {
+            // TODO: Implement ad watching functionality
+            console.log('Watch ad functionality not implemented yet');
+          }}
         />
 
       <Snackbar

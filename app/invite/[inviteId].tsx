@@ -29,7 +29,6 @@ export default function InviteHandler() {
         const result = await acceptInvite(
           inviteId,
           { 
-            id: user.id, 
             name: user.fullName || user.username || user.primaryEmailAddress?.emailAddress || 'Unknown User'
           },
           mockUserId
