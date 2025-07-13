@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef, useMemo } from "react";
 import { useUser } from "@clerk/clerk-expo";
 import { db } from "@/firebase";
 import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
@@ -16,11 +16,13 @@ export const UserTripsProvider = ({ children }) => {
   const userUnsubRef = useRef(null);
 
   useEffect(() => {
+    console.log('[UserTripsContext] useEffect triggered. Setting up listeners.');
     tripsUnsubRef.current.forEach(unsub => unsub && unsub());
     tripsUnsubRef.current = [];
     if (userUnsubRef.current) {
       userUnsubRef.current();
       userUnsubRef.current = null;
+      console.log('[UserTripsContext] Cleaned up previous user doc listener.');
     }
     setLoading(true);
     setError(null);
@@ -34,6 +36,7 @@ export const UserTripsProvider = ({ children }) => {
 
     // Listen to user doc for trips array
     const userDocRef = doc(db, "users", user.username || user.fullName);
+    console.log(`[UserTripsContext] Setting up user doc listener for user: ${user.username || user.fullName}`);
     userUnsubRef.current = onSnapshot(userDocRef, async (userDocSnap) => {
       incrementFirestoreRead();
       if (!userDocSnap.exists()) {
@@ -60,6 +63,7 @@ export const UserTripsProvider = ({ children }) => {
       for (let i = 0; i < tripIds.length; i += batchSize) {
         const batchIds = tripIds.slice(i, i + batchSize);
         const q = query(collection(db, "trips"), where("__name__", "in", batchIds));
+        console.log(`[UserTripsContext] Setting up trip batch listener for batch: ${batchIds.join(', ')}`);
         const unsub = onSnapshot(q, (batchSnap) => {
           incrementFirestoreRead(batchSnap.size);
           // Remove old trips from this batch
@@ -78,19 +82,26 @@ export const UserTripsProvider = ({ children }) => {
           setError(err);
           setLoading(false);
         });
-        tripsUnsubRef.current.push(unsub);
+        tripsUnsubRef.current.push(() => {
+          console.log(`[UserTripsContext] Cleaning up trip batch listener for batch: ${batchIds.join(', ')}`);
+          unsub();
+        });
       }
     }, (err) => {
       setError(err);
       setLoading(false);
     });
-    // Cleanup on unmount
+
+
+    // Cleanup
     return () => {
+      console.log('[UserTripsContext] useEffect cleanup. Tearing down all listeners.');
       tripsUnsubRef.current.forEach(unsub => unsub && unsub());
       tripsUnsubRef.current = [];
       if (userUnsubRef.current) {
         userUnsubRef.current();
         userUnsubRef.current = null;
+        console.log('[UserTripsContext] Cleaned up user doc listener on unmount.');
       }
     };
   }, [isLoaded, isSignedIn, user]);

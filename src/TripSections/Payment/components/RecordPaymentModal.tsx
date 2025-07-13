@@ -9,6 +9,7 @@ import { Debt, Member, Payment } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 type RecordPaymentModalProps = {
   visible: boolean;
@@ -18,7 +19,6 @@ type RecordPaymentModalProps = {
   currentUsername: string;
   tripId: string;
   defaultCurrency: string;
-  members: { [username: string]: { addMemberType: string; amtLeft: number; budget: number; currency: string; owesTotalMap: { [currency: string]: number; }; receiptsCount: number; username: string; }; };
 };
 
 const MemberList = memo(({ 
@@ -117,10 +117,14 @@ export default function RecordPaymentModal({
   currentUsername,
   tripId,
   defaultCurrency = 'USD',
-  members
 }: RecordPaymentModalProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
+
+  // Use context to get members for the current trip
+  const { trips } = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId);
+  const members = trip?.members || {};
 
   const [showPayerDropdown, setShowPayerDropdown] = useState(false);
   const [showPayeeDropdown, setShowPayeeDropdown] = useState(false);
@@ -316,7 +320,11 @@ export default function RecordPaymentModal({
 
                 {/* Date Selection */}
                 <View style={styles.inputContainer}>
-                  <Text style={[styles.label, { color: theme.colors.text }]}>Date</Text>    
+                  <Text style={[styles.label, { color: theme.colors.text }]}>Date</Text>
+                  <Button onPress={() => setShowDatePicker(true)} mode="outlined" style={styles.dateButton}>
+                    {format(date, 'yyyy-MM-dd')}
+                  </Button>
+                  {showDatePicker && (
                     <DateTimePicker
                       value={date}
                       mode="date"
@@ -327,6 +335,7 @@ export default function RecordPaymentModal({
                         }
                       }}
                     />
+                  )}
                   {errors.date && <HelperText type="error">{errors.date}</HelperText>}
                 </View>
 
@@ -376,7 +385,7 @@ const styles = StyleSheet.create({
     margin: 20,
     backgroundColor: 'white',
     borderRadius: 8,
-    maxHeight: '100%',
+    height: 20,
     flex: 1,
   },
   container: {

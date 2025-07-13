@@ -18,8 +18,8 @@ import {
 import { Member, Debt, Payment, FirestoreTrip } from '@/src/types/DataTypes';
 import RecordPaymentModal from '@/src/TripSections/Payment/components/RecordPaymentModal';
 import { firebaseRecordPayment, firebaseDeletePayment } from '@/src/services/FirebaseServices';
-import { useTripData } from '@/src/hooks/useTripData';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
+import { useTripPaymentsContext } from '@/src/context/TripPaymentsContext';
 
 // Props type specific to this component
 type SettleUpProps = {
@@ -42,7 +42,7 @@ export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps)
 
   const [value, setValue] = useState('all'); // 'all' | 'simplified' | 'currency'
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const { payments, loading: paymentsLoading, error: paymentsError } = useTripData(tripId);
+  const { payments, loading: paymentsLoading, error: paymentsError } = useTripPaymentsContext();
   const [shownDebts, setShownDebts] = useState<DebtSection[]>([]);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -141,8 +141,8 @@ export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps)
             break;
         }
         setShownDebts(groupDebts(processedDebts));
-        console.log('Processed debts:', processedDebts);
-        console.log('Shown debts:', groupDebts(processedDebts));
+        //console.log('Processed debts:', processedDebts);
+        //console.log('Shown debts:', groupDebts(processedDebts));
       } catch (error) {
         console.error('Error calculating debts:', error);
         // If currency conversion fails, fall back to showing raw debts
@@ -204,11 +204,13 @@ export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps)
       paymentDate = payment.paymentDate;
     } else if (payment.paymentDate instanceof Timestamp) {
       paymentDate = payment.paymentDate.toDate();
+    } else if (typeof payment.paymentDate === 'string') {
+      paymentDate = new Date(payment.paymentDate);
     } else {
+      console.log("ELSE FALL BACK REACHED")
       paymentDate = new Date();
-      console.warn('Invalid payment date format:', payment.paymentDate);
     }
-
+    console.log("PAYMENT DATE IS ", paymentDate)
     const isExpanded = expandedPaymentIds.has(payment.id || '');
 
     return (
@@ -425,7 +427,6 @@ export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps)
           currentUsername={user?.username || ''}
           tripId={tripId}
           defaultCurrency={tripCurrency}
-          members={members}
         />
     </View>
   );

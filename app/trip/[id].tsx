@@ -7,6 +7,7 @@ import { Snackbar, Portal, Button, ActivityIndicator } from "react-native-paper"
 
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
+import { TripPaymentsProvider, useTripPaymentsContext } from '@/src/context/TripPaymentsContext';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase';
 
@@ -40,7 +41,9 @@ export default function TripPageWrapper() {
 
   return (
     <TripExpensesProvider tripId={tripId}>
-      <TripPage tripId={tripId} />
+      <TripPaymentsProvider tripId={tripId}>
+        <TripPage tripId={tripId} />
+      </TripPaymentsProvider>
     </TripExpensesProvider>
   );
 }
@@ -54,31 +57,7 @@ function TripPage({ tripId }) {
   
   // Get expenses from TripExpensesContext
   const { expenses, loading: expensesLoading, error: expensesError } = useTripExpensesContext();
-
-  //import { useTripData } from "@/src/hooks/useTripData";
-  //const { trip, expenses, payments, loading, error: dataError } = useTripData(tripId);
-  // Payments state (local listener)
-  const [payments, setPayments] = React.useState([]);
-  const [paymentsLoading, setPaymentsLoading] = React.useState(true);
-  const [paymentsError, setPaymentsError] = React.useState(null);
-
-  React.useEffect(() => {
-    if (!tripId) return;
-    setPaymentsLoading(true);
-    const paymentsColRef = collection(db, 'trips', tripId, 'payments');
-    const unsubscribe = onSnapshot(
-      paymentsColRef,
-      (snapshot) => {
-        setPayments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setPaymentsLoading(false);
-      },
-      (err) => {
-        setPaymentsError(err);
-        setPaymentsLoading(false);
-      }
-    );
-    return () => unsubscribe();
-  }, [tripId]);
+  const { payments, loading: paymentsLoading, error: paymentsError } = useTripPaymentsContext();
 
   // Compose loading and error states
   const loading = tripsLoading || expensesLoading || paymentsLoading;

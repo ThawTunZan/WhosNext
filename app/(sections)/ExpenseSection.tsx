@@ -11,7 +11,6 @@ import AddExpenseModal from '@/src/TripSections/Expenses/components/AddExpenseMo
 import { ExpensesSectionProps, Expense } from '@/src/types/DataTypes'; 
 import { SearchBar } from '@/app/trip/components/SearchBar';
 import { BaseSection } from '@/app/common_components/BaseSection';
-import { useTripExpenses } from '@/src/hooks/useTripExpenses';
 import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 

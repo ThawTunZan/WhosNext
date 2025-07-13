@@ -13,6 +13,7 @@ export const TripExpensesProvider = ({ tripId, children }) => {
   useEffect(() => {
     if (!tripId) return;
     setLoading(true);
+    console.log(`[TripExpensesContext] Setting up expenses listener for tripId: ${tripId}`);
     const expensesColRef = collection(db, "trips", tripId, "expenses");
     const unsubscribe = onSnapshot(
       expensesColRef,
@@ -35,7 +36,10 @@ export const TripExpensesProvider = ({ tripId, children }) => {
         setLoading(false);
       }
     );
-    return () => unsubscribe();
+    return () => {
+      console.log(`[TripExpensesContext] Cleaning up expenses listener for tripId: ${tripId}`);
+      unsubscribe();
+    };
   }, [tripId]);
 
   return (
