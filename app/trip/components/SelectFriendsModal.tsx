@@ -31,13 +31,18 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
   const { userData } = useUserTripsContext();
 
   useEffect(() => {
-    loadFriends();
-  }, []);
+    if (userData) {
+      loadFriends();
+    }
+  }, [userData]);
 
   const loadFriends = async () => {
     if (!user?.username && !userData) return;
     try {
       setLoading(true);
+      console.log("userData is", userData);
+      if (!userData) throw new Error("userData is undefined");
+      console.log("FRIENDS AREEE", userData.friends);
       const friends = userData.friends || [];
       // friends is now an array of { username, email }
       const friendsData = friends.map((friend: { username: string; email: string }) => ({

@@ -33,7 +33,7 @@ import { db } from '@/firebase';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { AddMemberType, PremiumStatus } from '@/src/types/DataTypes';
+import { AddMemberType, PremiumStatus, SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
 import { getUserPremiumStatus } from '@/src/utilities/PremiumUtilities';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateButton from '@/src/trip/components/DateButton';
@@ -41,14 +41,13 @@ import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 const { width } = Dimensions.get('window');
 
-const CURRENCIES: { code: string; symbol: string; name: string }[] = [
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-  { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
-  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-];
+// Currency symbol and name mapping for supported currencies only
+const CURRENCY_INFO = {
+  USD: { symbol: '$', name: 'US Dollar' },
+  EUR: { symbol: '€', name: 'Euro' },
+  SGD: { symbol: 'S$', name: 'Singapore Dollar' },
+  MYR: { symbol: 'RM', name: 'Malaysian Ringgit' },
+};
 
 export default function CreateTripScreen() {
   const [destination, setDestination] = useState('');
@@ -98,7 +97,7 @@ export default function CreateTripScreen() {
     []
   );
 
-  const selectedCurrencyInfo = CURRENCIES.find(c => c.code === selectedCurrency);
+  const selectedCurrencyInfo = CURRENCY_INFO[selectedCurrency];
 
   const openDrawer = () => {
     setShowFormDrawer(true);
@@ -320,15 +319,15 @@ export default function CreateTripScreen() {
                           </Button>
                         }
                       >
-                        {CURRENCIES.map((currency) => (
+                        {SUPPORTED_CURRENCIES.map((currency) => (
                           <Menu.Item
-                            key={currency.code}
+                            key={currency}
                             onPress={() => {
-                              setSelectedCurrency(currency.code);
+                              setSelectedCurrency(currency);
                               setShowCurrencyMenu(false);
                             }}
-                            title={`${currency.code} - ${currency.name}`}
-                            leadingIcon={selectedCurrency === currency.code ? "check" : "currency-usd"}
+                            title={`${currency} - ${CURRENCY_INFO[currency]?.name}`}
+                            leadingIcon={selectedCurrency === currency ? "check" : "currency-usd"}
                           />
                         ))}
                       </Menu>

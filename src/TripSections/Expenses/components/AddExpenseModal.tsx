@@ -18,6 +18,8 @@ import DateButton from '@/src/trip/components/DateButton';
 import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { incrementDailyExpenseLimitForTrip } from '@/src/services/expenseService';
 
+const MAX_SHARE_LIMIT = 10000000; // 10 million
+
 const AddExpenseModal = ({
   visible, onDismiss, onSubmit, members, tripId, initialData, editingExpenseId, suggestedPayerName, trip, onWatchAd
 }: AddExpenseModalProps & { trip: any, onWatchAd: () => void }) => {
@@ -155,6 +157,11 @@ const AddExpenseModal = ({
 				newErrors.amount = "Enter a valid positive amount.";
 				isValid = false;
 			}
+			
+			if (amount > MAX_SHARE_LIMIT) {
+				newErrors.amount = `Each share cannot exceed 10,000,000 (${selectedCurrency}).`;
+				isValid = false;
+			}
 		}
 		
 		if (expenseType === 'group') {
@@ -190,6 +197,15 @@ const AddExpenseModal = ({
 				if (Math.abs(totalCustomAmount - totalPaidAmount) > 0.01) { // Allow for floating point inaccuracies
 					newErrors.customTotal = `Custom amounts must add up to ${totalPaidAmount.toFixed(2)} ${selectedCurrency}. Current total: ${totalCustomAmount.toFixed(2)} ${selectedCurrency}`;
 					isValid = false;
+				}
+				if (splitType === 'custom') {
+					for (const id of sharedWithNames) {
+						const customAmt = parseFloat(customSplitAmount[id] || '0');
+						if (customAmt > MAX_SHARE_LIMIT) {
+							newErrors[`custom_${id}`] = `Share cannot exceed 10,000,000 (${selectedCurrency}).`;
+							isValid = false;
+						}
+					}
 				}
 			}
 		}

@@ -32,6 +32,7 @@ import { AddMemberType } from "@/src/types/DataTypes";
 import TripLeaderboard from "../(sections)/TripLeaderboard";
 import { TripExpensesProvider } from '@/src/context/TripExpensesContext';
 import type { FirestoreTrip, Member, Debt } from '@/src/types/DataTypes';
+import { SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
 
 export default function TripPageWrapper() {
   const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -158,12 +159,11 @@ function TripPage({ tripId }) {
 
 
   // Helper to create a valid OwesTotalMap
-  const allCurrencies: string[] = ["USD", "EUR", "GBP", "JPY", "CNY", "SGD"];
   const makeOwesTotalMap = (map: any): Record<string, number> => {
     const result: Record<string, number> = {
       USD: 0, EUR: 0, GBP: 0, JPY: 0, CNY: 0, SGD: 0
     };
-    for (const cur of allCurrencies) {
+    for (const cur of SUPPORTED_CURRENCIES) {
       if (map && typeof map[cur] === 'number') result[cur] = map[cur];
     }
     return result;

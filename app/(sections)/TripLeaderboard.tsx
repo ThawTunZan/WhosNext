@@ -80,19 +80,16 @@ export default function TripLeaderboard({ trip, expenses, payments }: TripLeader
   const nextPayer = paymentRotation[0] || members[0];
 
   // Recent payments: sort by paymentDate descending, take 3
-  const recentPayments = [...payments]
-    .sort((a, b) => (b.paymentDate as any)?.toMillis?.() - (a.paymentDate as any)?.toMillis?.())
-    .slice(0, 3)
-    .map(p => ({
-      payer: p.fromUserName || 'Unknown',
-      desc: p.note || 'Payment',
-      date: (p.paymentDate instanceof Date)
-        ? p.paymentDate.toLocaleDateString()
-        : (p.paymentDate?.toDate?.() ? p.paymentDate.toDate().toLocaleDateString() : '')
-    }));
-
   // Leaderboard: sort by amtLeft ascending (or streak if available)
-  const leaderboard = [...members].sort((a, b) => a.amtLeft - b.amtLeft);
+  const leaderboard = [...members]
+    .map(member => {
+      const totalPaid = expenses
+        .flatMap(e => e.paidByAndAmounts)
+        .filter(pba => pba.memberName === member.username)
+        .reduce((sum, pba) => sum + parseFloat(pba.amount || '0'), 0);
+      return { ...member, totalPaid };
+    })
+    .sort((a, b) => b.totalPaid - a.totalPaid); // Sort descending by totalPaid
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ padding: 20 }}>
@@ -205,24 +202,12 @@ export default function TripLeaderboard({ trip, expenses, payments }: TripLeader
                 )}
               </View>
               <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                <Text style={{ color: theme.colors.text, fontSize: 13 }}>Paid: ${totalPaid.toFixed(2)}</Text>
+                <Text style={{ color: theme.colors.text, fontSize: 13 }}>Paid: ${member.totalPaid.toFixed(2)}</Text>
               </View>
               {/* Add badges if available */}
             </View>
           );
         })}
-      </Surface>
-
-      {/* Recent Payments Section */}
-      <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]}> 
-        <Text style={styles.sectionTitle}>Recent Payments</Text>
-        {recentPayments.map((p, idx) => (
-          <View key={idx} style={styles.paymentRow}>
-            <Text style={{ fontWeight: 'bold', marginRight: 8 }}>{p.payer}</Text>
-            <Text style={{ marginRight: 4, marginLeft: 8 }}>Date:</Text>
-            <Text style={{ color: theme.colors.text }}>{p.date}</Text>
-          </View>
-        ))}
       </Surface>
 
       {/* Get Trip Summary Button */}

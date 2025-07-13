@@ -309,3 +309,16 @@ export const MAX_CLOUD_RECEIPTS_PER_USER = 5; // Max cloud receipts per user per
 export const MAX_CLOUD_RECEIPTS_PER_TRIP = 20; // Max cloud receipts per trip (all users combined)
 export const MAX_LOCAL_RECEIPTS_PER_USER = Number.POSITIVE_INFINITY; // Unlimited local receipts 
 
+/**
+ * Supported currencies for all trip and expense operations.
+ *
+ * Supported: USD (US Dollar), EUR (Euro), SGD (Singapore Dollar), MYR (Malaysian Ringgit)
+ */
+export const SUPPORTED_CURRENCIES = [
+  'USD', // US Dollar
+  'EUR', // Euro
+  'SGD', // Singapore Dollar
+  'MYR', // Malaysian Ringgit (Ringgit)
+] as const;
+// All other currency lists in the app should import SUPPORTED_CURRENCIES from this file. 
+
