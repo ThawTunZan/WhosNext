@@ -62,8 +62,6 @@ function TripPage({ tripId }) {
   // Compose loading and error states
   const loading = tripsLoading || expensesLoading || paymentsLoading;
   const dataError = tripsError || expensesError || paymentsError;
-
-  const [nextPayer, setNextPayer] = React.useState<string | null>(null);
   const [showChooseModal, setShowChooseModal] = useState(false);
 
   // When passing members, cast as Record<string, Member> and cast currency and addMemberType fields, and fix owesTotalMap
@@ -71,23 +69,6 @@ function TripPage({ tripId }) {
     Object.entries(trip?.members || {}).map(([k, v]) => [k, toMember(v)])
   );
 
-  const nextPayerParams = React.useMemo(() => ({
-    members: safeMembers,
-    currency: trip?.currency || 'USD'
-  }), [safeMembers, trip?.currency]);
-
-  React.useEffect(() => {
-    const updateNextPayer = async () => {
-      if (nextPayerParams.members) {
-        const nextPayerId = await calculateNextPayer(
-          nextPayerParams.members,
-          nextPayerParams.currency
-        );
-        setNextPayer(nextPayerId);
-      }
-    };
-    updateNextPayer();
-  }, [nextPayerParams]);
 
   const {
     selectedTab,
@@ -136,17 +117,6 @@ function TripPage({ tripId }) {
     setSnackbarVisible,
   });
 
-
-  // Helper to create a valid OwesTotalMap
-  const makeOwesTotalMap = (map: any): Record<string, number> => {
-    const result: Record<string, number> = {
-      USD: 0, EUR: 0, GBP: 0, JPY: 0, CNY: 0, SGD: 0
-    };
-    for (const cur of SUPPORTED_CURRENCIES) {
-      if (map && typeof map[cur] === 'number') result[cur] = map[cur];
-    }
-    return result;
-  };
   // Helper to convert Firestore member to Member type
   function toMember(v: any): Member {
     return {
@@ -242,7 +212,6 @@ function TripPage({ tripId }) {
                 onLeaveTrip={handleLeaveTrip}
                 onDeleteTrip={handleDeleteTrip}
                 isDeletingTrip={isDeletingTrip}
-                nextPayer={nextPayer}
                 onClaimMockUser={handleClaimMockUser}
                 tripId={tripId}
                 tripCurrency={trip.currency}
@@ -254,7 +223,6 @@ function TripPage({ tripId }) {
                 tripId={tripId!}
                 onAddExpensePress={() => openAddExpenseModal(null, false)}
                 onEditExpense={handleEditExpense}
-                nextPayerName={nextPayer}
               />
             )}
 
@@ -311,7 +279,6 @@ function TripPage({ tripId }) {
               tripId={tripId!}
               initialData={initialExpenseData}
               editingExpenseId={editingExpenseId}
-              suggestedPayerName={nextPayer}
               trip={trip}
               onWatchAd={() => {
                 // TODO: Implement ad watching functionality

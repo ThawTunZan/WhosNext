@@ -23,7 +23,6 @@ type OverviewTabProps = {
   onLeaveTrip: () => void;
   onDeleteTrip: () => void;
   isDeletingTrip: boolean;
-  nextPayer: string | null;
   onClaimMockUser: (mockUserId: string, claimCode: string) => Promise<void>;
   tripId: string;
   tripCurrency: string;
@@ -39,7 +38,6 @@ export default function OverviewTab({
   onLeaveTrip,
   onDeleteTrip,
   isDeletingTrip,
-  nextPayer,
   onClaimMockUser,
   tripId,
   tripCurrency,

@@ -167,7 +167,6 @@ export type ExpensesSectionProps = {
   // setIsRowSwiping: (v: boolean) => void;
   onAddExpensePress: () => void;
   onEditExpense: (expense: Expense) => void;
-  nextPayerName: string | null
 };
 
 // Props for the ExpenseListItem component

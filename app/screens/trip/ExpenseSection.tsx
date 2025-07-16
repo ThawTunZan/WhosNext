@@ -14,7 +14,7 @@ import { BaseSection } from '@/src/components/Common/BaseSection';
 import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
-const ExpensesSection = ({ tripId, onAddExpensePress, onEditExpense, nextPayerName }: ExpensesSectionProps) => {
+const ExpensesSection = ({ tripId, onAddExpensePress, onEditExpense }: ExpensesSectionProps) => {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -96,15 +96,6 @@ const ExpensesSection = ({ tripId, onAddExpensePress, onEditExpense, nextPayerNa
         onChangeSearch={setSearchQuery}
         placeholder="Search expenses..."
       />
-      {nextPayerName && (
-        <Chip
-          icon="account-arrow-right"
-          style={[sectionStyles.nextPayerChip, { backgroundColor: theme.colors.surfaceVariant }]}
-          textStyle={[sectionStyles.nextPayerChipText, { color: theme.colors.text }]}
-        >
-          Next Payer: {nextPayerName}
-        </Chip>
-      )}
     </>
   );
 
