@@ -13,8 +13,8 @@ import {
 import {
 	addExpenseAndCalculateDebts,
 	editExpense,
-} from "@/src/services/expenseService";
-import { deleteProposedActivity } from "@/src/screens/Activity/utilities/ActivityUtilities";
+} from "@/src/components/Trip/Expenses/utilities/expenseService";
+import { deleteProposedActivity } from "@/src/components/Trip/Activity/utilities/ActivityUtilities";
 import { type Expense, type ProposedActivity, type AddMemberType, ErrorType, FirestoreExpense, FirestoreTrip } from "@/src/types/DataTypes";
 import { getFirestore, collection, updateDoc, doc, getDoc, deleteDoc, getDocs } from "firebase/firestore";
 import { useTripExpensesContext } from "../context/TripExpensesContext";

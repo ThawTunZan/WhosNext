@@ -3,7 +3,7 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } f
 import { Text, useTheme } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { sectionStyles } from '@/app/styles/section_comp_styles';
+import { sectionStyles } from '@/src/styles/section_comp_styles';
 
 interface BaseSectionProps {
   title: string;
