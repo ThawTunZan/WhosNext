@@ -83,7 +83,7 @@ const LoadingScreen = React.memo(({ theme }: { theme: any }) => (
 
 export default function RootLayout() {
   return (
-          <SafeAreaProvider>
+    <SafeAreaProvider>
       <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
         <ThemeProvider>
           <UserTripsProvider>

@@ -280,3 +280,29 @@ export const deleteProposedActivity = async (
          throw error;
      }
 };
+
+/**
+ * Hook for handling activity deletion with snackbar feedback
+ * @param tripId The ID of the trip
+ * @param setSnackbarMessage Function to set snackbar message
+ * @param setSnackbarVisible Function to set snackbar visibility
+ * @returns Function to handle activity deletion
+ */
+export const useHandleDeleteActivity = (
+    tripId: string,
+    setSnackbarMessage: (message: string) => void,
+    setSnackbarVisible: (visible: boolean) => void
+) => {
+    return async (activityId: string) => {
+        if (!tripId) return;
+        try {
+            await deleteProposedActivity(tripId, activityId);
+            setSnackbarMessage("Activity deleted.");
+            setSnackbarVisible(true);
+        } catch (err: any) {
+            console.error(err);
+            setSnackbarMessage(`Error deleting activity: ${err.message}`);
+            setSnackbarVisible(true);
+        }
+    };
+};

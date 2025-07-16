@@ -165,8 +165,9 @@ export type ExpensesSectionProps = {
   tripId: string;
   // Consider removing setIsRowSwiping if swipe logic is handled differently or locally
   // setIsRowSwiping: (v: boolean) => void;
-  onAddExpensePress: () => void;
-  onEditExpense: (expense: Expense) => void;
+  onAddExpensePress?: () => void;
+  onEditExpense?: (expense: Expense) => void;
+  activityToDeleteId?: string | null;
 };
 
 // Props for the ExpenseListItem component

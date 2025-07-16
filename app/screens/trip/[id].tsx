@@ -23,7 +23,6 @@ import SettleUpSection from "@/app/screens/trip/Settleup";
 import ActivityVotingSection from "@/app/screens/trip/ActivityVotingSection";
 import ReceiptSection from "@/app/screens/trip/ReceiptSection";
 import InviteSection from "@/src/components/Trip/Invite/InviteSection";
-import AddExpenseModal from "@/src/components/Trip/Expenses/components/AddExpenseModal";
 import ChooseExistingOrNew from "@/src/components/Common/ChooseExistingOrNew";
 
 import { calculateNextPayer } from "@/src/components/Trip/Expenses/utilities/expenseService";
@@ -34,6 +33,7 @@ import TripLeaderboard from "@/app/screens/trip/TripLeaderboard";
 import { TripExpensesProvider } from '@/src/context/TripExpensesContext';
 import type { FirestoreTrip, Member, Debt } from '@/src/types/DataTypes';
 import { SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
+import { useHandleDeleteActivity } from '@/src/components/Trip/Activity/utilities/ActivityUtilities';
 
 export default function TripPageWrapper() {
   const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -51,6 +51,11 @@ export default function TripPageWrapper() {
 function TripPage({ tripId }) {
   const { isLoaded, isSignedIn, user } = useUser();
   const currentUsername = user?.username;
+
+  const [selectedTab, setSelectedTab] = useState<
+    "overview" | "expenses" | "settle" | "activities" | "receipts" | "invite" | "leaderboard"
+  >("overview");
+
   // Get trip from UserTripsContext
   const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
   const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
@@ -71,20 +76,12 @@ function TripPage({ tripId }) {
 
 
   const {
-    selectedTab,
-    setSelectedTab,
-    addExpenseModalVisible,
-    initialExpenseData,
     activityToDeleteId,
     snackbarVisible,
-    snackbarMessage,
-    editingExpenseId,
-    hasLeftTrip,
+    snackbarMessage,    hasLeftTrip,
     budgetDialogVisible,
     newBudgetInput,
     setNewBudgetInput,
-    openAddExpenseModal,
-    closeAddExpenseModal,
     openBudgetDialog,
     submitBudgetChange,
     setBudgetDialogVisible,
@@ -97,10 +94,6 @@ function TripPage({ tripId }) {
   const {
     handleAddMember,
     handleRemoveMember,
-    handleAddOrUpdateExpenseSubmit,
-    handleEditExpense,
-    handleDeleteActivity,
-    handleAddExpenseFromActivity,
     handleLeaveTrip,
     handleDeleteTrip,
     handleClaimMockUser,
@@ -108,14 +101,19 @@ function TripPage({ tripId }) {
   } = useTripHandlers({
     tripId: tripId!,
     activityToDeleteId,
-    openAddExpenseModal,
-    closeAddExpenseModal,
     setSnackbarMessage: (message) => {
       setSnackbarVisible(true);
       setSnackbarMessage(message);
     },
     setSnackbarVisible,
   });
+
+  // Use the new hook for handling activity deletion
+  const handleDeleteActivity = useHandleDeleteActivity(
+    tripId!,
+    setSnackbarMessage,
+    setSnackbarVisible
+  );
 
   // Helper to convert Firestore member to Member type
   function toMember(v: any): Member {
@@ -221,8 +219,7 @@ function TripPage({ tripId }) {
             {selectedTab === "expenses" && (
               <ExpensesSection
                 tripId={tripId!}
-                onAddExpensePress={() => openAddExpenseModal(null, false)}
-                onEditExpense={handleEditExpense}
+                activityToDeleteId={activityToDeleteId}
               />
             )}
 
@@ -237,8 +234,8 @@ function TripPage({ tripId }) {
             {selectedTab === "activities" && (
               <ActivityVotingSection
                 tripId={tripId!}
-                onAddExpenseFromActivity={handleAddExpenseFromActivity}
                 onDeleteActivity={handleDeleteActivity}
+                onAddExpenseFromActivity={}
               />
             )}
 
@@ -270,21 +267,6 @@ function TripPage({ tripId }) {
                 currency={safeMembers[currentUsername]?.currency || 'USD'}
               />
             </Portal>
-
-            <AddExpenseModal
-              visible={addExpenseModalVisible}
-              onDismiss={closeAddExpenseModal}
-              onSubmit={handleAddOrUpdateExpenseSubmit}
-              members={safeMembers as Record<string, Member>}
-              tripId={tripId!}
-              initialData={initialExpenseData}
-              editingExpenseId={editingExpenseId}
-              trip={trip}
-              onWatchAd={() => {
-                // TODO: Implement ad watching functionality
-                console.log('Watch ad functionality not implemented yet');
-              }}
-            />
 
             <ChooseExistingOrNew
               visible={showChooseModal}

@@ -18,6 +18,7 @@ import {
   deleteProposedActivity,
   updateProposedActivity,
 } from '@/src/components/Trip/Activity/utilities/ActivityUtilities'
+
 import ProposeActivityModal from '@/src/components/Trip/Activity/components/ProposeActivityModal'
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
@@ -25,18 +26,26 @@ import { SearchBar } from '@/src/components/Common/SearchBar'
 import ActivityList from '@/src/components/Common/ItemList/ActivityList'
 import { BaseSection } from '@/src/components/Common/BaseSection'
 import { CommonModal } from '@/src/components/Common/CommonModal'
+import AddExpenseModal from '@/src/components/Trip/Expenses/components/AddExpenseModal'
+import { useUserTripsContext } from '@/src/context/UserTripsContext'
+import { ExpenseHandler } from '@/src/utilities/ExpenseHandler'
 
 const ActivityVotingSection = ({ tripId, onAddExpenseFromActivity, onDeleteActivity, }: ActivityVotingSectionProps) => {
     const { isDarkMode } = useCustomTheme();
     const theme = isDarkMode ? darkTheme : lightTheme;
 
     const { activities, isLoading, error } = useProposedActivities(tripId);
+    const { trips } = useUserTripsContext();
+    const trip = trips.find(t => t.id === tripId);
+    const members = trip?.members || {};
     const [snackbarVisible, setSnackbarVisible] = React.useState(false);
     const [snackbarMessage, setSnackbarMessage] = React.useState('');
     const [proposeModalVisible, setProposeModalVisible] = useState(false);
     const [editingActivity, setEditingActivity] = useState<ProposedActivity | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [expenseModalVisible, setExpenseModalVisible] = useState(false);
+    const [activityForExpense, setActivityForExpense] = useState<ProposedActivity | null>(null);
 
     const { isLoaded, isSignedIn, user } = useUser()
     if (!isLoaded) return null
@@ -85,9 +94,13 @@ const ActivityVotingSection = ({ tripId, onAddExpenseFromActivity, onDeleteActiv
         onDeleteActivity(activityId);
     }, [onDeleteActivity]);
 
-    const handleAddExpenseFromActivity = useCallback((activity: ProposedActivity) => {
-        onAddExpenseFromActivity(activity)
-    }, [onAddExpenseFromActivity]);
+    const handleAddExpenseFromActivity = useCallback(
+      (activity: ProposedActivity) => {
+        setActivityForExpense(activity);
+        setExpenseModalVisible(true);
+      },
+      []
+    );
 
     const handleProposeNewActivity = () => {
         console.log("Opening propose activity modal");
@@ -122,6 +135,25 @@ const ActivityVotingSection = ({ tripId, onAddExpenseFromActivity, onDeleteActiv
           throw err;
         }
     }, [tripId, editingActivity, currentUserName]);
+
+    const handleExpenseSubmit = useCallback(async (expenseData: any) => {
+        try {
+            const result = await ExpenseHandler.addExpense(tripId, expenseData, members, trip);
+            if (result.success) {
+                console.log("Expense submitted:", expenseData);
+                setSnackbarMessage("Expense added successfully!");
+                setSnackbarVisible(true);
+                setExpenseModalVisible(false);
+                setActivityForExpense(null);
+            } else {
+                throw result.error;
+            }
+        } catch (err) {
+            console.error("Failed to add expense:", err);
+            setSnackbarMessage(`Error adding expense: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            setSnackbarVisible(true);
+        }
+    }, [tripId, members, trip]);
 
     const renderHeader = () => (
       <SearchBar
@@ -181,6 +213,32 @@ const ActivityVotingSection = ({ tripId, onAddExpenseFromActivity, onDeleteActiv
             initialData={editingActivity || undefined}
           />
         </CommonModal>
+
+        <AddExpenseModal
+          visible={expenseModalVisible}
+          onDismiss={() => {
+            setExpenseModalVisible(false)
+            setActivityForExpense(null)
+          }}
+          onSubmit={handleExpenseSubmit}
+          members={members}
+          tripId={tripId}
+          initialData={activityForExpense ? {
+            activityName: activityForExpense.name,
+            paidByAndAmounts: [
+              {
+                memberName: currentUserName,
+                amount: activityForExpense.estCost ? String(activityForExpense.estCost) : "0",
+              }
+            ],
+            createdAt: activityForExpense.createdAt,
+          } : undefined}
+          trip={trip}
+          onWatchAd={() => {
+            // TODO: Implement ad watching functionality
+            console.log('Watch ad functionality not implemented yet');
+          }}
+        />
 
         <Snackbar
           visible={snackbarVisible}

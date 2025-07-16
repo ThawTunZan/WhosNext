@@ -10,10 +10,7 @@ import {
 	deleteTripAndRelatedData,
 	claimMockUser,
 } from "@/src/utilities/TripUtilities";
-import {
-	addExpenseAndCalculateDebts,
-	editExpense,
-} from "@/src/components/Trip/Expenses/utilities/expenseService";
+
 import { deleteProposedActivity } from "@/src/components/Trip/Activity/utilities/ActivityUtilities";
 import { type Expense, type ProposedActivity, type AddMemberType, ErrorType, FirestoreExpense, FirestoreTrip } from "@/src/types/DataTypes";
 import { getFirestore, collection, updateDoc, doc, getDoc, deleteDoc, getDocs } from "firebase/firestore";
@@ -23,8 +20,6 @@ import { useUserTripsContext } from "../context/UserTripsContext";
 interface UseTripHandlersParams {
 	tripId: string;
 	activityToDeleteId: string | null;
-	openAddExpenseModal: (d: Partial<Expense> | null, isEditing?: boolean) => void;
-	closeAddExpenseModal: () => void;
 	setSnackbarMessage: (m: string) => void;
 	setSnackbarVisible: (v: boolean) => void;
 }
@@ -32,8 +27,6 @@ interface UseTripHandlersParams {
 export function useTripHandlers({
 	tripId,
 	activityToDeleteId,
-	openAddExpenseModal,
-	closeAddExpenseModal,
 	setSnackbarMessage,
 	setSnackbarVisible,
 }: UseTripHandlersParams) {
@@ -153,88 +146,9 @@ export function useTripHandlers({
 		[tripId, trip]
 	);
 
-	const handleAddOrUpdateExpenseSubmit = useCallback(
-		async (expenseData: Expense, editingExpenseId: string | null) => {
-			if (!tripId) throw new Error("Trip ID is missing");
-			const members = trip.members;
-			if (!members) throw new Error("Trip members not available");
 
-			try {
-				if (editingExpenseId) {
-					const expense = expenses.find(e => e.id === editingExpenseId);
-					await editExpense(
-						tripId,
-						editingExpenseId,
-						expenseData,
-						members,
-						expense
-					);
-					setSnackbarMessage("Expense updated successfully!");
-				} else {
-					await addExpenseAndCalculateDebts(tripId, expenseData, members,trip);
-					setSnackbarMessage("Expense added successfully!");
-					if (activityToDeleteId) {
-						await deleteProposedActivity(tripId, activityToDeleteId);
-					}
-				}
-				setSnackbarVisible(true);
-				closeAddExpenseModal();
-			} catch (err: any) {
-				if (err.message === ErrorType.MAX_EXPENSES_FREE_USER) {
-					setSnackbarMessage("Max expenses per day per trip reached. Please upgrade to premium to add more expenses or wait for the next day.");
-					setSnackbarVisible(true);
-				} else if (err.message === ErrorType.MAX_EXPENSES_PREMIUM_USER) {
-					setSnackbarMessage("Upgrade one of your users to premium to add more expenses or wait for the next day.");
-					setSnackbarVisible(true);
-				} else {
-					console.error(err);
-					setSnackbarMessage(`Error saving expense: ${err.message}`);
-					setSnackbarVisible(true);
-					throw err;
-				}
-			}
-		},
-		[tripId, trip, activityToDeleteId, closeAddExpenseModal]
-	);
-
-	const handleEditExpense = useCallback(
-		(expenseToEdit: Expense) => openAddExpenseModal(expenseToEdit, true),
-		[openAddExpenseModal]
-	);
-
-	const handleDeleteActivity = useCallback(
-		async (activityId: string) => {
-			if (!tripId) return;
-			try {
-				await deleteProposedActivity(tripId, activityId);
-				setSnackbarMessage("Activity deleted.");
-				setSnackbarVisible(true);
-			} catch (err: any) {
-				console.error(err);
-				setSnackbarMessage(`Error deleting activity: ${err.message}`);
-				setSnackbarVisible(true);
-			}
-		},
-		[tripId]
-	);
 	// TODO: Update activities count and expenses count
-	const handleAddExpenseFromActivity = useCallback(
-		(activity: ProposedActivity) =>
-			openAddExpenseModal(
-				{
-				  activityName: activity.name,
-				  paidByAndAmounts: [
-					{
-					  memberName: currentUserName,
-					  amount: activity.estCost ? String(activity.estCost) : "0",
-					}
-				  ],
-				  createdAt: activity.createdAt,
-				},
-				false
-			  ),
-		[openAddExpenseModal, currentUserName]
-	);
+	
 
 	const handleLeaveTrip = useCallback(async () => {
 		if (!tripId) return;
@@ -257,10 +171,6 @@ export function useTripHandlers({
 	return {
 		handleAddMember,
 		handleRemoveMember,
-		handleAddOrUpdateExpenseSubmit,
-		handleEditExpense,
-		handleDeleteActivity,
-		handleAddExpenseFromActivity,
 		handleLeaveTrip,
 		handleDeleteTrip: () => {
 			setIsDeletingTrip(true);
