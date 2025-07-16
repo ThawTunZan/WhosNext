@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { Expense } from '@/src/types/DataTypes';
 import ExpenseCard from '@/app/trip/components/ExpenseCard';
 import GenericList from '@/app/trip/components/ItemList/GenericList';
-import { groupByDate } from '@/src/trip/components/DateButton';
+import { groupByDate } from '@/src/components/Common/DateButton';
 
 interface ExpenseListProps {
   expenses: Expense[];

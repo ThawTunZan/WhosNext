@@ -36,7 +36,7 @@ import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { AddMemberType, PremiumStatus, SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
 import { getUserPremiumStatus } from '@/src/utilities/PremiumUtilities';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateButton from '@/src/trip/components/DateButton';
+import DateButton from '@/src/components/Common/DateButton';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 const { width } = Dimensions.get('window');

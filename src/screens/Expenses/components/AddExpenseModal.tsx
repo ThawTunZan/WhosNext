@@ -14,7 +14,7 @@ import CurrencyModal from '@/app/trip/components/CurrencyModal';
 import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
 import IconRadioSelector from './IconRadioSelector';
 import AvatarRadioSelector from './AvatarRadioSelector';
-import DateButton from '@/src/trip/components/DateButton';
+import DateButton from '@/src/components/Common/DateButton';
 import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { incrementDailyExpenseLimitForTrip } from '@/src/services/expenseService';
 

@@ -17,8 +17,8 @@ import {
   addProposedActivity,
   deleteProposedActivity,
   updateProposedActivity,
-} from '@/src/TripSections/Activity/utilities/ActivityUtilities'
-import ProposeActivityModal from '@/src/TripSections/Activity/components/ProposeActivityModal'
+} from '@/src/screens/Activity/utilities/ActivityUtilities'
+import ProposeActivityModal from '@/src/screens/Activity/components/ProposeActivityModal'
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
 import { SearchBar } from '@/app/trip/components/SearchBar'

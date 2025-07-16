@@ -2,7 +2,7 @@
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
 import { useUser } from "@clerk/clerk-expo";
-import { acceptInvite } from "@/src/TripSections/Invite/utilities/InviteUtilities";
+import { acceptInvite } from "@/src/screens/Invite/utilities/InviteUtilities";
 import { Alert, View, ActivityIndicator } from "react-native";
 
 export default function InviteHandler() {

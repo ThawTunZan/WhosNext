@@ -7,7 +7,7 @@ import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { sectionStyles } from '@/app/styles/section_comp_styles';
 import { addExpenseAndCalculateDebts, deleteExpense } from '@/src/services/expenseService';
 import ExpenseList from '@/app/trip/components/ItemList/ExpenseList';
-import AddExpenseModal from '@/src/TripSections/Expenses/components/AddExpenseModal'; 
+import AddExpenseModal from '@/src/screens/Expenses/components/AddExpenseModal'; 
 import { ExpensesSectionProps, Expense } from '@/src/types/DataTypes'; 
 import { SearchBar } from '@/app/trip/components/SearchBar';
 import { BaseSection } from '@/src/components/Common/BaseSection';

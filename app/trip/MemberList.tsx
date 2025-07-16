@@ -9,7 +9,7 @@ import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import SelectFriendsModal from '@/app/trip/components/SelectFriendsModal';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
-import { createInvite } from '@/src/TripSections/Invite/utilities/InviteUtilities';
+import { createInvite } from '@/src/screens/Invite/utilities/InviteUtilities';
 import * as Linking from 'expo-linking';
 import { useUser } from '@clerk/clerk-expo';
 import QRCode from 'react-native-qrcode-svg';

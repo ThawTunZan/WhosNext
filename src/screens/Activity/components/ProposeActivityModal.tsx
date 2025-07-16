@@ -16,7 +16,7 @@ import {
 } from '@/src/types/DataTypes';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
 import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
-import DateButton from '@/src/trip/components/DateButton';
+import DateButton from '@/src/components/Common/DateButton';
 import { Timestamp } from 'firebase/firestore';
 
 const ProposeActivityModal = ({

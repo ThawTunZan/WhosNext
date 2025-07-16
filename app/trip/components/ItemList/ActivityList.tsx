@@ -1,10 +1,10 @@
 import React, { memo } from 'react';
 import { ProposedActivity } from '@/src/types/DataTypes';
-import ActivityCard from '@/src/TripSections/Activity/components/ActivityCard';
+import ActivityCard from '@/src/screens/Activity/components/ActivityCard';
 import GenericList from '@/app/trip/components/ItemList/GenericList';
 import { format, parse } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
-import { groupByDate } from '@/src/trip/components/DateButton';
+import { groupByDate } from '@/src/components/Common/DateButton';
 
 interface ActivityListProps {
   activities: ProposedActivity[];

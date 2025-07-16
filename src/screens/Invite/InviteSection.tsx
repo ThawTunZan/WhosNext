@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { View, Share, ScrollView } from 'react-native'
 import { Button, Text, Snackbar } from 'react-native-paper'
 import * as Linking from 'expo-linking'
-import { createInvite } from '@/src/TripSections/Invite/utilities/InviteUtilities'
+import { createInvite } from '@/src/screens/Invite/utilities/InviteUtilities'
 import QRCode from 'react-native-qrcode-svg';
 import { BaseSection } from '@/src/components/Common/BaseSection';
 import { CommonCard } from '@/src/components/Common/CommonCard';
