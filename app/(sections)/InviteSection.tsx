@@ -33,7 +33,6 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
 
   const inviteUrl = `https://myapp.com/invite?tripId=${tripId}`
 
-  const userId = user.id
   const userName =
     user.fullName ??
     user.username ??
@@ -44,7 +43,7 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
   useEffect(() => {
     let mounted = true
     setLoading(true)
-    createInvite(tripId, { id: userId, name: userName })
+    createInvite(tripId, { name: userName })
       .then((id) => {
         if (mounted) {
             setInviteId(id);
@@ -60,7 +59,7 @@ export default function InviteSection({ tripId }: InviteSectionProps) {
         if (mounted) setLoading(false)
       })
     return () => { mounted = false }
-  }, [tripId, userId, userName])
+  }, [tripId, userName])
 
   // 3. Handler: share the link
   const handleShareLink = useCallback(async () => {

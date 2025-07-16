@@ -4,8 +4,7 @@ import { View, StyleSheet, Share, Platform, ActivityIndicator } from "react-nati
 import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip, List, Divider } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState, useEffect, useCallback } from "react";
-import { AddMemberType, Currency, Member } from '@/src/types/DataTypes';
-import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
+import { AddMemberType, Member } from '@/src/types/DataTypes';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import SelectFriendsModal from '@/app/trip/components/SelectFriendsModal';
@@ -14,28 +13,39 @@ import { createInvite } from '@/src/TripSections/Invite/utilities/InviteUtilitie
 import * as Linking from 'expo-linking';
 import { useUser } from '@clerk/clerk-expo';
 import QRCode from 'react-native-qrcode-svg';
+import { useUserTripsContext } from "@/src/context/UserTripsContext";
 
 type MemberListProps = {
-  members: { [id: string]: Member };
-  onAddMember: (id: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
+  onAddMember: (name: string, budget: number, currency: string, addMemberType: AddMemberType) => void;
   onRemoveMember: (name: string) => void;
   onGenerateClaimCode?: (memberId: string) => Promise<string>;
   onClaimMockUser?: (memberId: string, claimCode: string) => Promise<void>;
   tripId: string;
 };
 
+type membersType = {
+  [username: string]: {
+      addMemberType: string;
+      amtLeft: number;
+      budget: number;
+      currency: string;
+      owesTotalMap: {
+          [currency: string]: number;
+      };
+      receiptsCount: number;
+      username: string;
+  };
+}
+
 export default function MemberList({ 
-  members, 
   onAddMember, 
   onRemoveMember,
-  onGenerateClaimCode,
   onClaimMockUser,
   tripId 
 }: MemberListProps) {
-  const profiles = useMemberProfiles();
   const [newMember, setNewMember] = useState("");
   const [newMemberBudget, setNewMemberBudget] = useState<number | null>(null);
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency>('USD');
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('USD');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMockMemberModal, setShowMockMemberModal] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
@@ -52,6 +62,15 @@ export default function MemberList({
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
+  const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId);
+  const members: membersType = (trip && trip.members) ? trip.members : {};
+
+  // Only render valid members
+  const validMembers: [string, Member][] = Object.entries(members).filter(
+    ([username, member]) => member && (member.username || username) && typeof member.budget === 'number'
+  ) as [string, Member][];
+  //console.log("VALID MEMBERS ARE ", validMembers)
 
   const getInviteUrl = useCallback((inviteId: string, mockUserId: string) => {
     // For development
@@ -70,19 +89,19 @@ export default function MemberList({
     });
   }, []);
 
-  const handleShareInvite = useCallback((inviteId: string, mockUserId: string) => {
-    const inviteLink = getInviteUrl(inviteId, mockUserId);
-    const memberName = profiles[mockUserId] || 'this mock profile';
+  const handleShareInvite = useCallback((inviteId: string, mockUsername: string) => {
+    const inviteLink = getInviteUrl(inviteId, mockUsername);
+    const memberName = mockUsername || 'this mock profile';
     Share.share({
       message: `You've been invited to claim ${memberName} in our trip on Who's Next!\n\nClick here to claim the profile: ${inviteLink}`,
     });
-  }, [profiles, getInviteUrl]);
+  }, [getInviteUrl]);
 
   useEffect(() => {
     if (showClaimModal && user && !inviteId) {
       setInviteLoading(true);
-      const userName = user.fullName ?? user.username ?? user.primaryEmailAddress?.emailAddress ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
-      createInvite(tripId, { id: user.id, name: userName })
+      const userName = user.username ?? user.fullName ??  user.primaryEmailAddress?.emailAddress ?? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+      createInvite(tripId, {name: userName })
         .then(id => {
           setInviteId(id);
           console.log('DEV INVITE URL:', Linking.createURL(`invite/${id}`));
@@ -118,21 +137,20 @@ export default function MemberList({
       return;
     }
 
-    const memberId = `${trimmedName}-${Date.now()}`;
-
-    onAddMember(memberId, trimmedName, newMemberBudget, selectedCurrency, addMemberType);
+    // Use the name directly as the member key instead of generating an ID
+    onAddMember(trimmedName, newMemberBudget, selectedCurrency, addMemberType);
     setNewMember("");
     setNewMemberBudget(null);
     setShowMockMemberModal(false);
   };
 
-  const handleFriendSelect = (friendId: string, friendName: string, budget: number) => {
-    onAddMember(friendId, friendName, budget, "USD", AddMemberType.FRIENDS);
+  const handleFriendSelect = (friendName: string, budget: number) => {
+    onAddMember(friendName, budget, "USD", AddMemberType.FRIENDS);
   };
 
   const memberCount = Object.keys(members).length;
 
-  const MemberCard = ({ id, member, profileName }: { id: string; member: Member; profileName: string }) => (
+  const MemberCard = ({ username, member, profileName }: { username: string; member: {addMemberType: string; amtLeft: number; budget: number; currency: string; owesTotalMap: { [currency: string]: number; }; receiptsCount: number; username: string; }; profileName: string }) => (
     <Surface style={styles.memberCard} elevation={1}>
       <View style={[styles.memberContent, { overflow: 'hidden' }]}>
         <View style={styles.avatarContainer}>
@@ -156,7 +174,7 @@ export default function MemberList({
                 <Text variant="titleMedium" style={[styles.memberName, { color: theme.colors.text }]}>
                   {profileName}
                 </Text>
-                {user && id === user.id && (
+                {user && username === user.username && (
                   <Text
                     variant="labelMedium"
                     style={{ color: theme.colors.primary, marginLeft: 8, fontWeight: 'bold' }}
@@ -173,7 +191,7 @@ export default function MemberList({
         </View>
 
         <View style={styles.rightContent}>
-          {member.addMemberType === AddMemberType.MOCK && onGenerateClaimCode && (
+          {member.addMemberType === AddMemberType.MOCK  && (
             <Chip 
               style={styles.unverifiedBadge}
               textStyle={{ fontSize: 10 }}
@@ -184,12 +202,12 @@ export default function MemberList({
           )}
 
           <View style={styles.actionButtons}>
-            {member.addMemberType === AddMemberType.MOCK && onGenerateClaimCode && (
+            {member.addMemberType === AddMemberType.MOCK && (
               <IconButton
                 icon="link-variant"
                 size={20}
                 onPress={() => {
-                  setSelectedMemberId(id);
+                  setSelectedMemberId(username);
                   setShowClaimModal(true);
                 }}
                 mode="contained-tonal"
@@ -197,14 +215,17 @@ export default function MemberList({
                 iconColor="white"
               />
             )}
-            <IconButton
-              icon="account-remove"
-              size={20}
-              onPress={() => onRemoveMember(id)}
-              mode="contained-tonal"
-              containerColor={theme.colors.error}
-              iconColor="white"
-            />
+            {/* Only show remove button if the member is not the current user */}
+            {user && username !== user.username && (
+              <IconButton
+                icon="account-remove"
+                size={20}
+                onPress={() => onRemoveMember(username)}
+                mode="contained-tonal"
+                containerColor={theme.colors.error}
+                iconColor="white"
+              />
+            )}
           </View>
         </View>
       </View>
@@ -233,12 +254,12 @@ export default function MemberList({
           </View>
 
           <View style={styles.memberGrid}>
-            {Object.entries(members).map(([id, member]) => (
+            {validMembers.map(([username, member]) => (
               <MemberCard
-                key={id}
-                id={id}
+                key={username}
+                username={username}
                 member={member}
-                profileName={profiles[id]}
+                profileName={username}
               />
             ))}
           </View>

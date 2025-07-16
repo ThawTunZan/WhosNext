@@ -20,88 +20,44 @@ import {
   Timestamp,
   FieldValue,
 } from 'firebase/firestore';
-import { Currency, Debt, Payment } from '@/src/types/DataTypes';
+import { Debt, Payment, UserFromFirebase } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 import { deletePayment } from '@/src/TripSections/Payment/utilities/PaymentUtilities';
 
-// User-related operations
-export const getUserById = async (userId: string) => {
+
+export const getUserByUsername = async (username: string): Promise<UserFromFirebase | null> => {
+  if (!username || typeof username !== 'string' || username.trim() === '') {
+    console.error('getUserByUsername called with invalid username:', username);
+    return null;
+  }
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(db, 'users', username);
     const userSnap = await getDoc(userRef);
-    return userSnap.exists() ? userSnap.data() : null;
-  } catch (error) {
-    console.error('Error getting user:', error);
-    throw error;
-  }
-};
-
-export const getUserByEmail = async (email: string) => {
-  try {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('email', '==', email));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.empty ? null : querySnapshot.docs[0].data();
-  } catch (error) {
-    console.error('Error getting user by email:', error);
-    throw error;
-  }
-};
-
-export const getUserByUsername = async (username: string) => {
-  try {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('username', '==', username.toLowerCase()));
-    const querySnapshot = await getDocs(q);
-    
-    if (querySnapshot.empty) {
-      return null;
-    }
-    
-    const userDoc = querySnapshot.docs[0];
+    if (!userSnap.exists()) return null;
+    const data = userSnap.data() || {};
     return {
-      id: userDoc.id,
-      ...userDoc.data()
+      username: data.username || '',
+      fullName: data.fullName || '',
+      primaryEmailAddress: data.primaryEmailAddress || { emailAddress: data.email || '' },
+      profileImageUrl: data.profileImageUrl || '',
+      friends: data.friends || [],
+      incomingFriendRequests: data.incomingFriendRequests || [],
+      outgoingFriendRequests: data.outgoingFriendRequests || [],
+      trips: data.trips || [],
+      premiumStatus: data.premiumStatus || 'free'
+      // Add any other required fields with defaults
     };
   } catch (error) {
-    console.error('Error getting user by username:', error);
+    console.error('Error fetching user by username:', error);
     throw error;
   }
 };
 
-export const updateUserProfile = async (userId: string, data: any) => {
+export const addFriend = async (userName: string, friendUsername: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(db, 'users', userName);
     await updateDoc(userRef, {
-      ...data,
-      updatedAt: serverTimestamp(),
-    });
-  } catch (error) {
-    console.error('Error updating user profile:', error);
-    throw error;
-  }
-};
-
-// Friend-related operations
-export const getFriendsList = async (userId: string) => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
-    if (!userSnap.exists()) return [];
-    
-    const userData = userSnap.data();
-    return userData.friends || [];
-  } catch (error) {
-    console.error('Error getting friends list:', error);
-    throw error;
-  }
-};
-
-export const addFriend = async (userId: string, friendId: string) => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, {
-      friends: arrayUnion(friendId),
+      friends: arrayUnion(friendUsername),
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
@@ -110,11 +66,11 @@ export const addFriend = async (userId: string, friendId: string) => {
   }
 };
 
-export const removeFriend = async (userId: string, friendId: string) => {
+export const removeFriend = async (userName: string, friendUsername: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(db, 'users', userName);
     await updateDoc(userRef, {
-      friends: arrayRemove(friendId),
+      friends: arrayRemove(friendUsername),
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
@@ -124,15 +80,15 @@ export const removeFriend = async (userId: string, friendId: string) => {
 };
 
 // Friend requests operations
-export const sendFriendRequest = async (senderId: string, receiverId: string) => {
+export const sendFriendRequest = async (senderUsername: string, receiverUsername: string) => {
   try {
-    const receiverRef = doc(db, 'users', receiverId);
-    const senderRef = doc(db, 'users', senderId);
+    const receiverRef = doc(db, 'users', receiverUsername);
+    const senderRef = doc(db, 'users', senderUsername);
     const timestamp = new Date().toISOString(); // Use ISO string instead of serverTimestamp
     
     await updateDoc(senderRef, {
       outgoingFriendRequests: arrayUnion({
-        receiverId: receiverId,
+        username: receiverUsername,
         status: 'pending',
         timestamp: timestamp,
       }),
@@ -140,7 +96,7 @@ export const sendFriendRequest = async (senderId: string, receiverId: string) =>
 
     await updateDoc(receiverRef, {
         incomingFriendRequests: arrayUnion({
-          senderId: senderId,
+          username: senderUsername,
           status: 'pending',
           timestamp: timestamp,
         }),
@@ -152,76 +108,60 @@ export const sendFriendRequest = async (senderId: string, receiverId: string) =>
   }
 };
 
-export const acceptFriendRequest = async (userId: string, requesterId: string) => {
+export const acceptFriendRequest = async (username: string, requesterUsername: string) => {
   try {
-    // Get both users' data to find the request with timestamp
-    const userData = await getUserById(userId);
-    const requesterData = await getUserById(requesterId);
-
-    if (!userData || !requesterData) {
-      throw new Error('Could not find user data');
-    }
-
-    // Find the matching request with its timestamp
-    const incomingRequest = userData?.incomingFriendRequests?.find(
-      (request: any) => request.senderId === requesterId && request.status === 'pending'
-    );
-    
-    const outgoingRequest = requesterData?.outgoingFriendRequests?.find(
-      (request: any) => request.receiverId === userId && request.status === 'pending'
-    );
-
-    if (!incomingRequest || !outgoingRequest) {
-      throw new Error('Could not find matching friend request');
-    }
-
-    // Add each user to the other's friends list
-    await Promise.all([
-      addFriend(userId, requesterId),
-      addFriend(requesterId, userId),
-    ]);
-
-    // Remove the friend request using the timestamp
-    const userRef = doc(db, 'users', userId);
-    const requesterRef = doc(db, 'users', requesterId);
-    
+    // Add each other as friends
+    const userRef = doc(db, 'users', username);
+    const requesterRef = doc(db, 'users', requesterUsername);
     await updateDoc(userRef, {
-      incomingFriendRequests: arrayRemove({
-        senderId: requesterId,
-        status: 'pending',
-        timestamp: incomingRequest.timestamp,
-      }),
+      friends: arrayUnion(requesterUsername),
+      updatedAt: serverTimestamp(),
     });
-    
     await updateDoc(requesterRef, {
-      outgoingFriendRequests: arrayRemove({
-        receiverId: userId,
-        status: 'pending',
-        timestamp: outgoingRequest.timestamp,
-      }),
+      friends: arrayUnion(username),
+      updatedAt: serverTimestamp(),
     });
+
+    // Remove from user's incomingFriendRequests
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const incoming = userSnap.data().incomingFriendRequests || [];
+      const updatedIncoming = incoming.filter((req: any) => req.username !== requesterUsername);
+      await updateDoc(userRef, { incomingFriendRequests: updatedIncoming });
+    }
+
+    // Remove from requester's outgoingFriendRequests
+    const requesterSnap = await getDoc(requesterRef);
+    if (requesterSnap.exists()) {
+      const outgoing = requesterSnap.data().outgoingFriendRequests || [];
+      const updatedOutgoing = outgoing.filter((req: any) => req.username !== username);
+      await updateDoc(requesterRef, { outgoingFriendRequests: updatedOutgoing });
+    }
   } catch (error) {
     console.error('Error accepting friend request:', error);
     throw error;
   }
 };
 
-export const declineFriendRequest = async (userId: string, requesterId: string) => {
+export const declineFriendRequest = async (username: string, requesterUsername: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
-    const requesterRef = doc(db, 'users', requesterId);
-    await updateDoc(userRef, {
-      incomingFriendRequests: arrayRemove({
-        senderId: requesterId,
-        status: 'pending',
-      }),
-    });
-    await updateDoc(requesterRef, {
-        outgoingFriendRequests: arrayRemove({
-          receiverId: userId,
-          status: 'pending',
-        }),
-      });
+    // Remove from user's incomingFriendRequests
+    const userRef = doc(db, 'users', username);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const incoming = userSnap.data().incomingFriendRequests || [];
+      const updatedIncoming = incoming.filter((req: any) => req.username !== requesterUsername);
+      await updateDoc(userRef, { incomingFriendRequests: updatedIncoming });
+    }
+
+    // Remove from requester's outgoingFriendRequests
+    const requesterRef = doc(db, 'users', requesterUsername);
+    const requesterSnap = await getDoc(requesterRef);
+    if (requesterSnap.exists()) {
+      const outgoing = requesterSnap.data().outgoingFriendRequests || [];
+      const updatedOutgoing = outgoing.filter((req: any) => req.username !== username);
+      await updateDoc(requesterRef, { outgoingFriendRequests: updatedOutgoing });
+    }
   } catch (error) {
     console.error('Error declining friend request:', error);
     throw error;
@@ -249,16 +189,16 @@ export const searchUsers = async (searchTerm: string, currentUserId: string) => 
 };
 
 // Block user operations
-export const blockUser = async (userId: string, blockedUserId: string) => {
+export const blockUser = async (userName: string, blockUserName: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(db, 'users', userName);
     await updateDoc(userRef, {
-      blockedUsers: arrayUnion(blockedUserId),
-      friends: arrayRemove(blockedUserId), // Remove from friends if they were friends
+      blockedUsers: arrayUnion(blockUserName),
+      friends: arrayRemove(blockUserName), // Remove from friends if they were friends
     });
-    const blockedUserRef = doc(db, 'users', blockedUserId);
+    const blockedUserRef = doc(db, 'users', blockUserName);
     await updateDoc(blockedUserRef, {
-      blockedBy: arrayUnion(userId),
+      blockedBy: arrayUnion(userName),
     });
   } catch (error) {
     console.error('Error blocking user:', error);
@@ -266,15 +206,15 @@ export const blockUser = async (userId: string, blockedUserId: string) => {
   }
 };
 
-export const unblockUser = async (userId: string, blockedUserId: string) => {
+export const unblockUser = async (username: string, blockUsername: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(db, 'users', username);
     await updateDoc(userRef, {
-      blockedUsers: arrayRemove(blockedUserId),
+      blockedUsers: arrayRemove(blockUsername),
     });
-    const blockedUserRef = doc(db, 'users', blockedUserId);
+    const blockedUserRef = doc(db, 'users', blockUsername);
     await updateDoc(blockedUserRef, {
-      blockedBy: arrayRemove(userId),
+      blockedBy: arrayRemove(username),
     });
   } catch (error) {
     console.error('Error unblocking user:', error);
@@ -282,25 +222,14 @@ export const unblockUser = async (userId: string, blockedUserId: string) => {
   }
 };
 
-// Utility functions
-export const checkIfFriends = async (userId1: string, userId2: string) => {
+export const checkIfBlocked = async (username: string, targetUsername: string) => {
   try {
-    const user1Friends = await getFriendsList(userId1);
-    return user1Friends.includes(userId2);
-  } catch (error) {
-    console.error('Error checking if friends:', error);
-    throw error;
-  }
-};
-
-export const checkIfBlocked = async (userId: string, targetUserId: string) => {
-  try {
-    const userRef = doc(db, 'users', userId);
+    const userRef = doc(db, 'users', username);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) return false;
     
     const userData = userSnap.data();
-    return userData.blockedUsers?.includes(targetUserId) || false;
+    return userData.blockedUsers?.includes(targetUsername) || false;
   } catch (error) {
     console.error('Error checking if blocked:', error);
     throw error;
@@ -313,19 +242,17 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
   const batch = writeBatch(db);
   
   try {
-    // 1. Add the payment record
+    // 1. Add the payment document
     const paymentsRef = collection(db, 'trips', payment.tripId, 'payments');
     const paymentDocRef = doc(paymentsRef);
-    
-    const paymentData = {
+    batch.set(paymentDocRef, {
       ...payment,
-    };
-    paymentData.createdTime = serverTimestamp();
-    paymentData.createdDate = Timestamp.now();
-    
-    batch.set(paymentDocRef, paymentData);
+      id: paymentDocRef.id,
+      createdTime: serverTimestamp(),
+      createdDate: serverTimestamp(),
+    });
 
-    // 2. Get current debt values
+    // 2. Update trip debts and member amounts
     const tripRef = doc(db, 'trips', payment.tripId);
     const tripSnap = await getDoc(tripRef);
     
@@ -338,8 +265,8 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
     const currencyDebts = debts[payment.currency] || {};
 
     // Get the current debt values in both directions
-    const paidByToPaidTo = `${payment.fromUserId}#${payment.toUserId}`;
-    const paidToToPaidBy = `${payment.toUserId}#${payment.fromUserId}`;
+    const paidByToPaidTo = `${payment.fromUserName}#${payment.toUserName}`;
+    const paidToToPaidBy = `${payment.toUserName}#${payment.fromUserName}`;
     
     const currentPaidByToPaidTo = currencyDebts[paidByToPaidTo] || 0;
     const paymentAmount = payment.amount;
@@ -349,8 +276,8 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
     if (currentPaidByToPaidTo >= paymentAmount) {
       batch.update(tripRef, {
         [`debts.${payment.currency}.${paidByToPaidTo}`]: increment(-paymentAmount),
-        [`members.${payment.fromUserId}.amtLeft`]: increment(-paymentAmount),
-        [`members.${payment.toUserId}.amtLeft`]: increment(paymentAmount),
+        [`members.${payment.fromUserName}.amtLeft`]: increment(-paymentAmount),
+        [`members.${payment.toUserName}.amtLeft`]: increment(paymentAmount),
       });
     } 
     // If payment amount is greater than current debt
@@ -360,8 +287,8 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
       
       // Create update object
       const updates: any = {
-        [`members.${payment.fromUserId}.amtLeft`]: increment(-paymentAmount),
-        [`members.${payment.toUserId}.amtLeft`]: increment(paymentAmount),
+        [`members.${payment.fromUserName}.amtLeft`]: increment(-paymentAmount),
+        [`members.${payment.toUserName}.amtLeft`]: increment(paymentAmount),
       };
 
       // If there was any existing debt, clear it
@@ -379,55 +306,6 @@ export const firebaseRecordPayment = async (payment: Payment): Promise<void> => 
     console.log('Payment recorded successfully');
   } catch (error) {
     console.error('Error recording payment:', error);
-    throw error;
-  }
-};
-
-// Function to get all payments for a trip
-export const firebaseGetTripPayments = async (tripId: string): Promise<Payment[]> => {
-  try {
-    const paymentsRef = collection(db, 'trips', tripId, 'payments');
-    const q = query(paymentsRef, where('tripId', '==', tripId));
-    const querySnapshot = await getDocs(q);
-    
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Payment[];
-  } catch (error) {
-    console.error('Error getting trip payments:', error);
-    throw error;
-  }
-};
-
-// Function to get payments between two users in a trip
-export const firebaseGetUserPayments = async (
-  tripId: string,
-  userId1: string,
-  userId2: string
-): Promise<Payment[]> => {
-  try {
-    const paymentsRef = collection(db, 'trips', tripId, 'payments');
-    const q = query(
-      paymentsRef,
-      where('tripId', '==', tripId),
-      where('fromUserId', 'in', [userId1, userId2])
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const payments = querySnapshot.docs
-      .map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Payment[];
-    
-    // Filter to only include payments between these two users
-    return payments.filter(payment => 
-      (payment.fromUserId === userId1 && payment.toUserId === userId2) ||
-      (payment.fromUserId === userId2 && payment.toUserId === userId1)
-    );
-  } catch (error) {
-    console.error('Error getting user payments:', error);
     throw error;
   }
 };
@@ -466,175 +344,23 @@ export const firebaseDeletePayment = async (tripId: string, payment: Payment): P
   }
 };
 
-// Expense-related helpers
-export const getExpenseCollectionRefs = (tripId: string, expenseId?: string) => {
-  const tripRef = doc(db, 'trips', tripId);
-  const expensesColRef = collection(db, 'trips', tripId, 'expenses');
-  const expenseDocRef = expenseId ? doc(db, 'trips', tripId, 'expenses', expenseId) : null;
-  return { tripRef, expensesColRef, expenseDocRef };
-};
-
-export const updateExpenseCollection = async (expenseDocRef: any, data: any) => {
-  if (!expenseDocRef) throw new Error('Expense document reference is required');
-  await updateDoc(expenseDocRef, data);
-};
-
-interface DebtsByUser {
-  [userPair: string]: number;  // e.g. "user1#user2": amount
-}
-
-interface DebtsByCurrency {
-  [currency: string]: DebtsByUser;  // e.g. "USD": { "user1#user2": amount }
-}
-
-// Function to get all debts for a trip
-export const getDebtsForTrip = async (tripId: string): Promise<DebtsByCurrency> => {
-  try {
-    const tripRef = doc(db, 'trips', tripId);
-    const tripSnap = await getDoc(tripRef);
-    
-    if (!tripSnap.exists()) {
-      throw new Error('Trip not found');
-    }
-
-    const tripData = tripSnap.data();
-    const debts = tripData?.debts || {};
-
-    // Return the debts object which is already in the correct structure
-    // { EUR: { "user1#user2": amount }, USD: { "user1#user2": amount } }
-    return debts as DebtsByCurrency;
-  } catch (error) {
-    console.error('Error getting debts for trip:', error);
-    throw error;
-  }
-};
-
-// Helper function to get debts for specific currency
-export const getDebtsForCurrency = async (tripId: string, currency: Currency): Promise<DebtsByUser> => {
-  try {
-    const debts = await getDebtsForTrip(tripId);
-    return debts[currency] || {};
-  } catch (error) {
-    console.error(`Error getting debts for currency ${currency}:`, error);
-    throw error;
-  }
-};
-
-// Helper function to get debt between two users in a specific currency
-export const getDebtBetweenUsers = async (
-  tripId: string, 
-  user1Id: string, 
-  user2Id: string, 
-  currency: Currency
-): Promise<number> => {
-  try {
-    const currencyDebts = await getDebtsForCurrency(tripId, currency);
-    const userPair = `${user1Id}#${user2Id}`;
-    const reverseUserPair = `${user2Id}#${user1Id}`;
-    
-    // Check both directions of the debt
-    if (userPair in currencyDebts) {
-      return currencyDebts[userPair];
-    } else if (reverseUserPair in currencyDebts) {
-      return currencyDebts[reverseUserPair];
-    }
-    
-    return 0; // No debt found between these users in this currency
-  } catch (error) {
-    console.error(`Error getting debt between users in ${currency}:`, error);
-    throw error;
-  }
-};
-
-interface ExpenseShare {
-  userId: string;
-  amount: number;
-}
-
-export async function cancelFriendRequest(senderId, receiverId) {
+export async function cancelFriendRequest(senderUsername, receiverUsername) {
   // Remove from sender's outgoingFriendRequests
-  const senderRef = doc(db, "users", senderId);
+  const senderRef = doc(db, "users", senderUsername);
   const senderSnap = await getDoc(senderRef);
   if (senderSnap.exists()) {
     const outgoing = senderSnap.data().outgoingFriendRequests || [];
-    const updatedOutgoing = outgoing.filter(req => req.receiverId !== receiverId);
+    const updatedOutgoing = outgoing.filter(req => req.username !== receiverUsername);
     await updateDoc(senderRef, { outgoingFriendRequests: updatedOutgoing });
   }
 
   // Remove from receiver's incomingFriendRequests
-  const receiverRef = doc(db, "users", receiverId);
+  const receiverRef = doc(db, "users", receiverUsername);
   const receiverSnap = await getDoc(receiverRef);
   if (receiverSnap.exists()) {
     const incoming = receiverSnap.data().incomingFriendRequests || [];
-    const updatedIncoming = incoming.filter(req => req.senderId !== senderId);
+    const updatedIncoming = incoming.filter(req => req.username !== senderUsername);
     await updateDoc(receiverRef, { incomingFriendRequests: updatedIncoming });
   }
 }
 
-// Check if member is part of any expense (payer or payee)
-export async function checkIfPartOfExpenses(queryMemberId, tripId) {
-  const expensesRef = collection(db, "trips", tripId, "expenses");
-  const expensesSnap = await getDocs(expensesRef);
-  for (const docSnap of expensesSnap.docs) {
-    const expense = docSnap.data();
-    if (
-      expense.paidByAndAmounts?.some(pba => pba.memberId === queryMemberId) ||
-      expense.sharedWith?.some(sw => sw.payeeID === queryMemberId)
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// Check if member is part of any activity (as proposer or participant)
-export async function checkIfPartOfActivities(queryMemberId, tripId) {
-  const activitiesRef = collection(db, "trips", tripId, "proposed_activities");
-  const activitiesSnap = await getDocs(activitiesRef);
-  for (const docSnap of activitiesSnap.docs) {
-    const activity = docSnap.data();
-    if (activity.suggestedByID === queryMemberId) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// Check if member uploaded any receipts
-// TODO: CHECK AGAIN
-export async function checkIfUploadedReceipts(queryMemberId, tripId) {
-  const receiptsRef = collection(db, "trips", tripId, "receipts");
-  const receiptsSnap = await getDocs(receiptsRef);
-  for (const docSnap of receiptsSnap.docs) {
-    const receipt = docSnap.data();
-    if (receipt.uploaderId === queryMemberId) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// Check if member is part of any debts (as debtor or creditor)
-export async function checkIfPartOfDebts(queryMemberId, tripId) {
-  const tripRef = doc(db, "trips", tripId);
-  const tripSnap = await getDoc(tripRef);
-  const tripData = tripSnap.data();
-  if (tripData && tripData.debts) {
-    for (const [currency, currencyDebts] of Object.entries(tripData.debts)) {
-      for (const [key, value] of Object.entries(currencyDebts)) {
-        // Only consider if the value is not 0
-        if (key.includes(queryMemberId) && value !== 0) {
-          return true;
-        }
-        if (typeof value === "object" && value !== null) {
-          for (const k of Object.keys(value)) {
-            if (k === queryMemberId && value[k] !== 0) {
-              return true;
-            }
-          }
-        }
-      }
-    }
-  }
-  return false;
-}

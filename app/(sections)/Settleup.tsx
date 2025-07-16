@@ -15,17 +15,17 @@ import {
     calculateSimplifiedDebtsPerCurrency,
     ParsedDebt,         
 } from '@/src/TripSections/SettleUp/utilities/SettleUpUtilities'; 
-import { Member, Debt, Currency, Payment } from '@/src/types/DataTypes';
-import { useMemberProfiles, MemberProfilesProvider } from '@/src/context/MemberProfilesContext';
+import { Member, Debt, Payment, FirestoreTrip } from '@/src/types/DataTypes';
 import RecordPaymentModal from '@/src/TripSections/Payment/components/RecordPaymentModal';
-import { firebaseRecordPayment, firebaseGetTripPayments, firebaseDeletePayment } from '@/src/services/FirebaseServices';
+import { firebaseRecordPayment, firebaseDeletePayment } from '@/src/services/FirebaseServices';
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
+import { useTripPaymentsContext } from '@/src/context/TripPaymentsContext';
 
 // Props type specific to this component
 type SettleUpProps = {
   debts?: Debt[];
-  members: Record<string, Member>;  
   tripId: string;
-  tripCurrency: Currency;
+  tripCurrency: string;
 };
 
 // Define section type
@@ -34,20 +34,41 @@ type DebtSection = {
   fromName: string;
 };
 
-export default function SettleUpSection({ debts = [], members, tripId, tripCurrency }: SettleUpProps) {
+export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
   const { user } = useUser();
-  const profiles = useMemberProfiles();
 
   const [value, setValue] = useState('all'); // 'all' | 'simplified' | 'currency'
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const { payments, loading: paymentsLoading, error: paymentsError } = useTripPaymentsContext();
   const [shownDebts, setShownDebts] = useState<DebtSection[]>([]);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [expandedPaymentIds, setExpandedPaymentIds] = useState<Set<string>>(new Set());
+  const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
+  const members = trip.members;
+  const debts = trip.debts;
+
+  // Transform debts object form the database to Debt[] for RecordPaymentModal
+  const debtsArray: Debt[] = React.useMemo(() => {
+    if (!debts) return [];
+    const arr: Debt[] = [];
+    Object.entries(debts).forEach(([currency, debtsByUsers]) => {
+      Object.entries(debtsByUsers as Record<string, number>).forEach(([userPair, amount]) => {
+        const [fromUserName, toUserName] = userPair.split('#');
+        arr.push({
+          fromUserName,
+          toUserName,
+          amount,
+          currency
+        });
+      });
+    });
+    return arr;
+  }, [debts]);
 
   // Toggle payment expansion
   const togglePaymentExpanded = useCallback((paymentId: string) => {
@@ -62,30 +83,20 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
     });
   }, []);
 
-  // Fetch payments when component mounts or tripId changes
-  useEffect(() => {
-    const fetchPayments = async () => {
-      if (tripId) {
-        const fetchedPayments = await firebaseGetTripPayments(tripId);
-        setPayments(fetchedPayments);
-      }
-    };
-    fetchPayments();
-  }, [tripId]);
-
   // Transform debts from DB format to array format
   const transformDebts = useCallback((rawDebts: any): Debt[] => {
+    console.log('Raw debts:', rawDebts);
     if (!rawDebts) return [];
     
     const transformedDebts: Debt[] = [];
     Object.entries(rawDebts).forEach(([currency, debtsByUsers]) => {
       Object.entries(debtsByUsers as Record<string, number>).forEach(([userPair, amount]) => {
-        const [fromUserId, toUserId] = userPair.split('#');
+        const [fromUserName, toUserName] = userPair.split('#');
         transformedDebts.push({
-          fromUserId,
-          toUserId,
+          fromUserName,
+          toUserName,
           amount,
-          currency: currency as Currency
+          currency: currency
         });
       });
     });
@@ -96,7 +107,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   const groupDebts = useCallback((debts: Debt[]) => {
     // Group by currency
     const grouped = debts.reduce((acc, debt) => {
-      const fromName = profiles[debt.fromUserId] || 'Unknown';
+      const fromName = debt.fromUserName || 'Unknown';
       if (!acc[fromName]) {
         acc[fromName] = [];
       }
@@ -130,6 +141,8 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
             break;
         }
         setShownDebts(groupDebts(processedDebts));
+        //console.log('Processed debts:', processedDebts);
+        //console.log('Shown debts:', groupDebts(processedDebts));
       } catch (error) {
         console.error('Error calculating debts:', error);
         // If currency conversion fails, fall back to showing raw debts
@@ -146,7 +159,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
     await firebaseRecordPayment(paymentData);
 
     // Update UI
-    setPayments(prevPayments => [...prevPayments, paymentData]);
+    // setPayments(prevPayments => [...prevPayments, paymentData]); // This line is removed as payments are now managed by useTripData
 
     setShowPaymentModal(false);
   };
@@ -154,9 +167,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   const handleDeletePayment = useCallback(async (payment: Payment) => {
     try {
       await firebaseDeletePayment(tripId, payment);
-      // Refresh payments list
-      const updatedPayments = await firebaseGetTripPayments(tripId);
-      setPayments(updatedPayments);
+      // Optionally, you can refetch payments by calling useTripData again or rely on the listener
       setSnackbarMessage("Payment deleted successfully");
       setSnackbarVisible(true);
     } catch (error) {
@@ -170,7 +181,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   const renderItem = useCallback(({ item }: { item: Debt }) => (
     <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
       <Card.Title
-        title={`owes ${profiles[item.toUserId]}`}
+        title={`owes ${item.toUserName}`}
         titleStyle={{ color: theme.colors.text }}
         right={() => (
           <Text style={[styles.amountText, { color: theme.colors.text }]}>
@@ -180,12 +191,12 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
         rightStyle={styles.amountContainer}
       />
     </Card>
-  ), [theme.colors, profiles]);
+  ), [theme.colors]);
 
   // Render payment item
   const renderPaymentItem = useCallback((payment: Payment) => {
-    const fromUser = profiles[payment.fromUserId] || payment.fromUserId;
-    const toUser = profiles[payment.toUserId] || payment.toUserId;
+    const fromUser = payment.fromUserName
+    const toUser = payment.toUserName
     
     // Handle different date formats
     let paymentDate: Date;
@@ -193,11 +204,13 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
       paymentDate = payment.paymentDate;
     } else if (payment.paymentDate instanceof Timestamp) {
       paymentDate = payment.paymentDate.toDate();
+    } else if (typeof payment.paymentDate === 'string') {
+      paymentDate = new Date(payment.paymentDate);
     } else {
+      console.log("ELSE FALL BACK REACHED")
       paymentDate = new Date();
-      console.warn('Invalid payment date format:', payment.paymentDate);
     }
-
+    console.log("PAYMENT DATE IS ", paymentDate)
     const isExpanded = expandedPaymentIds.has(payment.id || '');
 
     return (
@@ -288,7 +301,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
         )}
       </Card>
     );
-  }, [expandedPaymentIds, profiles, theme.colors, handleDeletePayment]);
+  }, [expandedPaymentIds, theme.colors, handleDeletePayment]);
 
   const renderListHeader = () => (
     <>
@@ -305,7 +318,7 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
   ), [theme.colors]);
 
   const keyExtractor = useCallback((item: Debt, index: number) =>
-    `${item.fromUserId}-${item.toUserId}-${index}`,
+    `${item.fromUserName}-${item.toUserName}-${index}`,
   []);
 
   const renderPaymentsSection = () => (
@@ -406,18 +419,15 @@ export default function SettleUpSection({ debts = [], members, tripId, tripCurre
         label="Record Payment"
       />
 
-      <MemberProfilesProvider memberUids={Object.keys(members)}>
         <RecordPaymentModal
           visible={showPaymentModal}
           onDismiss={() => setShowPaymentModal(false)}
           onSubmit={handlePaymentSubmit}
-          debts={debts}
-          currentUserId={user?.id || ''}
+          debts={debtsArray} // <-- pass the array, not the raw object
+          currentUsername={user?.username || ''}
           tripId={tripId}
           defaultCurrency={tripCurrency}
-          members={members}
         />
-      </MemberProfilesProvider>
     </View>
   );
 }

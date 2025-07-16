@@ -1,13 +1,17 @@
 // app/trip/[id].tsx
 
 import React, { useState } from "react";
-import { View, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
+import { View, KeyboardAvoidingView, Platform, StyleSheet, Text } from "react-native";
 import { Redirect, useLocalSearchParams } from "expo-router";
-import { Snackbar, Portal, Button } from "react-native-paper";
+import { Snackbar, Portal, Button, ActivityIndicator } from "react-native-paper";
 
-import { useTripData } from "@/src/hooks/useTripData";
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
+import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
+import { TripPaymentsProvider, useTripPaymentsContext } from '@/src/context/TripPaymentsContext';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '@/firebase';
+
 import { useUser } from "@clerk/clerk-expo";
-import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 
 import TripHeader from "@/src/components/TripHeader";
 import TabBar from "@/app/trip/components/TabBar";
@@ -27,35 +31,56 @@ import { useTripHandlers } from "@/src/utilities/TripHandlers";
 import { useTripState } from "@/src/hooks/useTripState";
 import { AddMemberType } from "@/src/types/DataTypes";
 import TripLeaderboard from "../(sections)/TripLeaderboard";
+import { TripExpensesProvider } from '@/src/context/TripExpensesContext';
+import type { FirestoreTrip, Member, Debt } from '@/src/types/DataTypes';
+import { SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
 
-export default function TripDetailPage() {
-  const { id: routeIdParam, showChooseModal: showChooseModalParam } = useLocalSearchParams<{ 
-    id?: string | string[]; 
-    showChooseModal?: string;
-  }>();
+export default function TripPageWrapper() {
+  const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();
   const tripId = Array.isArray(routeIdParam) ? routeIdParam[0] : routeIdParam;
 
-  const { isLoaded, isSignedIn, user } = useUser();
-  const currentUserId = user?.id;
+  return (
+    <TripExpensesProvider tripId={tripId}>
+      <TripPaymentsProvider tripId={tripId}>
+        <TripPage tripId={tripId} />
+      </TripPaymentsProvider>
+    </TripExpensesProvider>
+  );
+}
 
-  const { trip, expenses, payments, loading, error: dataError } = useTripData(tripId);
-  const profiles = useMemberProfiles();
+function TripPage({ tripId }) {
+  const { isLoaded, isSignedIn, user } = useUser();
+  const currentUsername = user?.username;
+  // Get trip from UserTripsContext
+  const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
+  
+  // Get expenses from TripExpensesContext
+  const { expenses, loading: expensesLoading, error: expensesError } = useTripExpensesContext();
+  const { payments, loading: paymentsLoading, error: paymentsError } = useTripPaymentsContext();
+
+  // Compose loading and error states
+  const loading = tripsLoading || expensesLoading || paymentsLoading;
+  const dataError = tripsError || expensesError || paymentsError;
 
   const [nextPayer, setNextPayer] = React.useState<string | null>(null);
-  const [showChooseModal, setShowChooseModal] = useState(showChooseModalParam === 'true');
+  const [showChooseModal, setShowChooseModal] = useState(false);
+
+  // When passing members, cast as Record<string, Member> and cast currency and addMemberType fields, and fix owesTotalMap
+  const safeMembers: Record<string, Member> = Object.fromEntries(
+    Object.entries(trip?.members || {}).map(([k, v]) => [k, toMember(v)])
+  );
 
   const nextPayerParams = React.useMemo(() => ({
-    members: trip?.members || null,
-    profiles,
+    members: safeMembers,
     currency: trip?.currency || 'USD'
-  }), [trip?.members, profiles, trip?.currency]);
+  }), [safeMembers, trip?.currency]);
 
   React.useEffect(() => {
     const updateNextPayer = async () => {
-      if (nextPayerParams.members && nextPayerParams.profiles) {
+      if (nextPayerParams.members) {
         const nextPayerId = await calculateNextPayer(
           nextPayerParams.members,
-          nextPayerParams.profiles,
           nextPayerParams.currency
         );
         setNextPayer(nextPayerId);
@@ -86,7 +111,7 @@ export default function TripDetailPage() {
     setHasLeftTrip,
     setActivityToDeleteId,
     setSnackbarMessage,
-  } = useTripState(tripId!, currentUserId!);
+  } = useTripState(tripId!, currentUsername!);
 
   const {
     handleAddMember,
@@ -101,8 +126,6 @@ export default function TripDetailPage() {
     isDeletingTrip,
   } = useTripHandlers({
     tripId: tripId!,
-    trip: trip!,
-    profiles,
     activityToDeleteId,
     openAddExpenseModal,
     closeAddExpenseModal,
@@ -113,9 +136,35 @@ export default function TripDetailPage() {
     setSnackbarVisible,
   });
 
+
+  // Helper to create a valid OwesTotalMap
+  const makeOwesTotalMap = (map: any): Record<string, number> => {
+    const result: Record<string, number> = {
+      USD: 0, EUR: 0, GBP: 0, JPY: 0, CNY: 0, SGD: 0
+    };
+    for (const cur of SUPPORTED_CURRENCIES) {
+      if (map && typeof map[cur] === 'number') result[cur] = map[cur];
+    }
+    return result;
+  };
+  // Helper to convert Firestore member to Member type
+  function toMember(v: any): Member {
+    return {
+      username: v.username,
+      budget: typeof v.budget === 'number' ? v.budget : 0,
+      amtLeft: typeof v.amtLeft === 'number' ? v.amtLeft : 0,
+      currency: v.currency,
+      addMemberType: Object.values(AddMemberType).includes(v.addMemberType) ? v.addMemberType as AddMemberType : AddMemberType.INVITE_LINK,
+      claimCode: v.claimCode,
+      owesTotalMap: v.owesTotalMap,
+      receiptsCount: typeof v.receiptsCount === 'number' ? v.receiptsCount : 0,
+    };
+  }
+
+  // When accessing claimCode, use optional chaining and type guard
   const handleSelectMockMember = async (memberId: string) => {
     try {
-      const member = trip.members[memberId];
+      const member = safeMembers[memberId];
       if (!member?.claimCode) {
         throw new Error('No claim code found for this member');
       }
@@ -133,8 +182,7 @@ export default function TripDetailPage() {
   const handleJoinAsNew = async () => {
     try {
       await handleAddMember(
-        user.id,
-        user.fullName || user.username || user.primaryEmailAddress?.emailAddress || 'Unknown User',
+        user.username || user.fullName || user.primaryEmailAddress?.emailAddress || 'Unknown User',
         0,
         'USD',
         AddMemberType.INVITE_LINK
@@ -150,7 +198,6 @@ export default function TripDetailPage() {
   };
 
   return (
-    <MemberProfilesProvider memberUids={Object.keys(trip?.members || {})}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.outerContainer}
@@ -161,10 +208,18 @@ export default function TripDetailPage() {
           loading={loading}
           error={dataError}
           hasLeftTrip={hasLeftTrip}
-          tripExists={!!trip}
+          tripExists={!!trip || !!trip}
         />
 
-        {trip && (
+        {loading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" />
+          </View>
+        ) : !trip ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ fontSize: 18, color: 'gray' }}>Trip not found.</Text>
+          </View>
+        ) : (
           <>
             <TripHeader
               destination={trip.destination}
@@ -177,11 +232,10 @@ export default function TripDetailPage() {
 
             {selectedTab === "overview" && (
               <OverviewTab
-                members={trip.members}
-                profiles={profiles}
+                usernames={Object.fromEntries(Object.entries(safeMembers as Record<string, Member>).map(([k, v]) => [k, v.username || k]))}
                 totalBudget={trip.totalBudget}
                 totalAmtLeft={trip.totalAmtLeft}
-                currentUserId={currentUserId}
+                currentUsername={currentUsername}
                 onAddMember={handleAddMember}
                 onRemoveMember={handleRemoveMember}
                 onEditBudget={openBudgetDialog}
@@ -198,17 +252,15 @@ export default function TripDetailPage() {
             {selectedTab === "expenses" && (
               <ExpensesSection
                 tripId={tripId!}
-                members={trip.members}
                 onAddExpensePress={() => openAddExpenseModal(null, false)}
                 onEditExpense={handleEditExpense}
-                nextPayerId={nextPayer}
+                nextPayerName={nextPayer}
               />
             )}
 
             {selectedTab === "settle" && (
               <SettleUpSection
-                debts={trip.debts}
-                members={trip.members}
+                debts={Array.isArray(trip.debts) ? trip.debts : []}
                 tripId={tripId!}
                 tripCurrency={trip.currency}
               />
@@ -217,7 +269,6 @@ export default function TripDetailPage() {
             {selectedTab === "activities" && (
               <ActivityVotingSection
                 tripId={tripId!}
-                members={trip.members}
                 onAddExpenseFromActivity={handleAddExpenseFromActivity}
                 onDeleteActivity={handleDeleteActivity}
               />
@@ -227,7 +278,19 @@ export default function TripDetailPage() {
 
             {selectedTab === "invite" && <InviteSection tripId={tripId!} />}
 
-            {selectedTab === "leaderboard" && <TripLeaderboard trip={trip} expenses={expenses} payments={payments} nextPayerId={nextPayer}  />}
+            {selectedTab === "leaderboard" && (
+              <TripLeaderboard
+                trip={{
+                  ...trip,
+                  members: safeMembers,
+                  currency: trip.currency,
+                  premiumStatus: trip.premiumStatus ?? 'free',
+                  debts:  trip.debts,
+                }}
+                expenses={expenses}
+                payments={payments}
+              />
+            )}
 
             <Portal>
               <BudgetDialog
@@ -236,7 +299,7 @@ export default function TripDetailPage() {
                 value={newBudgetInput}
                 onChangeValue={setNewBudgetInput}
                 onSubmit={submitBudgetChange}
-                currency={trip.members[currentUserId]?.currency || 'USD'}
+                currency={safeMembers[currentUsername]?.currency || 'USD'}
               />
             </Portal>
 
@@ -244,17 +307,22 @@ export default function TripDetailPage() {
               visible={addExpenseModalVisible}
               onDismiss={closeAddExpenseModal}
               onSubmit={handleAddOrUpdateExpenseSubmit}
-              members={trip.members}
+              members={safeMembers as Record<string, Member>}
               tripId={tripId!}
               initialData={initialExpenseData}
               editingExpenseId={editingExpenseId}
-              suggestedPayerId={nextPayer}
+              suggestedPayerName={nextPayer}
+              trip={trip}
+              onWatchAd={() => {
+                // TODO: Implement ad watching functionality
+                console.log('Watch ad functionality not implemented yet');
+              }}
             />
 
             <ChooseExistingOrNew
               visible={showChooseModal}
               onDismiss={() => setShowChooseModal(false)}
-              mockMembers={trip.members || {}}
+              mockMembers={safeMembers as Record<string, Member>}
               onSelectMockMember={handleSelectMockMember}
               onJoinAsNew={handleJoinAsNew}
             />
@@ -269,7 +337,6 @@ export default function TripDetailPage() {
           </>
         )}
       </KeyboardAvoidingView>
-    </MemberProfilesProvider>
   );
 }
 

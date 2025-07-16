@@ -3,19 +3,17 @@ import React from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Button, IconButton, Divider, Caption } from 'react-native-paper';
 import { ActivityCardProps } from '@/src/types/DataTypes'; // Adjust path if using activities.ts
-import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { formatCurrency } from '@/src/utilities/CurrencyUtilities';
 
 const ActivityCard = React.memo(({ activity, onVoteUp, onVoteDown, onAddExpense, onDelete, onEdit }: ActivityCardProps) => {
 
-  const profiles = useMemberProfiles();
 
   return (
     <Card style={styles.card}>
       <Card.Title
         title={activity.name}
         titleStyle={styles.cardTitle}
-        subtitle={`Suggested by ${profiles[activity.suggestedByID]}`}
+        subtitle={`Suggested by ${activity.suggestedByName}`}
         right={(props) => (
           <>
           <IconButton

@@ -4,6 +4,7 @@ import { useClerk } from "@clerk/clerk-expo"
 import { useUser } from "@clerk/clerk-expo"
 import { useRouter } from "expo-router"
 import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService"
+import { useUserTripsContext } from "../context/UserTripsContext"
 
 /**
  * A custom hook that centralizes all "profile screen" actions:
@@ -15,6 +16,7 @@ export function useProfileActions() {
   const router = useRouter()
   const { openUserProfile, signOut } = useClerk()
   const { user, isLoaded, isSignedIn } = useUser()
+  const {userData} = useUserTripsContext()
 
   /** Navigate to your custom Profile Settings screen */
   const onEditProfile = () => {
@@ -35,8 +37,8 @@ export function useProfileActions() {
    * Call this in a focus‐effect or whenever you want to keep Firestore in sync.
    */
   const syncProfile = () => {
-    if (isLoaded && isSignedIn && user) {
-      upsertClerkUserToFirestore(user).catch(console.error)
+    if (isLoaded && isSignedIn && user && userData) {
+      upsertClerkUserToFirestore(userData).catch(console.error)
     }
   }
 

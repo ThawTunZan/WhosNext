@@ -6,6 +6,7 @@ import { Text, TextInput, useTheme } from "react-native-paper"
 
 interface Props {
   username: string
+  email: string
   avatarUrl: string
   loading: boolean
   onChangeUsername: (u: string) => void
@@ -17,6 +18,7 @@ interface Props {
 
 export default function EditProfileView({
   username,
+  email,
   avatarUrl,
   loading,
   onChangeUsername,
@@ -41,15 +43,11 @@ export default function EditProfileView({
         <Text style={[styles.changePhoto, { color: theme.colors.primary }]}>Change Photo</Text>
       </TouchableOpacity>
 
-      <TextInput
-        label="Username"
-        value={username}
-        onChangeText={onChangeUsername}
-        mode="outlined"
-        style={styles.input}
-        autoCapitalize="none"
-        theme={{ colors: { text: theme.colors.onSurface, background: theme.colors.surface } }}
-      />
+      <Text style={styles.label}>Username</Text>
+      <Text style={styles.value}>{username}</Text>
+
+      <Text style={styles.label}>Email</Text>
+      <Text style={styles.value}>{email}</Text>
 
       <View style={styles.buttons}>
         <View style={{ flex: 1, marginRight: 4 }}>
@@ -78,6 +76,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   changePhoto: { marginBottom: 24, textAlign: "center" },
+  label: { marginTop: 16, fontWeight: "bold", fontSize: 14 },
+  value: { fontSize: 16, marginTop: 4, marginBottom: 8 },
   input: { width: "100%", marginBottom: 16 },
   buttons: { flexDirection: "row", width: "100%", justifyContent: "space-between" },
   button: { flex: 1, marginHorizontal: 4 },

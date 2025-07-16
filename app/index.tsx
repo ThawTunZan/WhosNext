@@ -23,21 +23,20 @@ import { useUser } from '@clerk/clerk-expo';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
 
+// Currency symbol and name mapping for supported currencies only
+const CURRENCY_INFO = {
+  USD: { symbol: '$', name: 'US Dollar' },
+  EUR: { symbol: '€', name: 'Euro' },
+  SGD: { symbol: 'S$', name: 'Singapore Dollar' },
+  MYR: { symbol: 'RM', name: 'Malaysian Ringgit' },
+};
 
 const { width } = Dimensions.get('window');
 const CARD_PADDING = 20;
 const CARD_MARGIN = 8;
 const CARD_WIDTH = width - (CARD_PADDING * 2);
-
-const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-  { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
-  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-];
 
 export default function TripsScreen() {
   const router = useRouter();
@@ -76,7 +75,7 @@ export default function TripsScreen() {
     } else if (start) {
       dateLabel = start.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
     }
-    const currencySymbol = (CURRENCIES.find(c => c.code === item.currency)?.symbol) || '$';
+    const currencySymbol = (CURRENCY_INFO[item.currency]?.symbol) || '$';
     return (
       <Pressable onPress={() => router.push(`/trip/${item.id}`)}>
         <Surface style={styles.cardContainer} elevation={2}>

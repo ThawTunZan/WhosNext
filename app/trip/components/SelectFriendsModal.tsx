@@ -3,18 +3,18 @@ import { View, StyleSheet } from 'react-native';
 import { Modal, Portal, Text, Button, List, Avatar, TextInput, IconButton, Surface, Divider } from 'react-native-paper';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { getFriendsList, getUserById } from '@/src/services/FirebaseServices';
 import { useUser } from '@clerk/clerk-expo';
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 type Friend = {
-  id: string;
   username: string;
+  email: string;
 };
 
 type SelectFriendsModalProps = {
   visible: boolean;
   onDismiss: () => void;
-  onSelectFriend: (friendId: string, friendName: string, budget: number) => void;
+  onSelectFriend: (friendName: string, budget: number) => void;
 };
 
 export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend }: SelectFriendsModalProps) {
@@ -28,35 +28,32 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [budget, setBudget] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const { userData } = useUserTripsContext();
 
   useEffect(() => {
-    loadFriends();
-  }, []);
+    if (userData) {
+      loadFriends();
+    }
+  }, [userData]);
 
   const loadFriends = async () => {
-    if (!user?.id) return;
+    if (!user?.username && !userData) return;
     try {
       setLoading(true);
-      const friendIds = await getFriendsList(user.id);
-      
-      // Fetch complete data for each friend
-      const friendsData = await Promise.all(
-        friendIds.map(async (friendId: string) => {
-          const friendData = await getUserById(friendId);
-          if (!friendData) return null;
-          
-          return {
-            id: friendId,
-            username: friendData.username || 'Unknown'
-          };
-        })
-      );
-
+      console.log("userData is", userData);
+      if (!userData) throw new Error("userData is undefined");
+      console.log("FRIENDS AREEE", userData.friends);
+      const friends = userData.friends || [];
+      // friends is now an array of { username, email }
+      const friendsData = friends.map((friend: { username: string; email: string }) => ({
+        id: friend.username,
+        username: friend.username
+      }));
       // Filter out any null values and set friends
       const validFriends = friendsData.filter((friend): friend is Friend => friend !== null);
       setFriends(validFriends);
     } catch (err) {
-      console.error('Error loading friends:', err);
+      console.error('Error loading friend:', err);
       setError('Failed to load friends list');
     } finally {
       setLoading(false);
@@ -85,7 +82,7 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
       return;
     }
 
-    onSelectFriend(selectedFriend.id, selectedFriend.username, budgetNum);
+    onSelectFriend(selectedFriend.username, budgetNum);
     onDismiss();
   };
 
@@ -139,7 +136,7 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
 
         <Surface style={[styles.friendsList, { backgroundColor: theme.colors.background }]}>
           {filteredFriends.map((friend) => (
-            <React.Fragment key={friend.id}>
+            <React.Fragment key={friend.username}>
               <List.Item
                 title={friend.username}
                 left={props => (
@@ -152,15 +149,15 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
                 right={props => (
                   <IconButton
                     {...props}
-                    icon={selectedFriend?.id === friend.id ? "check-circle" : "checkbox-blank-circle-outline"}
-                    selected={selectedFriend?.id === friend.id}
+                    icon={selectedFriend?.username === friend.username ? "check-circle" : "checkbox-blank-circle-outline"}
+                    selected={selectedFriend?.username === friend.username}
                     onPress={() => handleSelectFriend(friend)}
                   />
                 )}
                 onPress={() => handleSelectFriend(friend)}
                 style={[
                   styles.friendItem,
-                  selectedFriend?.id === friend.id && { backgroundColor: theme.colors.surface }
+                  selectedFriend?.username === friend.username && { backgroundColor: theme.colors.surface }
                 ]}
               />
               <Divider />

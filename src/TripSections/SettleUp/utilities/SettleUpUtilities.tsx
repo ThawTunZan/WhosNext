@@ -1,14 +1,14 @@
 // src/services/SettleUpUtilities.tsx
 
 // Define types needed for debt processing
-import { Currency, Debt } from '@/src/types/DataTypes';
+import { Debt } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
 export type ParsedDebt = {
   fromId: string;
   toId: string;
   amount: number;
-  currency: Currency;
+  currency: string;
   fromName: string;
   toName: string;
 };
@@ -29,15 +29,15 @@ export async function standardCalculateSimplifiedDebts(
             // Find existing debt with same users and currency
             const existingDebt = standardSimplifiedDebts.find(
                 simplifiedDebt => 
-                    simplifiedDebt.fromUserId === debt.fromUserId && 
-                    simplifiedDebt.toUserId === debt.toUserId && 
+                    simplifiedDebt.fromUserName === debt.fromUserName && 
+                    simplifiedDebt.fromUserName === debt.toUserName && 
                     simplifiedDebt.currency === debt.currency
             );
 
             if (!existingDebt) {
                 standardSimplifiedDebts.push({
-                    fromUserId: debt.fromUserId,
-                    toUserId: debt.toUserId,
+                    fromUserName: debt.fromUserName,
+                    toUserName: debt.toUserName,
                     amount: debt.amount,
                     currency: debt.currency,
                 });
@@ -56,7 +56,7 @@ export async function standardCalculateSimplifiedDebts(
  */
 export async function calculateSimplifiedDebtsToTripCurrency(
     debts: Debt[],
-    tripCurrency: Currency
+    tripCurrency: string
 ): Promise<Debt[]> {
     const simplifiedDebts: Debt[] = [];
     const epsilon = 0.001;
@@ -69,21 +69,21 @@ export async function calculateSimplifiedDebtsToTripCurrency(
         if (!isNaN(debt.amount) && debt.amount > epsilon) {
             const convertedAmount = await convertCurrency(debt.amount, debt.currency, tripCurrency);
             //  const convertedAmount = debt.amount;
-            if (!balances[debt.fromUserId]) balances[debt.fromUserId] = 0;
-            if (!balances[debt.toUserId]) balances[debt.toUserId] = 0;
+            if (!balances[debt.fromUserName]) balances[debt.fromUserName] = 0;
+            if (!balances[debt.toUserName]) balances[debt.toUserName] = 0;
             
-            balances[debt.fromUserId] -= convertedAmount;
-            balances[debt.toUserId] += convertedAmount;
+            balances[debt.fromUserName] -= convertedAmount;
+            balances[debt.toUserName] += convertedAmount;
         }
     }
 
     // Separate users into debtors and creditors
     const debtors = Object.entries(balances)
-        .filter(([userId, balance]) => balance < -epsilon)
+        .filter(([username, balance]) => balance < -epsilon)
         .sort(([, balanceA], [, balanceB]) => balanceA - balanceB);
     
     const creditors = Object.entries(balances)
-        .filter(([userId, balance]) => balance > epsilon)
+        .filter(([username, balance]) => balance > epsilon)
         .sort(([, balanceA], [, balanceB]) => balanceB - balanceA);
 
     // Match debtors with creditors
@@ -96,8 +96,8 @@ export async function calculateSimplifiedDebtsToTripCurrency(
         
         if (amount > epsilon) {
             simplifiedDebts.push({
-                fromUserId: debtorId,
-                toUserId: creditorId,
+                fromUserName: debtorId,
+                toUserName: creditorId,
                 amount,
                 currency: tripCurrency
             });
@@ -124,7 +124,7 @@ export function calculateSimplifiedDebtsPerCurrency(
     const epsilon = 0.001;
 
     // Initialize balances structure dynamically based on existing debts
-    const balances: Partial<Record<Currency, Record<string, number>>> = {};
+    const balances: Partial<Record<string, Record<string, number>>> = {};
 
     // Calculate net balances for each member per currency
     for (const debt of debts) {
@@ -135,16 +135,16 @@ export function calculateSimplifiedDebtsPerCurrency(
             }
             
             // Initialize balances for both users if they don't exist
-            if (!balances[debt.currency]![debt.fromUserId]) {
-                balances[debt.currency]![debt.fromUserId] = 0;
+            if (!balances[debt.currency]![debt.fromUserName]) {
+                balances[debt.currency]![debt.fromUserName] = 0;
             }
-            if (!balances[debt.currency]![debt.toUserId]) {
-                balances[debt.currency]![debt.toUserId] = 0;
+            if (!balances[debt.currency]![debt.toUserName]) {
+                balances[debt.currency]![debt.toUserName] = 0;
             }
 
             // Update balances
-            balances[debt.currency]![debt.fromUserId] -= debt.amount;
-            balances[debt.currency]![debt.toUserId] += debt.amount;
+            balances[debt.currency]![debt.fromUserName] -= debt.amount;
+            balances[debt.currency]![debt.toUserName] += debt.amount;
         }
     }
 
@@ -177,17 +177,17 @@ export function calculateSimplifiedDebtsPerCurrency(
 
                 // Find existing debt or create new one
                 const existingDebt = simplifiedDebts.find(
-                    debt => debt.fromUserId === fromId && 
-                           debt.toUserId === toId && 
+                    debt => debt.fromUserName === fromId && 
+                           debt.toUserName === toId && 
                            debt.currency === currency
                 );
 
                 if (!existingDebt) {
                     simplifiedDebts.push({
-                        fromUserId: fromId,
-                        toUserId: toId,
+                        fromUserName: fromId,
+                        toUserName: toId,
                         amount: transferAmount,
-                        currency: currency as Currency,
+                        currency: currency,
                     });
                 } else {
                     existingDebt.amount += transferAmount;

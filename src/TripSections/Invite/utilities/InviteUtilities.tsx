@@ -7,9 +7,10 @@ import {
   doc,
   updateDoc,
   Timestamp,
+  arrayUnion, // <-- add this import
 } from "firebase/firestore"
 import { addMemberToTrip } from "../../../utilities/TripUtilities"
-import { AddMemberType } from "@/src/types/DataTypes"
+import { AddMemberType, FirestoreTrip } from "@/src/types/DataTypes"
 
 export interface Invite {
   inviteId: string
@@ -23,10 +24,9 @@ export interface Invite {
 /**
  * Generate a new invite in Firestore and return its ID.
  */
-export async function createInvite(tripId: string, createdBy: { id: string; name: string }): Promise<string> {
+export async function createInvite(tripId: string, createdBy: {name: string }): Promise<string> {
   const ref = await addDoc(collection(db, "invites"), {
     tripId,
-    createdById: createdBy.id,
     createdByName: createdBy.name,
     createdAt: Timestamp.now(),
   })
@@ -49,7 +49,7 @@ export async function getInvite(inviteId: string): Promise<Invite> {
  */
 export async function acceptInvite(
   inviteId: string,
-  user: { id: string; name: string },
+  user: {name: string },
   mockUserId?: string
 ): Promise<{ tripId: string; shouldShowChooseModal: boolean }> {
   const invite = await getInvite(inviteId)
@@ -73,23 +73,34 @@ export async function acceptInvite(
       // Add the real user
       await addMemberToTrip(
         invite.tripId,
-        user.id,
+        user.name,
+        tripData as FirestoreTrip,
         {
-          name: user.name,
           budget: initialBudget,
           addMemberType: AddMemberType.INVITE_LINK
         }
       )
+      // Add tripId to user's trips array
+      const userDocRef = doc(db, "users", user.name)
+      await updateDoc(userDocRef, {
+        trips: arrayUnion(invite.tripId)
+      })
     }
 
     // Mark invite as accepted
     await updateDoc(doc(db, "invites", inviteId), {
-      [`acceptedBy.${user.id}`]: Timestamp.now(),
+      [`acceptedBy.${user.name}`]: Timestamp.now(),
     })
 
     return { tripId: invite.tripId, shouldShowChooseModal: false }
   }
 
   // For regular invites, we'll show the choose modal
+  // Add tripId to user's trips array here as well
+  const userDocRef = doc(db, "users", user.name)
+  await updateDoc(userDocRef, {
+    trips: arrayUnion(invite.tripId)
+  })
+
   return { tripId: invite.tripId, shouldShowChooseModal: true }
 }

@@ -5,40 +5,28 @@ import { Button, Snackbar, Chip } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { sectionStyles } from '@/app/styles/section_comp_styles';
-
-import { useExpenses } from '@/src/hooks/useExpenses';
 import { addExpenseAndCalculateDebts, deleteExpense } from '@/src/services/expenseService';
 import ExpenseList from '@/app/trip/components/ItemList/ExpenseList';
 import AddExpenseModal from '@/src/TripSections/Expenses/components/AddExpenseModal'; 
 import { ExpensesSectionProps, Expense } from '@/src/types/DataTypes'; 
-import { MemberProfilesProvider, useMemberProfiles } from "@/src/context/MemberProfilesContext";
 import { SearchBar } from '@/app/trip/components/SearchBar';
 import { BaseSection } from '@/app/common_components/BaseSection';
-import { CommonModal } from '@/app/common_components/CommonModal';
+import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
-const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, nextPayerId }: ExpensesSectionProps) => {
+const ExpensesSection = ({ tripId, onAddExpensePress, onEditExpense, nextPayerName }: ExpensesSectionProps) => {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const { expenses, isLoading, error: fetchError } = useExpenses(tripId);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const profiles = useMemberProfiles();
-
-  const filteredExpenses = expenses.filter(expense => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      expense.activityName.toLowerCase().includes(searchLower) ||
-      expense.paidByAndAmounts.some(paidByAndAmount => {
-        const profileName = profiles[paidByAndAmount.memberId];
-        return profileName && profileName.toLowerCase().includes(searchLower);
-      })
-    );
-  });
+  const {expenses, loading: isLoading, error} = useTripExpensesContext();
+  const {trips} = useUserTripsContext()
+  const trip = trips.find(t => t.id === tripId)
+  const members = trip.members;
   
   const toggleExpand = useCallback((id: string) => {
     setExpandedId(prev => (prev === id ? null : id));
@@ -58,7 +46,7 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
 
   const handleAddExpenseSubmit = async (expenseData: Expense) => {
     try {
-      await addExpenseAndCalculateDebts(tripId, expenseData, members, profiles);
+      await addExpenseAndCalculateDebts(tripId, expenseData, members, trip);
       setSnackbarMessage('Expense added successfully!');
       setSnackbarVisible(true);
       setModalVisible(false);
@@ -72,7 +60,13 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
   const handleDeleteExpense = async (id: string) => {
     // To add confirmation dialog here
     try {
-      await deleteExpense(tripId, id, members, profiles); 
+      const expenseToDelete = expenses.find(e => e.id === id);
+      if (!expenseToDelete) {
+        setSnackbarMessage('Expense not found.');
+        setSnackbarVisible(true);
+        return;
+      }
+      await deleteExpense(tripId, id, expenseToDelete, trip); 
       setSnackbarMessage('Expense deleted.');
       setSnackbarVisible(true);
 
@@ -102,13 +96,13 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
         onChangeSearch={setSearchQuery}
         placeholder="Search expenses..."
       />
-      {nextPayerId && (
+      {nextPayerName && (
         <Chip
           icon="account-arrow-right"
           style={[sectionStyles.nextPayerChip, { backgroundColor: theme.colors.surfaceVariant }]}
           textStyle={[sectionStyles.nextPayerChipText, { color: theme.colors.text }]}
         >
-          Next Payer: {profiles[nextPayerId]}
+          Next Payer: {nextPayerName}
         </Chip>
       )}
     </>
@@ -119,14 +113,13 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
       title="Expenses"
       icon="🧾"
       loading={isLoading && expenses.length === 0}
-      error={fetchError}
+      error={error}
     >
       {renderHeader()}
       
       <ExpenseList
         expenses={expenses}
         searchQuery={searchQuery}
-        profiles={profiles}
         expandedId={expandedId}
         isRefreshing={isRefreshing}
         onRefresh={onRefresh}
@@ -152,6 +145,11 @@ const ExpensesSection = ({ tripId, members, onAddExpensePress, onEditExpense, ne
           onSubmit={handleAddExpenseSubmit}
           members={members}
           tripId={tripId}
+          trip={trip}
+          onWatchAd={() => {
+            // TODO: Implement ad watching functionality
+            console.log('Watch ad functionality not implemented yet');
+          }}
         />
 
       <Snackbar

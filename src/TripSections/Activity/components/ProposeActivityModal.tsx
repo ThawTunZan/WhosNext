@@ -13,7 +13,6 @@ import {
 import {
     ProposeActivityModalProps,
     NewProposedActivityData,
-    Currency,
 } from '@/src/types/DataTypes';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
 import { SUPPORTED_CURRENCIES } from '@/src/utilities/CurrencyUtilities';
@@ -24,14 +23,13 @@ const ProposeActivityModal = ({
     visible,
     onClose,
     onSubmit,
-    currentUserId,
     currentUserName,
     initialData,
 }: ProposeActivityModalProps) => {
     const [activityName, setActivityName] = useState('');
     const [description, setDescription] = useState('');
     const [estCostStr, setEstCostStr] = useState('');
-    const [selectedCurrency, setSelectedCurrency] = useState<Currency>(initialData?.currency || 'USD');
+    const [selectedCurrency, setSelectedCurrency] = useState<string>(initialData?.currency || 'USD');
     const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -89,7 +87,7 @@ const ProposeActivityModal = ({
             description: description.trim() || null,
             estCost: !isNaN(cost) && cost > 0 ? cost : null,
             currency: selectedCurrency,
-            suggestedByID: currentUserId,
+            suggestedByName: currentUserName,
             createdAt: Timestamp.fromDate(activityDate),
         };
 
@@ -111,19 +109,33 @@ const ProposeActivityModal = ({
 
     useEffect(() => {
         if (visible) {
-            if (initialData && initialData.createdAt) {
-                // If editing, set to the activity's date
+            if (initialData) {
+                setActivityName(initialData.name || '');
+                setDescription(initialData.description || '');
+                setEstCostStr(
+                  initialData.estCost !== undefined && initialData.estCost !== null
+                    ? initialData.estCost.toString()
+                    : ''
+                );
+                setSelectedCurrency(initialData.currency || 'USD');
                 setActivityDate(
-                    typeof initialData.createdAt === 'string'
-                        ? new Date(initialData.createdAt)
-                        : (typeof (initialData.createdAt as any).toDate === 'function'
-                            ? (initialData.createdAt as any).toDate()
-                            : new Date())
+                    initialData.createdAt
+                        ? (typeof initialData.createdAt === 'string'
+                            ? new Date(initialData.createdAt)
+                            : (typeof (initialData.createdAt as any).toDate === 'function'
+                                ? (initialData.createdAt as any).toDate()
+                                : new Date()))
+                        : new Date()
                 );
             } else {
-                // If adding new, set to today
+                setActivityName('');
+                setDescription('');
+                setEstCostStr('');
+                setSelectedCurrency('USD');
                 setActivityDate(new Date());
             }
+            setErrors({});
+            setIsSubmitting(false);
         }
     }, [visible, initialData]);
 

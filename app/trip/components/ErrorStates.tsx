@@ -39,14 +39,15 @@ export default function ErrorStates({
     );
   }
 
+  /*
   if (!tripExists || hasLeftTrip) {
     return (
       <View style={styles.container}>
-        <Text>{hasLeftTrip ? "You have left this trip." : "Trip not found."}</Text>
+        <Text>{hasLeftTrip ? "You have left this trip." : "OOTrip not found."}</Text>
       </View>
     );
   }
-
+*/
   return null;
 }
 

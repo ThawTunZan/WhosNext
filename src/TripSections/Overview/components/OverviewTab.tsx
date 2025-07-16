@@ -3,20 +3,21 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, useTheme, Text } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Member, AddMemberType, Currency } from '@/src/types/DataTypes';
+import { Member, AddMemberType, FirestoreTrip } from '@/src/types/DataTypes';
 import BudgetSummaryCard from '@/src/TripSections/Overview/components/BudgetSummaryCard';
 import PersonalBudgetCard from '@/src/TripSections/Overview/components/PersonalBudgetCard';
 import MemberList from '@/app/trip/MemberList';
 import NextPayerCard from '@/app/trip/components/NextPayerCard';
 import { UpgradeTripButton } from '@/src/components';
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
+//import { showRewardedAd } from '@/CommonComponents/AdMob';
 
 type OverviewTabProps = {
-  members: Record<string, Member>;
-  profiles: Record<string, string>;
+  usernames: Record<string, string>;
   totalBudget: number;
   totalAmtLeft: number;
-  currentUserId: string;
-  onAddMember: (memberId: string, name: string, budget: number, currency: Currency, addMemberType: AddMemberType) => void;
+  currentUsername: string;
+  onAddMember: ( name: string, budget: number, currency: string, addMemberType: AddMemberType) => void;
   onRemoveMember: (memberId: string) => void;
   onEditBudget: () => void;
   onLeaveTrip: () => void;
@@ -25,15 +26,13 @@ type OverviewTabProps = {
   nextPayer: string | null;
   onClaimMockUser: (mockUserId: string, claimCode: string) => Promise<void>;
   tripId: string;
-  tripCurrency: Currency;
+  tripCurrency: string;
 };
 
 export default function OverviewTab({
-  members,
-  profiles,
   totalBudget,
   totalAmtLeft,
-  currentUserId,
+  currentUsername,
   onAddMember,
   onRemoveMember,
   onEditBudget,
@@ -48,6 +47,10 @@ export default function OverviewTab({
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
+  const {trips} = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
+  const members = trip?.members || {};
+  //console.log("MEMBERS IN OVERVIEW TAB ARE ",members)
 
   return (
     <ScrollView 
@@ -62,14 +65,9 @@ export default function OverviewTab({
           👥 Members
         </Text>
         <MemberList 
-          members={members} 
           onAddMember={onAddMember} 
           onRemoveMember={onRemoveMember}
           onClaimMockUser={onClaimMockUser}
-          onGenerateClaimCode={async (memberId) => {
-            const member = members[memberId];
-            return member.claimCode || '';
-          }}
           tripId={tripId}
         />
       </View>
@@ -80,31 +78,35 @@ export default function OverviewTab({
         </Text>
         <BudgetSummaryCard
           members={members}
-          profiles={profiles}
           totalBudget={totalBudget}
           totalAmtLeft={totalAmtLeft}
           tripCurrency={tripCurrency}
         />
 
-        {members[currentUserId] && (
+        {members[currentUsername] && (
           <PersonalBudgetCard
-            member={members[currentUserId]}
+            member={members[currentUsername]}
             onEditBudget={onEditBudget}
           />
         )}
+        {/* Watch Ad button for increasing daily expense limit */}
+        <Button
+          mode="outlined"
+          icon="video"
+          style={{ marginTop: 12 }}
+          onPress={async () => {
+            //await showRewardedAd(() => {
+              // TODO: Call backend to increment daily limit
+              alert('Ad watched! Increase daily limit here.');
+            //});
+          }}
+        >
+          Watch Ad to Increase Daily Limit
+        </Button>
       </View>
 
-      {nextPayer && profiles[nextPayer] && (
-        <View style={styles.section}>
-          <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            ⏭️ Next Up
-          </Text>
-          <NextPayerCard name={profiles[nextPayer]} />
-        </View>
-      )}
-
       <View style={styles.actionButtons}>
-        {Object.keys(members)[0] === currentUserId && (
+        {trip.createdBy === currentUsername && (
           <Button
             mode="contained"
             onPress={onDeleteTrip}

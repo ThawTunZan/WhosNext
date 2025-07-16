@@ -13,6 +13,8 @@ import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService";
 import { ThemeProvider } from '@/src/context/ThemeContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
+import { UserTripsProvider, useUserTripsContext } from "@/src/context/UserTripsContext";
+import { useAuth } from '@clerk/clerk-expo';
 
 // NavButton component memoized
 const NavButton = React.memo(({
@@ -84,7 +86,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
         <ThemeProvider>
-          <AuthGateAndStack />
+          <UserTripsProvider>
+            <AuthGateAndStack />
+          </UserTripsProvider>
         </ThemeProvider>
       </ClerkProvider>
     </SafeAreaProvider>
@@ -93,9 +97,14 @@ export default function RootLayout() {
 
 function AuthGateAndStack() {
   const { isLoaded, isSignedIn, user } = useUser();
+  const { isSignedIn: authSignedIn, userId: authUserId } = useAuth();
+  React.useEffect(() => {
+    console.log('[Clerk Debug] Session state:', { isSignedIn: authSignedIn, userId: authUserId });
+  }, [authSignedIn, authUserId]);
   const path = usePathname();
   const { isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
+  const {userData} = useUserTripsContext();
   
   const theme = useMemo(() => isDarkMode ? darkTheme : lightTheme, [isDarkMode]);
   const paperTheme = useMemo(() => ({
@@ -108,7 +117,7 @@ function AuthGateAndStack() {
 
   const syncUser = useCallback(() => {
     if (isLoaded && isSignedIn && user) {
-      upsertClerkUserToFirestore(user).catch(console.error);
+      upsertClerkUserToFirestore(userData).catch(console.error);
     }
   }, [isLoaded, isSignedIn, user]);
 

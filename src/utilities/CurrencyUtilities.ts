@@ -1,10 +1,6 @@
-import { Currency } from '@/src/types/DataTypes';
 
-// Shared list of supported currencies
-export const SUPPORTED_CURRENCIES: Currency[] = [
-  'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'CNY', 'JPY', 'INR',
-  'BRL', 'MXN', 'RUB', 'ZAR', 'HKD', 'SGD', 'NOK', 'SEK', 'NZD'
-] as Currency[];
+// Supported currencies are defined in DataTypes.ts. Do not edit here.
+export { SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
 
 /**
  * Formats a number as currency with the specified currency code

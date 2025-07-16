@@ -2,9 +2,9 @@
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore"
 import { db } from "@/firebase"
 import { getUserPremiumStatus } from "@/src/utilities/PremiumUtilities"
-import { PremiumStatus } from "@/src/types/DataTypes"
+import { PremiumStatus, UserFromFirebase } from "@/src/types/DataTypes"
 
-/** The shape we'll keep in `/users/{userId}` */
+/** The shape we'll keep in `/users/{username}` */
 export interface UserProfile {
   username: string
   avatarUrl: string
@@ -13,17 +13,15 @@ export interface UserProfile {
 }
 
 /**
- * Mirror a Clerk user object into Firestore `users/{userId}`.
+ * Mirror a Clerk user object into Firestore `users/{username}`.
  * Creates or merges the document with the latest Clerk fields.
  */
-export async function upsertClerkUserToFirestore(user: {
-  id: string
-  username?: string
-  fullName?: string
-  primaryEmailAddress?: { emailAddress: string }
-  profileImageUrl?: string
-}) {
-  const ref = doc(db, "users", user.id)
+export async function upsertClerkUserToFirestore(user: UserFromFirebase) {
+  if (!user || !user.username) {
+    console.warn("upsertClerkUserToFirestore: user or user.username is undefined, skipping upsert.");
+    return;
+  }
+  const ref = doc(db, "users", user.username)
   await setDoc(
     ref,
     {
@@ -31,39 +29,13 @@ export async function upsertClerkUserToFirestore(user: {
       fullName: user.fullName || "",
       email: user.primaryEmailAddress?.emailAddress || "",
       avatarUrl: user.profileImageUrl || "",
+      friends: user.friends || [],
+      incomingFriendRequests: user.incomingFriendRequests || [],
+      outgoingFriendRequests: user.outgoingFriendRequests || [],
       updatedAt: new Date(),
-      premiumStatus: await getUserPremiumStatus(user.id) || PremiumStatus.FREE,
+      premiumStatus: await getUserPremiumStatus(user) || PremiumStatus.FREE,
+      trips: user.trips || []
     },
     { merge: true }
   )
-}
-
-/** Read the profile for the current user (or create if missing) */
-export async function fetchOrCreateUserProfile(userId: string): Promise<UserProfile> {
-  const ref = doc(db, "users", userId)
-  const snap = await getDoc(ref)
-  if (snap.exists()) {
-    return snap.data() as UserProfile
-  } else {
-    const initial: UserProfile = {
-      username: "",
-      avatarUrl: "",
-      updatedAt: new Date(),
-      premiumStatus: PremiumStatus.FREE,
-    }
-    await setDoc(ref, initial)
-    return initial
-  }
-}
-
-/** Update just these fields on the user's profile doc */
-export async function updateUserProfile(
-  userId: string,
-  updates: Partial<Pick<UserProfile, "username" | "avatarUrl">>
-) {
-  const ref = doc(db, "users", userId)
-  await updateDoc(ref, {
-    ...updates,
-    updatedAt: new Date(),
-  })
 }

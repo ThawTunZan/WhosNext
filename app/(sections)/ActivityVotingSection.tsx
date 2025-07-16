@@ -1,6 +1,5 @@
 // src/screens/TripDetails/components/ActivityVotingSection.tsx
 import React, { useState, useCallback } from 'react'
-import { View } from 'react-native'
 import { Button, Snackbar } from 'react-native-paper'
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
@@ -23,12 +22,11 @@ import ProposeActivityModal from '@/src/TripSections/Activity/components/Propose
 import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
 import { SearchBar } from '@/app/trip/components/SearchBar'
-import { useMemberProfiles } from '@/src/context/MemberProfilesContext'
 import ActivityList from '@/app/trip/components/ItemList/ActivityList'
 import { BaseSection } from '@/app/common_components/BaseSection'
 import { CommonModal } from '@/app/common_components/CommonModal'
 
-const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDeleteActivity, }: ActivityVotingSectionProps) => {
+const ActivityVotingSection = ({ tripId, onAddExpenseFromActivity, onDeleteActivity, }: ActivityVotingSectionProps) => {
     const { isDarkMode } = useCustomTheme();
     const theme = isDarkMode ? darkTheme : lightTheme;
 
@@ -38,17 +36,15 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
     const [proposeModalVisible, setProposeModalVisible] = useState(false);
     const [editingActivity, setEditingActivity] = useState<ProposedActivity | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const profiles = useMemberProfiles();
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const { isLoaded, isSignedIn, user } = useUser()
     if (!isLoaded) return null
     if (!isSignedIn) return <Redirect href="/auth/sign-in" />
 
-    const currentUserId = user.id
     const currentUserName =
-      user.fullName ??
       user.username ??
+      user.fullName ??
       user.primaryEmailAddress?.emailAddress ??
       `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
 
@@ -58,14 +54,14 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
     }, [])
 
     const handleVote = useCallback(async (activityId: string, voteType: VoteType) => {
-        if (!currentUserId) {
-            console.error("Cannot vote: User ID not found.");
+        if (!currentUserName) {
+            console.error("Cannot vote: User not found.");
             setSnackbarMessage("Error: Could not identify user.");
             setSnackbarVisible(true);
             return;
         }
         try {
-            await castVote(tripId, activityId, currentUserId, voteType);
+            await castVote(tripId, activityId, currentUserName, voteType);
             console.log(`Vote ${voteType} submitted for ${activityId}`);
         } catch (err) {
             console.error(`Failed to cast vote ${voteType} on ${activityId}:`, err);
@@ -125,7 +121,7 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
           setSnackbarVisible(true);
           throw err;
         }
-    }, [tripId, editingActivity, currentUserId, currentUserName]);
+    }, [tripId, editingActivity, currentUserName]);
 
     const renderHeader = () => (
       <SearchBar
@@ -147,7 +143,6 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
         <ActivityList
           activities={activities}
           searchQuery={searchQuery}
-          profiles={profiles}
           onVoteUp={handleVoteUp}
           onVoteDown={handleVoteDown}
           isRefreshing={isRefreshing}
@@ -182,7 +177,6 @@ const ActivityVotingSection = ({ tripId, members, onAddExpenseFromActivity, onDe
               setEditingActivity(null)
             }}
             onSubmit={handleProposeSubmit}
-            currentUserId={currentUserId}
             currentUserName={currentUserName}
             initialData={editingActivity || undefined}
           />

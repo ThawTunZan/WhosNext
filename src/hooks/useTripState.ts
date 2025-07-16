@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
 import { updatePersonalBudget } from '@/src/utilities/TripUtilities';
-import { Expense, Currency } from '@/src/types/DataTypes';
+import { Expense } from '@/src/types/DataTypes';
 
-export function useTripState(tripId: string, currentUserId: string) {
+export function useTripState(tripId: string, currentUsername: string) {
   const [selectedTab, setSelectedTab] = useState<
     "overview" | "expenses" | "settle" | "activities" | "receipts" | "invite" | "leaderboard"
   >("overview");
@@ -40,7 +40,7 @@ export function useTripState(tripId: string, currentUserId: string) {
     setBudgetDialogVisible(true);
   }, []);
 
-  const submitBudgetChange = useCallback(async (currency: Currency) => {
+  const submitBudgetChange = useCallback(async (currency: string) => {
     const parsed = parseFloat(newBudgetInput);
     if (isNaN(parsed) || parsed < 0) {
       setSnackbarMessage("Please enter a valid number.");
@@ -48,7 +48,7 @@ export function useTripState(tripId: string, currentUserId: string) {
       return;
     }
     try {
-      await updatePersonalBudget(tripId, currentUserId, parsed, currency);
+      await updatePersonalBudget(tripId, currentUsername, parsed, currency);
       setSnackbarMessage("Personal budget updated!");
       setSnackbarVisible(true);
     } catch (err: any) {
@@ -58,7 +58,7 @@ export function useTripState(tripId: string, currentUserId: string) {
     } finally {
       setBudgetDialogVisible(false);
     }
-  }, [newBudgetInput, tripId, currentUserId]);
+  }, [newBudgetInput, tripId, currentUsername]);
 
   return {
     selectedTab,

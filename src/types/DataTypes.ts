@@ -2,6 +2,68 @@
 
 import { FieldValue, Timestamp } from "firebase/firestore";
 
+// Firestore Trip Document Type
+export type FirestoreTrip = {
+  activitiesCount: number;
+  createdBy: string;
+  currency: string;
+  debts: {
+    [currency: string]: {
+      [pair: string]: number;
+    };
+  };
+  destination: string;
+  endDate: any; // Timestamp or string
+  expensesCount: number;
+  isTripPremium: boolean;
+  members: {
+    [username: string]: {
+      addMemberType: string;
+      amtLeft: number;
+      budget: number;
+      currency: string;
+      owesTotalMap: {
+        [currency: string]: number;
+      };
+      receiptsCount: number;
+      username: string;
+    };
+  };
+  startDate: any; // Timestamp or string
+  totalAmtLeft: number;
+  totalBudget: number;
+  premiumStatus: string;
+  dailyExpenseLimit?: { [date: string]: number };
+};
+
+export type FirestoreExpense = {
+  id: string;
+  activityName: string;
+  createdAt: any; // Timestamp or string
+  currency: string;
+  paidByAndAmounts: {
+    amount: string;
+    memberName: string;
+  }[];
+  sharedWith: {
+    amount: number;
+    currency: string;
+    payeeName: string;
+  }[];
+};
+
+export type UserFromFirebase = {
+    username?: string
+    fullName?: string
+    primaryEmailAddress?: { emailAddress: string }
+    profileImageUrl?: string
+    friends?: string[]
+    incomingFriendRequests?: { senderUsername: string, status: string, timestamp: string }[]
+    outgoingFriendRequests?: { receiverUsername: string, status: string, timestamp: string }[]
+    trips: string[],
+    premiumStatus: string,
+}
+
 export enum ErrorType {
   MAX_EXPENSES_FREE_USER = 'maxExpensesFreeUser',
   MAX_EXPENSES_PREMIUM_USER = 'maxExpensesPremiumUser',
@@ -65,50 +127,47 @@ export enum AddMemberType {
   MOCK = "mock"
 }
 
-export type OwesTotalMap = Record<Currency, number>;
+export type OwesTotalMap = Record<string, number>;
 
 // Individual member data
 export type Member = {
-  id: string;
+  username: string;
   budget: number;
   amtLeft: number;
-  currency: Currency;
+  currency: string;
   claimCode?: string;
   addMemberType: AddMemberType;
   owesTotalMap: OwesTotalMap;
   receiptsCount: number;
-};
-
-export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CNY' | 'SGD'; 
+}; 
   
 export type Expenses = {[id:string]: {expense: Expense}}
   
   // Type for how an expense is shared among payees
 export type SharedWith = {
-  payeeID: string;
+  payeeName: string;
   amount: number;
-  currency: Currency
+  currency: string
 };
   
   // Type for a single expense item
 export type Expense = {
   id: string; // Firestore document ID
   activityName: string;
-  paidByAndAmounts: {memberId: string, amount: string}[];
+  paidByAndAmounts: {memberName: string, amount: string}[];
   sharedWith: SharedWith[];
   createdAt: Timestamp; // Firestore Timestamp type for consistency
-  currency: Currency;
+  currency: string;
 };
 
 // Props for the main ExpensesSection component
 export type ExpensesSectionProps = {
   tripId: string;
-  members: Record<string, Member>;
   // Consider removing setIsRowSwiping if swipe logic is handled differently or locally
   // setIsRowSwiping: (v: boolean) => void;
   onAddExpensePress: () => void;
   onEditExpense: (expense: Expense) => void;
-  nextPayerId: string | null
+  nextPayerName: string | null
 };
 
 // Props for the ExpenseListItem component
@@ -129,13 +188,12 @@ export interface AddExpenseModalProps {
   tripId: string;
   initialData?: Partial<Expense>;
   editingExpenseId?: string;
-  suggestedPayerId?: string;
+  suggestedPayerName?: string;
 }
 
 // Props for the ActivityVotingSection component
 export type ActivityVotingSectionProps = {
   tripId: string; // Might be needed later for backend calls
-  members: Record<string, Member>; // Might be needed for displaying member names/avatars
   onAddExpenseFromActivity: (activity: ProposedActivity) => void;
   onDeleteActivity: (activityId: string) => void;
 };
@@ -156,12 +214,12 @@ export type ProposedActivity = {
   id: string; // Firestore document ID
   name: string;
   description?: string | null;
-  suggestedByID: string | null;
+  suggestedByName: string | null;
   estCost?: number | null;
-  currency: Currency;
+  currency: string;
   createdAt: Timestamp;  // Firestore Timestamp
   votes: {
-      [userId: string]: VoteType; // Map of UserID -> 'up' or 'down'
+      [username: string]: VoteType; // Map of UserID -> 'up' or 'down'
   };
   votesUp: number;
   votesDown: number;
@@ -180,25 +238,24 @@ export type ProposeActivityModalProps = {
   // so the modal knows when the submission attempt is complete.
   onSubmit: (data: NewProposedActivityData) => Promise<void>;
   // Pass current user's ID and Name to assign as proposer
-  currentUserId: string | null;
   currentUserName: string | null;
   initialData?: Partial<NewProposedActivityData>
 };
 
 export type Debt = {
-  fromUserId: string;
-  toUserId: string;
+  fromUserName: string;
+  toUserName: string;
   amount: number;
-  currency: Currency;
+  currency: string;
 }
 
 export type Payment = {
   id?: string;
   tripId: string;
-  fromUserId: string;
-  toUserId: string;
+  fromUserName: string;
+  toUserName: string;
   amount: number;
-  currency: Currency;
+  currency: string;
   method: 'cash' | 'transfer' | 'other';
   paymentDate: Date | Timestamp;
   note?: string;
@@ -212,8 +269,8 @@ export interface TripData {
   totalBudget?: number;
   totalAmtLeft?: number;
   debts?: Debt[];
-  userId: string;
-  currency: Currency;
+  createdBy: string;
+  currency: string;
   premiumStatus: PremiumStatus;
   startDate: Timestamp
   endDate: Timestamp
@@ -246,4 +303,22 @@ export interface NotificationData {
   route?: string;
   [key: string]: any;
 } 
+
+// Receipt upload limits
+export const MAX_CLOUD_RECEIPTS_PER_USER = 5; // Max cloud receipts per user per trip
+export const MAX_CLOUD_RECEIPTS_PER_TRIP = 20; // Max cloud receipts per trip (all users combined)
+export const MAX_LOCAL_RECEIPTS_PER_USER = Number.POSITIVE_INFINITY; // Unlimited local receipts 
+
+/**
+ * Supported currencies for all trip and expense operations.
+ *
+ * Supported: USD (US Dollar), EUR (Euro), SGD (Singapore Dollar), MYR (Malaysian Ringgit)
+ */
+export const SUPPORTED_CURRENCIES = [
+  'USD', // US Dollar
+  'EUR', // Euro
+  'SGD', // Singapore Dollar
+  'MYR', // Malaysian Ringgit (Ringgit)
+] as const;
+// All other currency lists in the app should import SUPPORTED_CURRENCIES from this file. 
 

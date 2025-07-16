@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { NotificationData } from '@/src/services/notification/types';
+import { NotificationData } from '@/src/types/DataTypes';
 import { NOTIFICATION_TYPES } from '@/src/services/notification/constants';
 
 export function useNotificationResponse() {

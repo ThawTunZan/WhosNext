@@ -1,4 +1,4 @@
-import { Payment, Currency } from '@/src/types/DataTypes';
+import { Payment } from '@/src/types/DataTypes';
 import { increment } from 'firebase/firestore';
 
 interface PaymentDeletionUpdates {
@@ -7,11 +7,11 @@ interface PaymentDeletionUpdates {
 
 export const deletePayment = (payment: Payment, currentDebts: { [currency: string]: { [userPair: string]: number } }): PaymentDeletionUpdates => {
   const updates: PaymentDeletionUpdates = {};
-  const { fromUserId, toUserId, amount, currency } = payment;
+  const { fromUserName, toUserName, amount, currency } = payment;
 
   // Get the current debt values in both directions
-  const fromToKey = `${fromUserId}#${toUserId}`;
-  const toFromKey = `${toUserId}#${fromUserId}`;
+  const fromToKey = `${fromUserName}#${toUserName}`;
+  const toFromKey = `${toUserName}#${fromUserName}`;
   
   const currentFromTo = currentDebts[currency]?.[fromToKey] || 0;
   const currentToFrom = currentDebts[currency]?.[toFromKey] || 0;
@@ -31,8 +31,8 @@ export const deletePayment = (payment: Payment, currentDebts: { [currency: strin
   }
 
   // Update member balances
-  updates[`members.${fromUserId}.amtLeft`] = increment(amount);
-  updates[`members.${toUserId}.amtLeft`] = increment(-amount);
+  updates[`members.${fromUserName}.amtLeft`] = increment(amount);
+  updates[`members.${toUserName}.amtLeft`] = increment(-amount);
 
   return updates;
 };

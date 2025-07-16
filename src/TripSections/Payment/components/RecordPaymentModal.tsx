@@ -5,78 +5,63 @@ import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
-import { Currency, Debt, Member, Payment } from '@/src/types/DataTypes';
+import { Debt, Member, Payment } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import CurrencyModal from '@/app/trip/components/CurrencyModal';
-import { useMemberProfiles } from "@/src/context/MemberProfilesContext";
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 type RecordPaymentModalProps = {
   visible: boolean;
   onDismiss: () => void;
   onSubmit: (payment: Payment) => Promise<void>;
   debts: Debt[];
-  currentUserId: string;
+  currentUsername: string;
   tripId: string;
-  defaultCurrency: Currency;
-  members: Record<string, Member>;
+  defaultCurrency: string;
 };
 
 const MemberList = memo(({ 
   members, 
-  selectedId, 
+  selectedUsername, 
   onSelect, 
   onClose,
-  excludeId,
+  excludeUsername,
   theme,
   isPayee = false,
   getDebtAmount,
   selectedPayer,
   onDebtSelect
 }: { 
-  members: { id: string; name: string }[];
-  selectedId: string;
-  onSelect: (id: string) => void;
+  members: { username: string; name: string }[];
+  selectedUsername: string;
+  onSelect: (username: string) => void;
   onClose: () => void;
-  excludeId?: string;
+  excludeUsername?: string;
   theme: any;
   isPayee?: boolean;
-  getDebtAmount?: (fromId: string, toId: string) => Promise<{amount: number, currency: Currency}>;
+  getDebtAmount?: (fromUsername: string, toUsername: string) => Promise<{amount: number, currency: string}>;
   selectedPayer?: string;
-  onDebtSelect?: (amount: number, currency: Currency) => void;
+  onDebtSelect?: (amount: number, currency: string) => void;
 }) => {
-  const filteredMembers = excludeId ? members.filter(m => m.id !== excludeId) : members;
-  const [memberDebts, setMemberDebts] = useState<Record<string, {amount: number, currency: Currency}>>({});
-
-  console.log('MemberList render - isPayee:', isPayee);
-  console.log('MemberList render - selectedPayer:', selectedPayer);
-  console.log('MemberList render - memberDebts:', memberDebts);
+  const filteredMembers = excludeUsername ? members.filter(m => m.username !== excludeUsername) : members;
+  const [memberDebts, setMemberDebts] = useState<Record<string, {amount: number, currency: string}>>({});
 
   // Fetch debt amounts for payee list
   React.useEffect(() => {
     const fetchDebts = async () => {
-      console.log('Starting fetchDebts - conditions:', {
-        isPayee,
-        hasGetDebtAmount: !!getDebtAmount,
-        selectedPayer,
-        memberCount: filteredMembers.length
-      });
-
       if (!isPayee || !getDebtAmount || !selectedPayer) {
         console.log('Skipping debt fetch - conditions not met');
         return;
       }
       
-      const debts: Record<string, {amount: number, currency: Currency}> = {};
+      const debts: Record<string, {amount: number, currency: string}> = {};
       for (const member of filteredMembers) {
-        console.log('Fetching debt for member:', member.id);
-        const debt = await getDebtAmount(selectedPayer, member.id);
-        console.log('Received debt:', debt, 'for member:', member.id);
+        const debt = await getDebtAmount(selectedPayer, member.username);
         if (debt.amount > 0) {
-          debts[member.id] = debt;
+          debts[member.username] = debt;
         }
       }
-      console.log('Setting memberDebts:', debts);
       setMemberDebts(debts);
     };
 
@@ -91,15 +76,13 @@ const MemberList = memo(({
         style={[styles.dropdownScroll, { backgroundColor: theme.colors.surface }]}
       >
         {filteredMembers.map((member) => {
-          const debt = memberDebts[member.id];
-          console.log('Rendering member:', member.id, 'debt:', debt);
-          
+          const debt = memberDebts[member.username];
           return (
             <List.Item
-              key={member.id}
+              key={member.username}
               title={
                 <View style={styles.memberItemContent}>
-                  <Text style={styles.memberName}>{member.name}</Text>
+                  <Text style={styles.memberName}>{member.username}</Text>
                   {debt && (
                     <Text style={[styles.debtAmount, { color: theme.colors.primary }]}>
                       {` (Owes ${debt.currency} ${debt.amount.toFixed(2)})`}
@@ -108,7 +91,7 @@ const MemberList = memo(({
                 </View>
               }
               onPress={() => {
-                onSelect(member.id);
+                onSelect(member.username);
                 if (debt && onDebtSelect) {
                   onDebtSelect(debt.amount, debt.currency);
                 }
@@ -116,7 +99,7 @@ const MemberList = memo(({
               }}
               style={[
                 styles.dropdownItem,
-                selectedId === member.id && { backgroundColor: theme.colors.primaryContainer }
+                selectedUsername === member.username && { backgroundColor: theme.colors.primaryContainer }
               ]}
             />
           );
@@ -131,14 +114,17 @@ export default function RecordPaymentModal({
   onDismiss,
   onSubmit,
   debts = [],
-  currentUserId,
+  currentUsername,
   tripId,
   defaultCurrency = 'USD',
-  members
 }: RecordPaymentModalProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const profiles = useMemberProfiles();
+
+  // Use context to get members for the current trip
+  const { trips } = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId);
+  const members = trip?.members || {};
 
   const [showPayerDropdown, setShowPayerDropdown] = useState(false);
   const [showPayeeDropdown, setShowPayeeDropdown] = useState(false);
@@ -147,37 +133,32 @@ export default function RecordPaymentModal({
   const [date, setDate] = useState(new Date());
   const [note, setNote] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedPayer, setSelectedPayer] = useState(currentUserId);
+  const [selectedPayer, setSelectedPayer] = useState(currentUsername);
   const [selectedPayee, setSelectedPayee] = useState('');
   const [amount, setAmount] = useState('');
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency>(defaultCurrency);
+  const [selectedCurrency, setSelectedCurrency] = useState<string>(defaultCurrency);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Get list of all members who can be payers or payees
   const membersList = React.useMemo(() => {
-    return Object.entries(members).map(([id, member]) => ({
-      id,
-      name: profiles[id] || id
+    return Object.entries(members).map(([username, member]) => ({
+      username,
+      name: username
     }));
-  }, [members, profiles]);
+  }, [members]);
 
   // Get the total debt amount between two members
-  const getDebtAmountForMember = async (fromId: string, toId: string): Promise<{amount: number, currency: Currency}> => {
-    console.log('getDebtAmountForMember called with:', { fromId, toId });
-    console.log('Current debts:', debts);
+  const getDebtAmountForMember = async (fromUsername: string, toUsername: string): Promise<{amount: number, currency: string}> => {
     
     // Handle the new debt structure where debts is an object keyed by currency
     if (typeof debts === 'object' && !Array.isArray(debts)) {
       for (const [currency, debtsByUser] of Object.entries(debts)) {
-        console.log('Checking currency:', currency, 'debts:', debtsByUser);
-        
         // Check if there's a debt from the payer to the payee
-        const debtKey = `${fromId}#${toId}`;
+        const debtKey = `${fromUsername}#${toUsername}`;
         const amount = debtsByUser[debtKey];
         
         if (amount) {
-          console.log('Found debt:', { currency, amount });
-          return { amount, currency: currency as Currency };
+          return { amount, currency: currency };
         }
       }
     }
@@ -198,8 +179,8 @@ export default function RecordPaymentModal({
     }
     setErrors({});
     const payment: Payment = {
-      fromUserId: selectedPayer,
-      toUserId: selectedPayee,
+      fromUserName: selectedPayer,
+      toUserName: selectedPayee,
       amount: parseFloat(amount),
       currency: selectedCurrency,
       method,
@@ -207,7 +188,6 @@ export default function RecordPaymentModal({
       note,
       tripId,
       createdTime: serverTimestamp(),
-      //TODO
       createdDate: Timestamp.now()
     };
     await onSubmit(payment);
@@ -240,14 +220,14 @@ export default function RecordPaymentModal({
                 <View style={styles.inputContainer}>
                   <Text style={[styles.label, { color: theme.colors.text }]}>Paying From</Text>
                   <List.Accordion
-                    title={selectedPayer ? profiles[selectedPayer] || selectedPayer : "Select payer"}
+                    title={selectedPayer || "Select payer"}
                     expanded={showPayerDropdown}
                     onPress={() => setShowPayerDropdown(!showPayerDropdown)}
                     style={[styles.dropdown, { backgroundColor: theme.colors.surface }]}
                   >
                     <MemberList
                       members={membersList}
-                      selectedId={selectedPayer}
+                      selectedUsername={selectedPayer}
                       onSelect={setSelectedPayer}
                       onClose={() => setShowPayerDropdown(false)}
                       theme={theme}
@@ -259,31 +239,25 @@ export default function RecordPaymentModal({
                 <View style={styles.inputContainer}>
                   <Text style={[styles.label, { color: theme.colors.text }]}>Paying To</Text>
                   <List.Accordion
-                    title={selectedPayee ? profiles[selectedPayee] || selectedPayee : "Select payee"}
+                    title={selectedPayee || "Select payee"}
                     expanded={showPayeeDropdown}
                     onPress={() => {
-                      console.log('Toggling payee dropdown. Current state:', {
-                        showPayeeDropdown,
-                        selectedPayer,
-                        selectedPayee,
-                        debtsCount: debts.length
-                      });
                       setShowPayeeDropdown(!showPayeeDropdown);
                     }}
                     style={[styles.dropdown, { backgroundColor: theme.colors.surface }]}
                   >
                     <MemberList
                       members={membersList}
-                      selectedId={selectedPayee}
+                      selectedUsername={selectedPayee}
                       onSelect={setSelectedPayee}
                       onClose={() => setShowPayeeDropdown(false)}
-                      excludeId={selectedPayer}
+                      excludeUsername={selectedPayer}
                       theme={theme}
                       isPayee={true}
                       getDebtAmount={getDebtAmountForMember}
                       selectedPayer={selectedPayer}
                       onDebtSelect={(amount, currency) => {
-                        console.log('Debt selected:', { amount, currency });
+                        
                         setAmount(amount.toString());
                         setSelectedCurrency(currency);
                       }}
@@ -346,7 +320,11 @@ export default function RecordPaymentModal({
 
                 {/* Date Selection */}
                 <View style={styles.inputContainer}>
-                  <Text style={[styles.label, { color: theme.colors.text }]}>Date</Text>    
+                  <Text style={[styles.label, { color: theme.colors.text }]}>Date</Text>
+                  <Button onPress={() => setShowDatePicker(true)} mode="outlined" style={styles.dateButton}>
+                    {format(date, 'yyyy-MM-dd')}
+                  </Button>
+                  {showDatePicker && (
                     <DateTimePicker
                       value={date}
                       mode="date"
@@ -357,6 +335,7 @@ export default function RecordPaymentModal({
                         }
                       }}
                     />
+                  )}
                   {errors.date && <HelperText type="error">{errors.date}</HelperText>}
                 </View>
 
@@ -406,7 +385,7 @@ const styles = StyleSheet.create({
     margin: 20,
     backgroundColor: 'white',
     borderRadius: 8,
-    maxHeight: '100%',
+    height: 20,
     flex: 1,
   },
   container: {
