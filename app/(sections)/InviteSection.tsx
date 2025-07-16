@@ -5,8 +5,8 @@ import { Button, Text, Snackbar } from 'react-native-paper'
 import * as Linking from 'expo-linking'
 import { createInvite } from '@/src/TripSections/Invite/utilities/InviteUtilities'
 import QRCode from 'react-native-qrcode-svg';
-import { BaseSection } from '@/app/common_components/BaseSection';
-import { CommonCard } from '@/app/common_components/CommonCard';
+import { BaseSection } from '@/src/components/Common/BaseSection';
+import { CommonCard } from '@/src/components/Common/CommonCard';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { sectionStyles } from '@/app/styles/section_comp_styles';

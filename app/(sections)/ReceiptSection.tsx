@@ -19,9 +19,9 @@ import * as ImagePicker from "expo-image-picker";
 import { useUser } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
 import { Timestamp, getDoc, doc } from "firebase/firestore";
-import { BaseSection } from '@/app/common_components/BaseSection';
-import { CommonModal } from '@/app/common_components/CommonModal';
-import { CommonCard } from '@/app/common_components/CommonCard';
+import { BaseSection } from '@/src/components/Common/BaseSection';
+import { CommonModal } from '@/src/components/Common/CommonModal';
+import { CommonCard } from '@/src/components/Common/CommonCard';
 import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 import {

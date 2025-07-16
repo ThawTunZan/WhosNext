@@ -10,7 +10,7 @@ import ExpenseList from '@/app/trip/components/ItemList/ExpenseList';
 import AddExpenseModal from '@/src/TripSections/Expenses/components/AddExpenseModal'; 
 import { ExpensesSectionProps, Expense } from '@/src/types/DataTypes'; 
 import { SearchBar } from '@/app/trip/components/SearchBar';
-import { BaseSection } from '@/app/common_components/BaseSection';
+import { BaseSection } from '@/src/components/Common/BaseSection';
 import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 

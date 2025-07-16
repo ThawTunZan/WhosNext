@@ -23,8 +23,8 @@ import { useUser } from '@clerk/clerk-expo'
 import { Redirect } from 'expo-router'
 import { SearchBar } from '@/app/trip/components/SearchBar'
 import ActivityList from '@/app/trip/components/ItemList/ActivityList'
-import { BaseSection } from '@/app/common_components/BaseSection'
-import { CommonModal } from '@/app/common_components/CommonModal'
+import { BaseSection } from '@/src/components/Common/BaseSection'
+import { CommonModal } from '@/src/components/Common/CommonModal'
 
 const ActivityVotingSection = ({ tripId, onAddExpenseFromActivity, onDeleteActivity, }: ActivityVotingSectionProps) => {
     const { isDarkMode } = useCustomTheme();
