@@ -194,7 +194,6 @@ export interface AddExpenseModalProps {
 // Props for the ActivityVotingSection component
 export type ActivityVotingSectionProps = {
   tripId: string; // Might be needed later for backend calls
-  onAddExpenseFromActivity: (activity: ProposedActivity) => void;
   onDeleteActivity: (activityId: string) => void;
 };
 

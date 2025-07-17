@@ -235,7 +235,6 @@ function TripPage({ tripId }) {
               <ActivityVotingSection
                 tripId={tripId!}
                 onDeleteActivity={handleDeleteActivity}
-                onAddExpenseFromActivity={}
               />
             )}
 

@@ -30,7 +30,7 @@ import AddExpenseModal from '@/src/components/Trip/Expenses/components/AddExpens
 import { useUserTripsContext } from '@/src/context/UserTripsContext'
 import { ExpenseHandler } from '@/src/utilities/ExpenseHandler'
 
-const ActivityVotingSection = ({ tripId, onAddExpenseFromActivity, onDeleteActivity, }: ActivityVotingSectionProps) => {
+const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSectionProps) => {
     const { isDarkMode } = useCustomTheme();
     const theme = isDarkMode ? darkTheme : lightTheme;
 
