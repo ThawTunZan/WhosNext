@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, useTheme, Text } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
@@ -10,44 +10,121 @@ import MemberList from '@/src/components/Common/MemberList';
 import NextPayerCard from '@/src/components/Common/NextPayerCard';
 import { UpgradeTripButton } from '@/src/components';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
+import { TripHandler } from '@/src/utilities/TripHandler';
+import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
+import { useUser } from '@clerk/clerk-expo';
+import { useRouter } from 'expo-router';
 //import { showRewardedAd } from '@/CommonComponents/AdMob';
 
 type OverviewTabProps = {
-  usernames: Record<string, string>;
-  totalBudget: number;
-  totalAmtLeft: number;
-  currentUsername: string;
-  onAddMember: ( name: string, budget: number, currency: string, addMemberType: AddMemberType) => void;
-  onRemoveMember: (memberId: string) => void;
-  onEditBudget: () => void;
-  onLeaveTrip: () => void;
-  onDeleteTrip: () => void;
-  isDeletingTrip: boolean;
-  onClaimMockUser: (mockUserId: string, claimCode: string) => Promise<void>;
   tripId: string;
-  tripCurrency: string;
+  onEditBudget: () => void;
+  setSnackbarMessage: (message: string) => void;
+  setSnackbarVisible: (visible: boolean) => void;
 };
 
 export default function OverviewTab({
-  totalBudget,
-  totalAmtLeft,
-  currentUsername,
-  onAddMember,
-  onRemoveMember,
-  onEditBudget,
-  onLeaveTrip,
-  onDeleteTrip,
-  isDeletingTrip,
-  onClaimMockUser,
   tripId,
-  tripCurrency,
+  onEditBudget,
+  setSnackbarMessage,
+  setSnackbarVisible,
 }: OverviewTabProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
-  const {trips} = useUserTripsContext();
-  const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
+  const { trips } = useUserTripsContext();
+  const { expenses } = useTripExpensesContext();
+  const { user } = useUser();
+  const router = useRouter();
+  
+  const currentUsername = user?.username;
+  const trip = TripHandler.getTripById(tripId, trips);
   const members = trip?.members || {};
+  const [isDeletingTrip, setIsDeletingTrip] = useState(false);
+
+  // Handler functions using TripHandler
+  const handleAddMember = async (memberName: string, budget: number, currency: string, addMemberType: AddMemberType) => {
+    if (!trip) return;
+    
+    const result = await TripHandler.addMember(tripId, memberName, trip, {
+      budget,
+      addMemberType,
+      currency,
+    });
+    
+    if (result.success) {
+      setSnackbarMessage(`${memberName} ${addMemberType === "mock" ? 'added as a mock member!' : 'added to the trip!'}`);
+      setSnackbarVisible(true);
+    } else {
+      setSnackbarMessage(`Error adding member: ${result.error?.message || 'Unknown error'}`);
+      setSnackbarVisible(true);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!trip?.members?.[memberId]) {
+      setSnackbarMessage("Cannot remove member: Data missing.");
+      setSnackbarVisible(true);
+      return;
+    }
+
+    const canRemove = TripHandler.canBeRemoved(memberId, expenses, trip);
+    if (!canRemove) {
+      setSnackbarMessage("Cannot remove member: They are still part of an expense, activity, receipt, or debt.");
+      setSnackbarVisible(true);
+      return;
+    }
+
+    const result = await TripHandler.removeMember(tripId, memberId, trip.members[memberId], expenses, trip);
+    if (result.success) {
+      setSnackbarMessage(`${memberId} removed.`);
+      setSnackbarVisible(true);
+    } else {
+      setSnackbarMessage(`Error removing member: ${result.error?.message || 'Unknown error'}`);
+      setSnackbarVisible(true);
+    }
+  };
+
+  const handleLeaveTrip = async () => {
+    if (!trip?.members?.[currentUsername]) return;
+    
+    const result = await TripHandler.leaveTrip(tripId, currentUsername, trip.members[currentUsername]);
+    if (result.success) {
+      setSnackbarMessage("You left the trip.");
+      setSnackbarVisible(true);
+      setTimeout(() => router.replace("/"), 1000);
+    } else {
+      setSnackbarMessage(`Failed to leave trip: ${result.error?.message || 'Unknown error'}`);
+      setSnackbarVisible(true);
+    }
+  };
+
+  const handleDeleteTrip = async () => {
+    setIsDeletingTrip(true);
+    const result = await TripHandler.deleteTrip(tripId);
+    if (result.success) {
+      setSnackbarMessage("Trip deleted.");
+      setSnackbarVisible(true);
+      router.push("/");
+    } else {
+      setSnackbarMessage("Failed to delete trip.");
+      setSnackbarVisible(true);
+    }
+    setIsDeletingTrip(false);
+  };
+
+  const handleClaimMockUser = async (mockUserId: string, claimCode: string) => {
+    if (!currentUsername) return;
+    
+    const result = await TripHandler.handleClaimMockUser(tripId, mockUserId, claimCode, currentUsername, expenses, trip);
+    if (result.success) {
+      setSnackbarMessage("Successfully claimed mock profile!");
+      setSnackbarVisible(true);
+    } else {
+      setSnackbarMessage(`Error claiming profile: ${result.error?.message || 'Unknown error'}`);
+      setSnackbarVisible(true);
+    }
+  };
   //console.log("MEMBERS IN OVERVIEW TAB ARE ",members)
 
   return (
@@ -63,9 +140,9 @@ export default function OverviewTab({
           👥 Members
         </Text>
         <MemberList 
-          onAddMember={onAddMember} 
-          onRemoveMember={onRemoveMember}
-          onClaimMockUser={onClaimMockUser}
+          onAddMember={handleAddMember} 
+          onRemoveMember={handleRemoveMember}
+          onClaimMockUser={handleClaimMockUser}
           tripId={tripId}
         />
       </View>
@@ -76,9 +153,9 @@ export default function OverviewTab({
         </Text>
         <BudgetSummaryCard
           members={members}
-          totalBudget={totalBudget}
-          totalAmtLeft={totalAmtLeft}
-          tripCurrency={tripCurrency}
+          totalBudget={trip?.totalBudget || 0}
+          totalAmtLeft={trip?.totalAmtLeft || 0}
+          tripCurrency={trip?.currency || 'USD'}
         />
 
         {members[currentUsername] && (
@@ -104,10 +181,10 @@ export default function OverviewTab({
       </View>
 
       <View style={styles.actionButtons}>
-        {trip.createdBy === currentUsername && (
+        {trip?.createdBy === currentUsername && (
           <Button
             mode="contained"
-            onPress={onDeleteTrip}
+            onPress={handleDeleteTrip}
             loading={isDeletingTrip}
             style={[styles.deleteButton, { backgroundColor: theme.colors.error }]}
             icon="delete"
@@ -117,7 +194,7 @@ export default function OverviewTab({
         )}
         <Button 
           mode="outlined" 
-          onPress={onLeaveTrip}
+          onPress={handleLeaveTrip}
           icon="exit-to-app"
           style={styles.leaveButton}
         >

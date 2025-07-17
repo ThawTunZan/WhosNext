@@ -26,7 +26,7 @@ import InviteSection from "@/src/components/Trip/Invite/InviteSection";
 import ChooseExistingOrNew from "@/src/components/Common/ChooseExistingOrNew";
 
 import { calculateNextPayer } from "@/src/components/Trip/Expenses/utilities/expenseService";
-import { useTripHandlers } from "@/src/utilities/TripHandlers";
+import { TripHandler } from "@/src/utilities/TripHandler";
 import { useTripState } from "@/src/hooks/useTripState";
 import { AddMemberType } from "@/src/types/DataTypes";
 import TripLeaderboard from "@/app/screens/trip/TripLeaderboard";
@@ -34,6 +34,7 @@ import { TripExpensesProvider } from '@/src/context/TripExpensesContext';
 import type { FirestoreTrip, Member, Debt } from '@/src/types/DataTypes';
 import { SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
 import { useHandleDeleteActivity } from '@/src/components/Trip/Activity/utilities/ActivityUtilities';
+import { claimMockUser } from "@/src/utilities/TripUtilities";
 
 export default function TripPageWrapper() {
   const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -91,22 +92,6 @@ function TripPage({ tripId }) {
     setSnackbarMessage,
   } = useTripState(tripId!, currentUsername!);
 
-  const {
-    handleAddMember,
-    handleRemoveMember,
-    handleLeaveTrip,
-    handleDeleteTrip,
-    handleClaimMockUser,
-    isDeletingTrip,
-  } = useTripHandlers({
-    tripId: tripId!,
-    activityToDeleteId,
-    setSnackbarMessage: (message) => {
-      setSnackbarVisible(true);
-      setSnackbarMessage(message);
-    },
-    setSnackbarVisible,
-  });
 
   // Use the new hook for handling activity deletion
   const handleDeleteActivity = useHandleDeleteActivity(
@@ -136,7 +121,7 @@ function TripPage({ tripId }) {
       if (!member?.claimCode) {
         throw new Error('No claim code found for this member');
       }
-      await handleClaimMockUser(memberId, member.claimCode);
+      await TripHandler.handleClaimMockUser(tripId, memberId, member.claimCode, currentUsername, expenses, trip);
       setShowChooseModal(false);
       setSnackbarMessage('Successfully claimed mock profile');
       setSnackbarVisible(true);
@@ -149,11 +134,15 @@ function TripPage({ tripId }) {
 
   const handleJoinAsNew = async () => {
     try {
-      await handleAddMember(
+      await TripHandler.addMember(
+        tripId,
         user.username || user.fullName || user.primaryEmailAddress?.emailAddress || 'Unknown User',
-        0,
-        'USD',
-        AddMemberType.INVITE_LINK
+        trip,
+        {
+          budget: 0,
+          addMemberType: AddMemberType.INVITE_LINK,
+          currency: 'USD',
+        }
       );
       setShowChooseModal(false);
       setSnackbarMessage('Successfully joined trip');
@@ -200,19 +189,10 @@ function TripPage({ tripId }) {
 
             {selectedTab === "overview" && (
               <OverviewTab
-                usernames={Object.fromEntries(Object.entries(safeMembers as Record<string, Member>).map(([k, v]) => [k, v.username || k]))}
-                totalBudget={trip.totalBudget}
-                totalAmtLeft={trip.totalAmtLeft}
-                currentUsername={currentUsername}
-                onAddMember={handleAddMember}
-                onRemoveMember={handleRemoveMember}
+                tripId={tripId!}
                 onEditBudget={openBudgetDialog}
-                onLeaveTrip={handleLeaveTrip}
-                onDeleteTrip={handleDeleteTrip}
-                isDeletingTrip={isDeletingTrip}
-                onClaimMockUser={handleClaimMockUser}
-                tripId={tripId}
-                tripCurrency={trip.currency}
+                setSnackbarMessage={setSnackbarMessage}
+                setSnackbarVisible={setSnackbarVisible}
               />
             )}
 
