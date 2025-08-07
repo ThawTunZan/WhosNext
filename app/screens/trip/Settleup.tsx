@@ -20,6 +20,7 @@ import RecordPaymentModal from '@/src/components/Trip/Payment/components/RecordP
 import { firebaseRecordPayment, firebaseDeletePayment } from '@/src/firebase/FirebaseServices';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 import { useTripPaymentsContext } from '@/src/context/TripPaymentsContext';
+import ActivityCard from '@/src/components/Trip/Activity/components/ActivityCard';
 
 // Props type specific to this component
 type SettleUpProps = {
@@ -167,7 +168,6 @@ export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps)
   const handleDeletePayment = useCallback(async (payment: Payment) => {
     try {
       await firebaseDeletePayment(tripId, payment);
-      // Optionally, you can refetch payments by calling useTripData again or rely on the listener
       setSnackbarMessage("Payment deleted successfully");
       setSnackbarVisible(true);
     } catch (error) {
@@ -272,7 +272,6 @@ export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps)
                   {format(paymentDate, 'MMMM d, yyyy')}
                 </Text>
               </View>
-              
               <View style={styles.actionButtons}>
                 <IconButton
                   icon="delete"

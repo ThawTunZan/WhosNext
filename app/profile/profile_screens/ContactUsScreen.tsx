@@ -244,7 +244,7 @@ export default function ContactUsScreen() {
         .replace('{message}', message.trim())
         .replace('{userName}', user?.fullName || user?.username || 'User')
         .replace('{platform}', Platform.OS)
-        .replace('{appVersion}', '1.0.0'); // Replace with actual version
+        .replace('{appVersion}', '1.0.0'); // Replace with actual version REMEMBER
 
       // Store in Firestore
       await addDoc(collection(db, 'contact_messages'), {

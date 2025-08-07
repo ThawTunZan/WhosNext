@@ -85,7 +85,7 @@ export default function ProfileScreen() {
         setUploading(true)
         try {
           // TODO: Implement image upload to storage and update user profile
-          // For now, we'll just show an alert
+          // For now,  just show an alert
           Alert.alert('Success', 'Profile photo updated!')
         } catch (error) {
           Alert.alert('Error', 'Failed to update profile photo')

@@ -39,7 +39,7 @@ export default function ProfileSettingsScreen() {
         <Text style={styles.label}>Email</Text>
         <Text style={styles.value}>{user.primaryEmailAddress?.emailAddress || "—"}</Text>
 
-        {/* If you have other settings, show them here… */}
+        {/* For other settings, show them here lol*/}
 
         <Button
           mode="outlined"

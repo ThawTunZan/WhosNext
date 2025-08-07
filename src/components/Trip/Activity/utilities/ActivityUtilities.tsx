@@ -85,7 +85,6 @@ export const updateProposedActivity = async (
     // only overwrite the fields the user changed
     await updateDoc(docRef, {
       ...updatedData,
-      // you may or may not want to bump a `lastEditedAt` timestamp here
       updatedAt: updatedData.createdAt,
     })
     console.log(`Activity ${activityId} updated.`)
