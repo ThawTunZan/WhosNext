@@ -17,7 +17,7 @@ import { useSignIn, useOAuth } from '@clerk/clerk-expo'
 import { Feather } from '@expo/vector-icons'
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext'
 import { lightTheme, darkTheme } from '@/src/theme/theme'
-// Note: expo-apple-authentication will be added when you install it
+// side note: expo-apple-authentication will be added when installed
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn()

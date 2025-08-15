@@ -2,6 +2,11 @@
 
 import { FieldValue, Timestamp } from "firebase/firestore";
 
+export type Friend = {
+  username: string,
+  timestamp: any,
+}
+
 // Firestore Trip Document Type
 export type FirestoreTrip = {
   activitiesCount: number;
@@ -165,9 +170,9 @@ export type ExpensesSectionProps = {
   tripId: string;
   // Consider removing setIsRowSwiping if swipe logic is handled differently or locally
   // setIsRowSwiping: (v: boolean) => void;
-  onAddExpensePress: () => void;
-  onEditExpense: (expense: Expense) => void;
-  nextPayerName: string | null
+  onAddExpensePress?: () => void;
+  onEditExpense?: (expense: Expense) => void;
+  activityToDeleteId?: string | null;
 };
 
 // Props for the ExpenseListItem component
@@ -194,7 +199,6 @@ export interface AddExpenseModalProps {
 // Props for the ActivityVotingSection component
 export type ActivityVotingSectionProps = {
   tripId: string; // Might be needed later for backend calls
-  onAddExpenseFromActivity: (activity: ProposedActivity) => void;
   onDeleteActivity: (activityId: string) => void;
 };
 

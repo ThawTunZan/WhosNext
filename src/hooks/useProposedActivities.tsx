@@ -1,7 +1,7 @@
 // src/hooks/useProposedActivities.ts
 
 import { useState, useEffect } from 'react';
-import { subscribeToProposedActivities } from '@/src/TripSections/Activity/utilities/ActivityUtilities';
+import { subscribeToProposedActivities } from '@/src/components/Trip/Activity/utilities/ActivityUtilities';
 import { ProposedActivity } from '@/src/types/DataTypes';
 
 export const useProposedActivities = (tripId: string | null) => {

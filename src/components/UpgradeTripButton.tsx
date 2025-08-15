@@ -44,6 +44,7 @@ export const UpgradeTripButton: React.FC<UpgradeTripButtonProps> = ({
         disabled={disabled || loading}
         activeOpacity={0.8}
       >
+        {/*
         <View style={styles.buttonContent}>
           <View style={styles.iconContainer}>
             <Ionicons 
@@ -61,6 +62,7 @@ export const UpgradeTripButton: React.FC<UpgradeTripButtonProps> = ({
               Unlock advanced features
             </Text>
           </View>
+
           
           <View style={styles.arrowContainer}>
             {loading ? (
@@ -78,6 +80,7 @@ export const UpgradeTripButton: React.FC<UpgradeTripButtonProps> = ({
             )}
           </View>
         </View>
+        */}
       </TouchableOpacity>
     </Surface>
   );

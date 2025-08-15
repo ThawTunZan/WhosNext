@@ -77,7 +77,7 @@ export default function TripsScreen() {
     }
     const currencySymbol = (CURRENCY_INFO[item.currency]?.symbol) || '$';
     return (
-      <Pressable onPress={() => router.push(`/trip/${item.id}`)}>
+      <Pressable onPress={() => router.push(`/screens/trip/${item.id}`)}>
         <Surface style={styles.cardContainer} elevation={2}>
           <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.cardHeader}>
@@ -92,11 +92,6 @@ export default function TripsScreen() {
                   )}
                 </View>
               </View>
-              <IconButton
-                icon="chevron-right"
-                size={24}
-                iconColor={theme.colors.subtext}
-              />
             </View>
 
             <View style={styles.cardContent}>
@@ -165,7 +160,7 @@ export default function TripsScreen() {
             </Text>
             <Button
               mode="contained"
-              onPress={() => router.push('/create-trip')}
+              onPress={() => router.push('/create_trip/create-trip')}
               style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
               contentStyle={styles.buttonContent}
               labelStyle={{ color: theme.colors.text }}

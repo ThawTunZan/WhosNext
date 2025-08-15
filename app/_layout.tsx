@@ -51,20 +51,20 @@ const BottomNav = React.memo(({ path, theme }: { path: string; theme: any }) => 
     <NavButton
       icon="add-circle"
       label="New Trip"
-      onPress={() => router.push('/create-trip')}
-      color={path === '/create-trip' ? theme.colors.primary : theme.colors.subtext}
+      onPress={() => router.push('/create_trip/create-trip')}
+      color={path === '/create_trip/create-trip' ? theme.colors.primary : theme.colors.subtext}
     />
     <NavButton
       icon="people"
       label="Friends"
-      onPress={() => router.push('/friends')}
-      color={path === '/friends' ? theme.colors.primary : theme.colors.subtext}
+      onPress={() => router.push('/screens/Friends/friends')}
+      color={path === '/screens/Friends/friends' ? theme.colors.primary : theme.colors.subtext}
     />
     <NavButton
       icon="person"
       label="Profile"
-      onPress={() => router.push('/profile')}
-      color={path === '/profile' ? theme.colors.primary : theme.colors.subtext}
+      onPress={() => router.push('/profile/profile')}
+      color={path === '/profile/profile' ? theme.colors.primary : theme.colors.subtext}
     />
   </SafeAreaView>
 ));
@@ -133,7 +133,7 @@ function AuthGateAndStack() {
   }
   
   // Define which paths are public (don't require authentication)
-  const publicPaths = ['/auth', '/(auth)', '/auth/sign-in', '/auth/sign-up'];
+  const publicPaths = ['/auth', '/auth/sign-in', '/auth/sign-up'];
   const isPublicPath = publicPaths.some(publicPath => 
     path.startsWith(publicPath) || path === publicPath
   );
@@ -167,19 +167,19 @@ function AuthGateAndStack() {
             }}
           />
           <Stack.Screen 
-            name="create-trip"
+            name="create_trip/create-trip"
             options={{
               animation: 'none'
             }}
           />
           <Stack.Screen 
-            name="friends"
+            name="screens/Friends/friends"
             options={{
               animation: 'none'
             }}
           />
           <Stack.Screen 
-            name="profile"
+            name="profile/profile"
             options={{
               animation: 'none'
             }}
@@ -191,8 +191,7 @@ function AuthGateAndStack() {
               animation: 'none'
             }}
           />
-          <Stack.Screen name="trip/[id]" />
-          <Stack.Screen name="profile_screens" />
+          <Stack.Screen name="screens/trip/[id]" />
         </Stack>
 
         {/* Bottom Navigation Bar - only show for authenticated users on main screens */}
