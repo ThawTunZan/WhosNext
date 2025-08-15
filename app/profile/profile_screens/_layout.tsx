@@ -3,14 +3,11 @@ import { useRouter } from 'expo-router';
 import { Appbar } from 'react-native-paper';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ProfileScreensLayout() {
   const router = useRouter();
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const insets = useSafeAreaInsets();
 
   return (
     
@@ -54,9 +51,3 @@ export default function ProfileScreensLayout() {
     </Stack>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    elevation: 0,
-  }
-}); 

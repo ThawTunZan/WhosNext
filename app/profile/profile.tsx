@@ -24,17 +24,17 @@ const SECTIONS = [
   {
     title: 'Account',
     items: [
-      { label: 'App Settings', icon: 'settings-outline', route: '/profile_screens/AppSettings' },
-      { label: 'Edit Profile', icon: 'create-outline', route: '/profile_screens/EditProfileScreen' },
-      { label: 'Payment Methods', icon: 'card-outline', route: '/profile_screens/PaymentMethodsScreen' },
+      { label: 'App Settings', icon: 'settings-outline', route: '/profile/profile_screens/AppSettings' },
+      { label: 'Edit Profile', icon: 'create-outline', route: '/profile/profile_screens/EditProfileScreen' },
+      { label: 'Payment Methods', icon: 'card-outline', route: '/profile/profile_screens/PaymentMethodsScreen' },
     ],
   },
   {
     title: 'Support',
     items: [
-      { label: 'Notification Settings', icon: 'notifications-outline', route: '/profile_screens/NotificationSettingsScreen' },
-      { label: 'Rate Who\'s Next', icon: 'star-outline', route: '/profile_screens/rate' },
-      { label: 'Contact Us', icon: 'mail-outline', route: '/profile_screens/ContactUsScreen' },
+      { label: 'Notification Settings', icon: 'notifications-outline', route: '/profile/profile_screens/NotificationSettingsScreen' },
+      { label: 'Rate Who\'s Next', icon: 'star-outline', route: '/profile/profile_screens/rate' },
+      { label: 'Contact Us', icon: 'mail-outline', route: '/profile/profile_screens/ContactUsScreen' },
       { label: 'Logout', icon: 'log-out-outline', action: 'onLogout', danger: true },
     ],
   },
