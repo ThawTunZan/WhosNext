@@ -9,6 +9,9 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@aws-amplify/react-native": "^1.1.10",
+    "@aws-sdk/client-dynamodb": "^3.868.0",
+    "@aws-sdk/lib-dynamodb": "^3.868.0",
     "@clerk/clerk-expo": "^2.11.6",
     "@clerk/clerk-sdk-node": "^4.13.23",
     "@clerk/nextjs": "^6.19.4",
@@ -21,6 +24,7 @@
     "@react-native-google-signin/google-signin": "^15.0.0",
     "@react-native-picker/picker": "2.11.0",
     "@supabase/supabase-js": "^2.49.4",
+    "aws-amplify": "^6.15.5",
     "axios": "^1.9.0",
     "cloudinary": "^2.6.1",
     "date-fns": "^4.1.0",
@@ -52,7 +56,9 @@
     "react-native-uuid": "^2.0.3",
     "react-native-web": "^0.20.0",
     "stream-browserify": "^3.0.0",
-    "use-debounce": "^10.0.5"
+    "use-debounce": "^10.0.5",
+    "uuid": "^11.1.0",
+    "@react-native-community/netinfo": "11.4.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

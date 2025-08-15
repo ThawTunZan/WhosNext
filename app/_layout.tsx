@@ -1,7 +1,7 @@
 // app/_layout.tsx
 
 import "expo-router/entry";
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useEffect } from "react";
 import { ClerkProvider, useUser } from "@clerk/clerk-expo";
 import { Provider as PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
 import { SafeAreaView, View, StyleSheet, TouchableOpacity, Text, Platform, ActivityIndicator } from "react-native";
@@ -15,6 +15,11 @@ import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { UserTripsProvider, useUserTripsContext } from "@/src/context/UserTripsContext";
 import { useAuth } from '@clerk/clerk-expo';
+import {Amplify} from 'aws-amplify';
+import awsconfig from '../src/aws-exports';
+
+let amplifyConfigured = false;
+
 
 // NavButton component memoized
 const NavButton = React.memo(({
@@ -82,6 +87,12 @@ const LoadingScreen = React.memo(({ theme }: { theme: any }) => (
 ));
 
 export default function RootLayout() {
+  useEffect(() => {
+    if (!amplifyConfigured) {
+      Amplify.configure(awsconfig);
+      amplifyConfigured = true;
+    }
+  }, []);
   return (
     <SafeAreaProvider>
       <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>

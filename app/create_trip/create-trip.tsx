@@ -15,21 +15,9 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import {
-  Text,
-  TextInput,
-  Button,
-  List,
-  Portal,
-  IconButton,
-  Surface,
-  Menu,
-  Divider,
-} from 'react-native-paper';
+import {Text,TextInput,Button,IconButton,Menu} from 'react-native-paper';
 import { Redirect, useRouter } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
-import { collection, addDoc, Timestamp, updateDoc, doc, arrayUnion } from 'firebase/firestore';
-import { db } from '@/firebase';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
@@ -38,6 +26,9 @@ import { getUserPremiumStatus } from '@/src/utilities/PremiumUtilities';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateButton from '@/src/components/Common/DateButton';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
+import { v4 as uuidv4 } from 'uuid';
+import { generateClient } from 'aws-amplify/api';
+import { createMember, createTrip } from '@/src/graphql/mutations';
 
 const { width } = Dimensions.get('window');
 
@@ -127,6 +118,7 @@ export default function CreateTripScreen() {
     setShowFormDrawer(false);
     let hasError = false;
     const newErrors: { name?: string; budget?: string; date?: string } = {};
+    
     if (!destination.trim()) {
       newErrors.name = "Please enter a destination.";
       hasError = true;
@@ -134,6 +126,7 @@ export default function CreateTripScreen() {
       newErrors.name = "Trip name must be 25 characters or less.";
       hasError = true;
     }
+  
     const parsedBudget = parseFloat(totalBudget) || 0;
     if (!totalBudget || isNaN(parsedBudget) || parsedBudget <= 0) {
       newErrors.budget = "Please enter a valid budget.";
@@ -142,62 +135,69 @@ export default function CreateTripScreen() {
       newErrors.budget = "Budget cannot exceed $1,000,000.";
       hasError = true;
     }
+  
     if (!tripDate || !tripEndDate || tripEndDate < tripDate) {
       newErrors.date = "End date must be after start date.";
       hasError = true;
     }
+  
     setErrors(newErrors);
     if (hasError) return;
-
+  
+    const tripId = uuidv4();
     const username = user.username;
+  
     let isTripPremium = false;
     const userPremiumStatus = await getUserPremiumStatus(userFirebase);
     if (userPremiumStatus === PremiumStatus.PREMIUM || userPremiumStatus === PremiumStatus.TRIAL) {
       isTripPremium = true;
     }
-
-    const initialMembers = {
-      [username]: {
-        budget: parsedBudget,
-        amtLeft: parsedBudget,
-        currency: selectedCurrency,
-        addMemberType: AddMemberType.FRIENDS,
-        owesTotalMap: {
-          USD: 0,
-          EUR: 0,
-          GBP: 0,
-          JPY: 0,
-          CNY: 0,
-          SGD: 0
-        },
-        receiptsCount: 0,
-      }
+  
+    // Step 1: Create the Trip
+    const tripInput = {
+      id: tripId,
+      name: destination.trim(),
+      currency: selectedCurrency,
+      totalAmtLeft: parsedBudget,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      debts: JSON.stringify({}), // Must be a string for AWSJSON
     };
-
+  
     try {
-      const tripRef = await addDoc(collection(db, 'trips'), {
-        destination: destination.trim(),
-        totalBudget: parsedBudget,
-        totalAmtLeft: parsedBudget,
-        currency: selectedCurrency,
-        createdBy: username,
-        members: initialMembers,
-        debts: [],
-        startDate: Timestamp.fromDate(tripDate),
-        endDate: Timestamp.fromDate(tripEndDate),
-        isTripPremium,
-        expensesCount: 0,
-        activitiesCount: 0,
+      const client = generateClient();
+      
+      const tripResponse = await client.graphql({
+        query: createTrip,
+        variables: { input: tripInput }
       });
-
-      // Add trip ID to user's trips array in users collection
-      const userDocRef = doc(db, 'users', username);
-      await updateDoc(userDocRef, {
-        trips: arrayUnion(tripRef.id)
+    
+      const createdTrip = tripResponse.data.createTrip;
+      console.log("Trip created:", createdTrip);
+    
+      // Step 2: Create initial Member (current user)
+      const memberInput = {
+        id: uuidv4(),
+        username: username,
+        fullName: username, // If you have full name, replace here
+        tripId: createdTrip.id,
+        amtLeft: parsedBudget,
+        owesTotalMap: JSON.stringify({
+          USD: 0, EUR: 0, GBP: 0, JPY: 0, CNY: 0, SGD: 0
+        }),
+      };
+    
+      const memberResponse = await client.graphql({
+        query: createMember,
+        variables: { input: memberInput }
       });
+    
+      console.log("Member created:", memberResponse.data.createMember);
+    
+      // Done — navigate to home
       router.push('/');
-    } catch (error) {
-      console.error("Error creating trip:", error);
+    } catch (err) {
+      console.error("Trip creation error:", err);
       alert("Failed to create trip. Please try again.");
     }
   };

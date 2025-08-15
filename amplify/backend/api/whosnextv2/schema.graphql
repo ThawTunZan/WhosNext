@@ -1,0 +1,47 @@
+# This "input" configures a global authorization rule to enable public access to
+# all models in this schema. Learn more about authorization rules here: https://docs.amplify.aws/cli/graphql/authorization-rules
+input AMPLIFY { globalAuthRule: AuthRule = { allow: public } } # FOR TESTING ONLY!
+
+type Trip @model {
+  id: ID!
+  name: String!
+  currency: String!
+  members: [Member] @hasMany
+  expenses: [Expense] @hasMany
+  debts: AWSJSON # Store as JSON string
+  totalAmtLeft: Float
+  createdAt: AWSDateTime
+  updatedAt: AWSDateTime
+}
+
+type Member @model {
+  id: ID!
+  username: String!
+  fullName: String!
+  tripId: ID!
+  trip: Trip @belongsTo(fields: ["tripId"])
+  amtLeft: Float
+  owesTotalMap: AWSJSON
+}
+
+type Expense @model {
+  id: ID!
+  tripId: ID!
+  trip: Trip @belongsTo(fields: ["tripId"])
+  activityName: String!
+  amount: Float!
+  currency: String!
+  paidBy: String!
+  sharedWith: [ExpenseShare] @hasMany
+  paidByAndAmounts: AWSJSON
+  createdAt: AWSDateTime
+}
+
+type ExpenseShare @model {
+  id: ID!
+  expenseId: ID!
+  expense: Expense @belongsTo(fields: ["expenseId"])
+  payeeName: String!
+  amount: Float!
+  currency: String!
+}

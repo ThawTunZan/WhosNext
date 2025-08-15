@@ -1,0 +1,20 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-whosnextv2-dev-55bb1-authRole",
+      "UnauthRoleArn": "arn:aws:iam::027922993269:role/amplify-whosnextv2-dev-55bb1-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::027922993269:role/amplify-whosnextv2-dev-55bb1-authRole",
+      "Region": "eu-north-1",
+      "DeploymentBucketName": "amplify-whosnextv2-dev-55bb1-deployment",
+      "UnauthRoleName": "amplify-whosnextv2-dev-55bb1-unauthRole",
+      "StackName": "amplify-whosnextv2-dev-55bb1",
+      "StackId": "arn:aws:cloudformation:eu-north-1:027922993269:stack/amplify-whosnextv2-dev-55bb1/88c586f0-7a0f-11f0-8618-06605d1f9afd",
+      "AmplifyAppId": "d1co6hotpt35u5"
+    },
+    "categories": {
+      "api": {
+        "whosnextv2": {}
+      }
+    }
+  }
+}
