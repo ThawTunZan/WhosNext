@@ -133,7 +133,7 @@ function AuthGateAndStack() {
   }
   
   // Define which paths are public (don't require authentication)
-  const publicPaths = ['/auth', '/(auth)', '/auth/sign-in', '/auth/sign-up'];
+  const publicPaths = ['/auth', '/auth/sign-in', '/auth/sign-up'];
   const isPublicPath = publicPaths.some(publicPath => 
     path.startsWith(publicPath) || path === publicPath
   );

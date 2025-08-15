@@ -26,6 +26,11 @@ import {
 } from '@/src/firebase/FirebaseServices';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 import { UserFromFirebase } from '@/src/types/DataTypes';
+import { FriendCard } from './FriendCard';
+import { FriendRequestCard } from './FriendRequestCard';
+import { FriendActionsMenu } from './FriendActionsMenu';
+import { AddFriendModal } from './AddFriendModal';
+import { FriendRequestsList } from './FriendRequestsList';
 
 type Friend = {
   username: string;
@@ -38,7 +43,7 @@ export default function FriendsScreen() {
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const { user: clerkUser, isLoaded, isSignedIn } = useUser(); // from Clerk
-  const { user: userData, trips, loading, error } = useUserTripsContext(); // from your context
+  const { user: userData, } = useUserTripsContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [selectedTab, setSelectedTab] = useState('all');
@@ -68,14 +73,9 @@ export default function FriendsScreen() {
         timestamp: request.timestamp,
       }));
   }, [userData]);
-
-  const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [newFriendUsername, setNewFriendUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [cancelingRequestId, setCancelingRequestId] = useState<string | null>(null);
-
-  // contexts
-  // const { userData } = useUserTripsContext(); // This line is removed as per the edit hint
 
   // Load friends and friend requests
   useEffect(() => {
@@ -90,7 +90,6 @@ export default function FriendsScreen() {
     try {
       setIsLoading(true);
       let friendsUsernames = userData?.friends || [];
-      //console.log("FRIENDS USERNAMES ARE ",friendsUsernames)
       if (!Array.isArray(friendsUsernames)) friendsUsernames = [];
       const friendsData: Friend[] = await Promise.all(
         friendsUsernames.map(async (friendUsername: string) => {
@@ -102,57 +101,7 @@ export default function FriendsScreen() {
           };
         })
       );
-      //console.log("FRIENDS DATA ARE ", friendsData)
       setFriends(friendsData.filter((friend) => !!friend.username));
-      //console.log("FRIENDS ARE ", friends)
-
-      // Handle incoming requests
-      // const incomingRequests = Array.isArray((userData as UserFromFirebase)?.incomingFriendRequests) ? (userData as UserFromFirebase).incomingFriendRequests : [];
-      //console.log("INCOMING REQUESTS ARE ", incomingRequests)
-      // const incomingRequestsData = await Promise.all(
-      //   incomingRequests
-      //     .filter((request: any) => request.status === 'pending')
-      //     .map(async (request: any) => {
-      //       try {
-      //         const username = request.username;
-      //         if (!username) return null;
-      //         const requesterData = await getUserByUsername(username) as UserFromFirebase;
-      //         if (!requesterData || typeof requesterData !== 'object') return null;
-      //         return {
-      //           username: request.username,
-      //           timestamp: request.timestamp,
-      //         };
-      //       } catch (error) {
-      //         return null;
-      //       }
-      //     })
-      // );
-      // setIncomingFriendRequests(incomingRequestsData.filter((request): request is Friend => !!request && 'username' in request));
-
-      // Handle outgoing requests
-      // const outgoingRequests = Array.isArray((userData as UserFromFirebase)?.outgoingFriendRequests) ? (userData as UserFromFirebase).outgoingFriendRequests : [];
-      //console.log("OUTGOING REQUESTS ARE ", outgoingRequests)
-      // const outgoingRequestsData = await Promise.all(
-      //   outgoingRequests
-      //     .filter((request: any) => request.status === 'pending')
-      //     .map(async (request: any) => {
-      //       try {
-      //         const username = request.username;
-      //         if (!username) return null;
-      //         const recipientData = await getUserByUsername(username) as UserFromFirebase;
-      //         if (!recipientData || typeof recipientData !== 'object') return null;              return {
-      //           username: request.username,
-      //           timestamp: request.timestamp,
-      //         };
-      //       } catch (error) {
-      //         return null;
-      //       }
-      //     })
-      // );
-      // //console.log("OUTGOING REQUESTS DATA ARE ", outgoingRequestsData)
-      // //console.log("OUTGOING FRIEND REQUESTS ARE ",outgoingFriendRequests)
-      // setOutgoingFriendRequests(outgoingRequestsData.filter((request): request is Friend => !!request && 'username' in request));
-      
     } catch (error) {
       console.error('Error loading friends data:', error);
       Alert.alert('Error', 'Failed to load friends data');
@@ -163,20 +112,6 @@ export default function FriendsScreen() {
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    if (!clerkUser || query.trim() === '') {
-      setSearchResults([]);
-      return;
-    }
-
-    try {
-      const results = await searchUsers(query, clerkUser.username);
-      setSearchResults(results.map((result: any) => ({
-        username: result.username || '',
-        timestamp: null, // Add this line
-      })));
-    } catch (error) {
-      console.error('Error searching users:', error);
-    }
   };
 
   const handleSendFriendRequest = async () => {
@@ -186,7 +121,6 @@ export default function FriendsScreen() {
       setIsLoading(true);
       //TODO
       const targetUser = await getUserByUsername(newFriendUsername.trim()) as UserFromFirebase;
-      console.log('Found target user:', targetUser);
       
       if (!targetUser) {
         Alert.alert('Error', 'User not found');
@@ -197,8 +131,6 @@ export default function FriendsScreen() {
         Alert.alert('Error', 'You cannot send a friend request to yourself');
         return;
       }
-
-      console.log('Current user data before sending request:', userData);
       
       const hasExistingRequest = userData?.outgoingFriendRequests?.some(
         (request: any) => request.receiverUsername === targetUser.username
@@ -210,7 +142,6 @@ export default function FriendsScreen() {
       }
 
       await sendFriendRequest(clerkUser.username, targetUser.username);
-      console.log('Friend request sent successfully');
       
       Alert.alert('Success', 'Friend request sent successfully');
       setAddModalVisible(false);
@@ -271,23 +202,6 @@ export default function FriendsScreen() {
     }
   }, [clerkUser]);
 
-  const handleBlockUser = async (friendUsername: string) => {
-    if (!clerkUser) return;
-
-    try {
-      setIsLoading(true);
-      await blockUser(clerkUser.username, friendUsername);
-      setFriends(prev => prev.filter(friend => friend.username !== friendUsername));
-      Alert.alert('Success', 'User blocked successfully');
-    } catch (error) {
-      console.error('Error blocking user:', error);
-      Alert.alert('Error', 'Failed to block user');
-    } finally {
-      setIsLoading(false);
-      setMenuVisible(false);
-    }
-  };
-
   const handleOpenMenu = useCallback((friendUsername: string) => {
     const button = buttonRefs.current[friendUsername];
     if (button) {
@@ -319,100 +233,6 @@ export default function FriendsScreen() {
       setCancelingRequestId(null);
     }
   };
-
-  const renderFriendCard = (friend: Friend) => (
-    <Surface style={[styles.friendCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
-      <View style={styles.friendCardContent}>
-        <View style={styles.friendInfo}>
-          <Avatar.Text size={50} label={friend.username.charAt(0)} />
-          <View style={styles.friendDetails}>
-            <Text style={[styles.friendName, { color: theme.colors.text }]}>{friend.username}</Text>
-          </View>
-        </View>
-        <View style={styles.friendActions}>
-          <View ref={setButtonRef(friend.username)}>
-            <IconButton 
-              icon="dots-vertical" 
-              onPress={() => handleOpenMenu(friend.username)}
-            />
-          </View>
-        </View>
-      </View>
-    </Surface>
-  );
-
-  const renderFriendRequest = (friend: Friend, type: 'incoming' | 'outgoing') => (
-    <Surface style={[styles.requestCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
-      <View style={styles.requestCardHeader}>
-        <View style={styles.requestTypeIndicator}>
-          <IconButton
-            icon={type === 'incoming' ? 'arrow-down' : 'arrow-up'}
-            size={20}
-            iconColor={type === 'incoming' ? theme.colors.primary : theme.colors.info}
-          />
-          <Text style={[styles.requestTypeText, { 
-            color: type === 'incoming' ? theme.colors.primary : theme.colors.info 
-          }]}>
-            {type === 'incoming' ? 'Incoming Request' : 'Outgoing Request'}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.requestCardContent}>
-        <View style={styles.friendInfo}>
-          <Avatar.Text 
-            size={60} 
-            label={friend.username.charAt(0)} 
-            style={{ backgroundColor: type === 'incoming' ? theme.colors.primary : theme.colors.info }}
-          />
-          <View style={styles.friendDetails}>
-            <Text style={[styles.friendName, { color: theme.colors.text }]}>{friend.username}</Text>
-          </View>
-        </View>
-        <View style={styles.requestActions}>
-          {type === 'incoming' ? (
-            <>
-              <Button 
-                mode="contained" 
-                onPress={() => handleAcceptRequest(friend.username)}
-                style={[styles.actionButton, styles.acceptButton]}
-                contentStyle={styles.buttonContent}
-                labelStyle={styles.buttonLabel}
-              >
-                Accept
-              </Button>
-              <Button 
-                mode="outlined" 
-                onPress={() => handleDeclineRequest(friend.username)}
-                style={[
-                  styles.actionButton,
-                  { borderColor: theme.colors.error }
-                ]}
-                contentStyle={styles.buttonContent}
-                labelStyle={styles.buttonLabel}
-              >
-                Decline
-              </Button>
-            </>
-          ) : (
-            <Button 
-              mode="outlined" 
-              onPress={() => handleCancelRequest(friend.username)}
-              style={[
-                styles.actionButton,
-                { borderColor: theme.colors.error }
-              ]}
-              contentStyle={styles.buttonContent}
-              labelStyle={styles.buttonLabel}
-              loading={isLoading && cancelingRequestId === friend.username}
-              disabled={isLoading && cancelingRequestId === friend.username}
-            >
-              Cancel Request
-            </Button>
-          )}
-        </View>
-      </View>
-    </Surface>
-  );
 
   // Add filtered friends computation
   const filteredFriends = friends.filter(friend => 
@@ -503,81 +323,49 @@ export default function FriendsScreen() {
         <ScrollView style={styles.content}>
           {selectedTab === 'all' ? (
             filteredFriends.map(friend => (
-              <React.Fragment key={friend.username}>
-                {renderFriendCard(friend)}
-              </React.Fragment>
+              <FriendCard
+                key={friend.username}
+                friend={friend}
+                theme={theme}
+                setButtonRef={setButtonRef(friend.username)}
+                handleOpenMenu={handleOpenMenu}
+              />
             ))
           ) : (
             <View style={styles.requestsContainer}>
               {selectedRequestType === 'incoming' ? (
-                filteredIncomingFriendRequests.length > 0 ? (
-                  filteredIncomingFriendRequests.map(friend => (
-                    <React.Fragment key={friend.username}>
-                      {renderFriendRequest(friend, 'incoming')}
-                    </React.Fragment>
-                  ))
-                ) : (
-                  <View style={styles.emptyStateContainer}>
-                    <IconButton icon="inbox-arrow-down" size={48} />
-                    <Text style={[styles.emptyStateText, { color: theme.colors.subtext }]}>
-                      No incoming friend requests
-                    </Text>
-                  </View>
-                )
+                <FriendRequestsList
+                  type="incoming"
+                  requests={filteredIncomingFriendRequests}
+                  theme={theme}
+                  handleAcceptRequest={handleAcceptRequest}
+                  handleDeclineRequest={handleDeclineRequest}
+                  styles={styles}
+                />
               ) : (
-                filteredOutgoingFriendRequests.length > 0 ? (
-                  filteredOutgoingFriendRequests.map(friend => (
-                    <React.Fragment key={friend.username}>
-                      {renderFriendRequest(friend, 'outgoing')}
-                    </React.Fragment>
-                  ))
-                ) : (
-                  <View style={styles.emptyStateContainer}>
-                    <IconButton icon="inbox-arrow-up" size={48} />
-                    <Text style={[styles.emptyStateText, { color: theme.colors.subtext }]}>
-                      No outgoing friend requests
-                    </Text>
-                  </View>
-                )
+                <FriendRequestsList
+                  type="outgoing"
+                  requests={filteredOutgoingFriendRequests}
+                  theme={theme}
+                  handleCancelRequest={handleCancelRequest}
+                  styles={styles}
+                  isLoading={isLoading}
+                  cancelingRequestId={cancelingRequestId}
+                />
               )}
             </View>
           )}
         </ScrollView>
 
         {/* Friend Actions Menu */}
-        <Portal>
-          <Menu
-            visible={menuVisible}
-            onDismiss={() => setMenuVisible(false)}
-            anchor={menuPosition}
-          >
-            <Menu.Item 
-              onPress={() => {
-                setMenuVisible(false);
-                // TODO: Implement view profile
-                console.log('View profile:', selectedFriendUsername);
-              }} 
-              title="View Profile" 
-              leadingIcon="account"
-            />
-            <Menu.Item 
-              onPress={() => {
-                setMenuVisible(false);
-                // TODO: Implement block user
-                console.log('Block user:', selectedFriendUsername);
-              }} 
-              title="Block User" 
-              leadingIcon="block-helper"
-            />
-            <Divider />
-            <Menu.Item 
-              onPress={() => selectedFriendUsername && handleRemoveFriend(selectedFriendUsername)} 
-              title="Remove Friend" 
-              leadingIcon="account-remove"
-              titleStyle={{ color: theme.colors.error }}
-            />
-          </Menu>
-        </Portal>
+        <FriendActionsMenu
+          menuVisible={menuVisible}
+          setMenuVisible={setMenuVisible}
+          menuPosition={menuPosition}
+          selectedFriendUsername={selectedFriendUsername}
+          handleRemoveFriend={handleRemoveFriend}
+          theme={theme}
+        />
 
         {/* Add Friend FAB */}
         <FAB
@@ -588,41 +376,16 @@ export default function FriendsScreen() {
         />
 
         {/* Add Friend Modal */}
-        <Portal>
-          <Modal
-            visible={addModalVisible}
-            onDismiss={() => setAddModalVisible(false)}
-            contentContainerStyle={[styles.modalContent, { backgroundColor: theme.colors.surface }]}
-          >
-            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Add Friend</Text>
-            <TextInput
-              label="Username"
-              mode="outlined"
-              style={styles.input}
-              value={newFriendUsername}
-              onChangeText={setNewFriendUsername}
-              theme={{ colors: { primary: theme.colors.primary } }}
-            />
-            <View style={styles.modalActions}>
-              <Button
-                mode="outlined"
-                onPress={() => setAddModalVisible(false)}
-                style={styles.modalButton}
-              >
-                Cancel
-              </Button>
-              <Button
-                mode="contained"
-                onPress={handleSendFriendRequest}
-                style={styles.modalButton}
-                loading={isLoading}
-                disabled={isLoading}
-              >
-                Send Request
-              </Button>
-            </View>
-          </Modal>
-        </Portal>
+        <AddFriendModal
+          visible={addModalVisible}
+          onDismiss={() => setAddModalVisible(false)}
+          theme={theme}
+          newFriendUsername={newFriendUsername}
+          setNewFriendUsername={setNewFriendUsername}
+          handleSendFriendRequest={handleSendFriendRequest}
+          isLoading={isLoading}
+          styles={styles}
+        />
       </View>
     </>
   );
@@ -686,9 +449,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  friendEmail: {
-    fontSize: 14,
-  },
   friendActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -725,15 +485,6 @@ const styles = StyleSheet.create({
   modalButton: {
     minWidth: 100,
   },
-  acceptButton: {
-    marginBottom: 8,
-  },
-  declineButton: {
-    borderColor: 'red',
-  },
-  cancelButton: {
-    borderColor: 'red',
-  },
   subTabContainer: {
     paddingHorizontal: 16,
     marginBottom: 16,
@@ -746,19 +497,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     overflow: 'hidden',
-  },
-  requestCardHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  requestTypeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  requestTypeText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   requestCardContent: {
     padding: 16,

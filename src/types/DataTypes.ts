@@ -2,6 +2,11 @@
 
 import { FieldValue, Timestamp } from "firebase/firestore";
 
+export type Friend = {
+  username: string,
+  timestamp: any,
+}
+
 // Firestore Trip Document Type
 export type FirestoreTrip = {
   activitiesCount: number;
