@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, useTheme, Text } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
@@ -31,16 +31,24 @@ export default function OverviewTab({
 }: OverviewTabProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const paperTheme = useTheme();
   const { trips } = useUserTripsContext();
   const { expenses } = useTripExpensesContext();
   const { user } = useUser();
   const router = useRouter();
-  
+
   const currentUsername = user?.username;
-  const trip = TripHandler.getTripById(tripId, trips);
-  const members = trip?.members || {};
+
+  // Memoize trip and members
+  const trip = useMemo(() => TripHandler.getTripById(tripId, trips), [tripId, trips]);
+  const members = useMemo(() => trip?.members || {}, [trip]);
+
   const [isDeletingTrip, setIsDeletingTrip] = useState(false);
+
+  // Helper for showing snackbar
+  const showSnackbar = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
 
   // Handler functions using TripHandler
   const handleAddMember = async (memberName: string, budget: number, currency: string, addMemberType: AddMemberType) => {
@@ -53,11 +61,9 @@ export default function OverviewTab({
     });
     
     if (result.success) {
-      setSnackbarMessage(`${memberName} ${addMemberType === "mock" ? 'added as a mock member!' : 'added to the trip!'}`);
-      setSnackbarVisible(true);
+      showSnackbar(`${memberName} ${addMemberType === "mock" ? 'added as a mock member!' : 'added to the trip!'}`);
     } else {
-      setSnackbarMessage(`Error adding member: ${result.error?.message || 'Unknown error'}`);
-      setSnackbarVisible(true);
+      showSnackbar(`Error adding member: ${result.error?.message || 'Unknown error'}`);
     }
   };
 
@@ -125,7 +131,6 @@ export default function OverviewTab({
       setSnackbarVisible(true);
     }
   };
-  //console.log("MEMBERS IN OVERVIEW TAB ARE ",members)
 
   return (
     <ScrollView 
@@ -168,7 +173,7 @@ export default function OverviewTab({
         <Button
           mode="outlined"
           icon="video"
-          style={{ marginTop: 12 }}
+          style={styles.adButton}
           onPress={async () => {
             //await showRewardedAd(() => {
               // TODO: Call backend to increment daily limit
@@ -227,8 +232,12 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     marginBottom: 8,
+    backgroundColor: '#B00020', // fallback for theme.colors.error
   },
   leaveButton: {
     borderWidth: 2,
   },
-}); 
+  adButton: {
+    marginTop: 12,
+  },
+});

@@ -1,9 +1,10 @@
 // src/screens/TripDetails/components/ActivityVotingSection.tsx
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { Button, Snackbar } from 'react-native-paper'
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { sectionStyles } from '@/src/styles/section_comp_styles';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   NewProposedActivityData,
@@ -36,35 +37,74 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
 
     const { activities, isLoading, error } = useProposedActivities(tripId);
     const { trips } = useUserTripsContext();
-    const trip = trips.find(t => t.id === tripId);
-    const members = trip?.members || {};
-    const [snackbarVisible, setSnackbarVisible] = React.useState(false);
-    const [snackbarMessage, setSnackbarMessage] = React.useState('');
+
+    // 3. Memoization for trip and members
+    const trip = useMemo(() => trips.find(t => t.id === tripId), [trips, tripId]);
+    const members = useMemo(() => trip?.members || {}, [trip]);
+
+    const [snackbarVisible, setSnackbarVisible] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
     const [proposeModalVisible, setProposeModalVisible] = useState(false);
     const [editingActivity, setEditingActivity] = useState<ProposedActivity | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [expenseModalVisible, setExpenseModalVisible] = useState(false);
     const [activityForExpense, setActivityForExpense] = useState<ProposedActivity | null>(null);
 
-    const { isLoaded, isSignedIn, user } = useUser()
-    if (!isLoaded) return null
-    if (!isSignedIn) return <Redirect href="/auth/sign-in" />
+    const { isLoaded, isSignedIn, user } = useUser();
+    if (!isLoaded) return null;
+    if (!isSignedIn) return <Redirect href="/auth/sign-in" />;
+
+    // 2. Error boundary/fallback UI for missing trip/members
+    if (!trip) {
+      return (
+        <BaseSection title="Activity Voting" icon="🗳️">
+          <Snackbar
+            visible={true}
+            duration={5000}
+            onDismiss={() => {}} // Add this line
+          >
+            Error: Trip not found.
+          </Snackbar>
+        </BaseSection>
+      );
+    }
+    if (!members || Object.keys(members).length === 0) {
+      return (
+        <BaseSection title="Activity Voting" icon="🗳️">
+          <Snackbar
+            visible={true}
+            duration={5000}
+            onDismiss={() => {}} // Add this line
+          >
+            Error: No trip members found.
+          </Snackbar>
+        </BaseSection>
+      );
+    }
 
     const currentUserName =
       user.username ??
       user.fullName ??
       user.primaryEmailAddress?.emailAddress ??
-      `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
+      `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
 
     const handleEditActivity = useCallback((activity: ProposedActivity) => {
-      setEditingActivity(activity)
-      setProposeModalVisible(true)
-    }, [])
+      setEditingActivity(activity);
+      setProposeModalVisible(true);
+    }, []);
+
+    // 4. Remove console logs in production
+    const log = (...args: any[]) => {
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.log(...args);
+      }
+    };
 
     const handleVote = useCallback(async (activityId: string, voteType: VoteType) => {
         if (!currentUserName) {
-            console.error("Cannot vote: User not found.");
             setSnackbarMessage("Error: Could not identify user.");
             setSnackbarVisible(true);
             return;
@@ -134,7 +174,7 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
           setSnackbarVisible(true);
           throw err;
         }
-    }, [tripId, editingActivity, currentUserName]);
+    }, [tripId, editingActivity]);
 
     const handleExpenseSubmit = useCallback(async (expenseData: any) => {
         try {
@@ -155,13 +195,30 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
         }
     }, [tripId, members, trip]);
 
+    const debouncedSetSearchQuery = useDebouncedCallback((value) => {
+      setDebouncedSearchQuery(value);
+    }, 300);
+
     const renderHeader = () => (
       <SearchBar
         searchQuery={searchQuery}
-        onChangeSearch={setSearchQuery}
+        onChangeSearch={text => {
+          setSearchQuery(text);
+          debouncedSetSearchQuery(text);
+        }}
         placeholder="Search activities..."
       />
     );
+
+    const handleCloseProposeModal = () => {
+      setProposeModalVisible(false);
+      setEditingActivity(null);
+    };
+
+    const handleCloseExpenseModal = () => {
+      setExpenseModalVisible(false);
+      setActivityForExpense(null);
+    };
 
     return (
       <BaseSection
@@ -174,7 +231,7 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
 
         <ActivityList
           activities={activities}
-          searchQuery={searchQuery}
+          searchQuery={debouncedSearchQuery}
           onVoteUp={handleVoteUp}
           onVoteDown={handleVoteDown}
           isRefreshing={isRefreshing}
@@ -196,18 +253,12 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
 
         <CommonModal
           visible={proposeModalVisible}
-          onDismiss={() => {
-            setProposeModalVisible(false)
-            setEditingActivity(null)
-          }}
+          onDismiss={handleCloseProposeModal}
           title={editingActivity ? "Edit Activity" : "Propose New Activity"}
         >
           <ProposeActivityModal
             visible={proposeModalVisible}
-            onClose={() => {
-              setProposeModalVisible(false)
-              setEditingActivity(null)
-            }}
+            onClose={handleCloseProposeModal}
             onSubmit={handleProposeSubmit}
             currentUserName={currentUserName}
             initialData={editingActivity || undefined}
@@ -216,10 +267,7 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
 
         <AddExpenseModal
           visible={expenseModalVisible}
-          onDismiss={() => {
-            setExpenseModalVisible(false)
-            setActivityForExpense(null)
-          }}
+          onDismiss={handleCloseExpenseModal}
           onSubmit={handleExpenseSubmit}
           members={members}
           tripId={tripId}
