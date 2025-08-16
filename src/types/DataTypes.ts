@@ -9,7 +9,6 @@ export type Friend = {
 
 export type MemberDDB = {
   id: string;
-  __typename?: string;
   username: string;
   fullName: string;
   tripId: string;
@@ -25,7 +24,6 @@ export type MemberDDB = {
 // Firestore Trip Document Type
 export type TripsTableDDB = {
   id: string;
-  __typename?: string;
   name: string;
   currency: string;
   createdBy: string;
@@ -90,7 +88,6 @@ export type FirestoreExpense = {
 
 export type UserFromDynamo = {
   id: string;
-  __typename?: string;
   username: string;
   fullName: string;
   primaryEmailAddress: string;
@@ -205,9 +202,10 @@ export type SharedWith = {
 export type Expense = {
   id: string; // Firestore document ID
   activityName: string;
-  paidByAndAmounts: {memberName: string, amount: string}[];
+  paidBy: string;
+  amount: number;
   sharedWith: SharedWith[];
-  createdAt: Timestamp; // Firestore Timestamp type for consistency
+  createdAt: any; // Firestore Timestamp type for consistency
   currency: string;
 };
 

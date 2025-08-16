@@ -2,42 +2,31 @@
 /* eslint-disable */
 //  This file was automatically generated and should not be edited.
 
-export type CreateUserInput = {
+export type CreateDebtInput = {
   id?: string | null,
-  username: string,
-  email: string,
-  fullName: string,
-  avatarUrl?: string | null,
-  premiumStatus: PremiumStatus,
-  friends?: Array< string | null > | null,
-  trips?: Array< string | null > | null,
+  tripId: string,
+  currency: string,
+  debtor: string,
+  creditor: string,
+  amount: number,
   createdAt?: string | null,
   updatedAt?: string | null,
 };
 
-export enum PremiumStatus {
-  free = "free",
-  trial = "trial",
-  premium = "premium",
-}
-
-
-export type ModelUserConditionInput = {
-  username?: ModelStringInput | null,
-  email?: ModelStringInput | null,
-  fullName?: ModelStringInput | null,
-  avatarUrl?: ModelStringInput | null,
-  premiumStatus?: ModelPremiumStatusInput | null,
-  friends?: ModelStringInput | null,
-  trips?: ModelStringInput | null,
+export type ModelDebtConditionInput = {
+  tripId?: ModelIDInput | null,
+  currency?: ModelStringInput | null,
+  debtor?: ModelStringInput | null,
+  creditor?: ModelStringInput | null,
+  amount?: ModelFloatInput | null,
   createdAt?: ModelStringInput | null,
   updatedAt?: ModelStringInput | null,
-  and?: Array< ModelUserConditionInput | null > | null,
-  or?: Array< ModelUserConditionInput | null > | null,
-  not?: ModelUserConditionInput | null,
+  and?: Array< ModelDebtConditionInput | null > | null,
+  or?: Array< ModelDebtConditionInput | null > | null,
+  not?: ModelDebtConditionInput | null,
 };
 
-export type ModelStringInput = {
+export type ModelIDInput = {
   ne?: string | null,
   eq?: string | null,
   le?: string | null,
@@ -75,6 +64,96 @@ export type ModelSizeInput = {
   ge?: number | null,
   gt?: number | null,
   between?: Array< number | null > | null,
+};
+
+export type ModelStringInput = {
+  ne?: string | null,
+  eq?: string | null,
+  le?: string | null,
+  lt?: string | null,
+  ge?: string | null,
+  gt?: string | null,
+  contains?: string | null,
+  notContains?: string | null,
+  between?: Array< string | null > | null,
+  beginsWith?: string | null,
+  attributeExists?: boolean | null,
+  attributeType?: ModelAttributeTypes | null,
+  size?: ModelSizeInput | null,
+};
+
+export type ModelFloatInput = {
+  ne?: number | null,
+  eq?: number | null,
+  le?: number | null,
+  lt?: number | null,
+  ge?: number | null,
+  gt?: number | null,
+  between?: Array< number | null > | null,
+  attributeExists?: boolean | null,
+  attributeType?: ModelAttributeTypes | null,
+};
+
+export type Debt = {
+  __typename: "Debt",
+  id: string,
+  tripId: string,
+  currency: string,
+  debtor: string,
+  creditor: string,
+  amount: number,
+  createdAt?: string | null,
+  updatedAt?: string | null,
+};
+
+export type UpdateDebtInput = {
+  id: string,
+  tripId?: string | null,
+  currency?: string | null,
+  debtor?: string | null,
+  creditor?: string | null,
+  amount?: number | null,
+  createdAt?: string | null,
+  updatedAt?: string | null,
+};
+
+export type DeleteDebtInput = {
+  id: string,
+};
+
+export type CreateUserInput = {
+  id?: string | null,
+  username: string,
+  email: string,
+  fullName: string,
+  avatarUrl?: string | null,
+  premiumStatus: PremiumStatus,
+  friends?: Array< string | null > | null,
+  trips?: Array< string | null > | null,
+  createdAt?: string | null,
+  updatedAt?: string | null,
+};
+
+export enum PremiumStatus {
+  free = "free",
+  trial = "trial",
+  premium = "premium",
+}
+
+
+export type ModelUserConditionInput = {
+  username?: ModelStringInput | null,
+  email?: ModelStringInput | null,
+  fullName?: ModelStringInput | null,
+  avatarUrl?: ModelStringInput | null,
+  premiumStatus?: ModelPremiumStatusInput | null,
+  friends?: ModelStringInput | null,
+  trips?: ModelStringInput | null,
+  createdAt?: ModelStringInput | null,
+  updatedAt?: ModelStringInput | null,
+  and?: Array< ModelUserConditionInput | null > | null,
+  or?: Array< ModelUserConditionInput | null > | null,
+  not?: ModelUserConditionInput | null,
 };
 
 export type ModelPremiumStatusInput = {
@@ -198,18 +277,6 @@ export type ModelTripConditionInput = {
   not?: ModelTripConditionInput | null,
 };
 
-export type ModelFloatInput = {
-  ne?: number | null,
-  eq?: number | null,
-  le?: number | null,
-  lt?: number | null,
-  ge?: number | null,
-  gt?: number | null,
-  between?: Array< number | null > | null,
-  attributeExists?: boolean | null,
-  attributeType?: ModelAttributeTypes | null,
-};
-
 export type ModelBooleanInput = {
   ne?: boolean | null,
   eq?: boolean | null,
@@ -279,28 +346,16 @@ export type Expense = {
   amount: number,
   currency: string,
   paidBy: string,
-  sharedWith?: ModelExpenseShareConnection | null,
-  paidByAndAmounts?: string | null,
+  sharedWith?:  Array<SharedWith > | null,
   createdAt?: string | null,
   updatedAt?: string | null,
 };
 
-export type ModelExpenseShareConnection = {
-  __typename: "ModelExpenseShareConnection",
-  items:  Array<ExpenseShare | null >,
-  nextToken?: string | null,
-};
-
-export type ExpenseShare = {
-  __typename: "ExpenseShare",
-  id: string,
-  expenseId: string,
-  expense?: Expense | null,
+export type SharedWith = {
+  __typename: "SharedWith",
   payeeName: string,
   amount: number,
   currency: string,
-  createdAt: string,
-  updatedAt: string,
 };
 
 export type UpdateTripInput = {
@@ -352,22 +407,6 @@ export type ModelMemberConditionInput = {
   not?: ModelMemberConditionInput | null,
 };
 
-export type ModelIDInput = {
-  ne?: string | null,
-  eq?: string | null,
-  le?: string | null,
-  lt?: string | null,
-  ge?: string | null,
-  gt?: string | null,
-  contains?: string | null,
-  notContains?: string | null,
-  between?: Array< string | null > | null,
-  beginsWith?: string | null,
-  attributeExists?: boolean | null,
-  attributeType?: ModelAttributeTypes | null,
-  size?: ModelSizeInput | null,
-};
-
 export type ModelAddMemberTypeInput = {
   eq?: AddMemberType | null,
   ne?: AddMemberType | null,
@@ -410,9 +449,15 @@ export type CreateExpenseInput = {
   amount: number,
   currency: string,
   paidBy: string,
-  paidByAndAmounts?: string | null,
+  sharedWith?: Array< SharedWithInput > | null,
   createdAt?: string | null,
   updatedAt?: string | null,
+};
+
+export type SharedWithInput = {
+  payeeName: string,
+  amount: number,
+  currency: string,
 };
 
 export type ModelExpenseConditionInput = {
@@ -421,7 +466,6 @@ export type ModelExpenseConditionInput = {
   amount?: ModelFloatInput | null,
   currency?: ModelStringInput | null,
   paidBy?: ModelStringInput | null,
-  paidByAndAmounts?: ModelStringInput | null,
   createdAt?: ModelStringInput | null,
   updatedAt?: ModelStringInput | null,
   and?: Array< ModelExpenseConditionInput | null > | null,
@@ -436,7 +480,7 @@ export type UpdateExpenseInput = {
   amount?: number | null,
   currency?: string | null,
   paidBy?: string | null,
-  paidByAndAmounts?: string | null,
+  sharedWith?: Array< SharedWithInput > | null,
   createdAt?: string | null,
   updatedAt?: string | null,
 };
@@ -445,36 +489,24 @@ export type DeleteExpenseInput = {
   id: string,
 };
 
-export type CreateExpenseShareInput = {
-  id?: string | null,
-  expenseId: string,
-  payeeName: string,
-  amount: number,
-  currency: string,
-};
-
-export type ModelExpenseShareConditionInput = {
-  expenseId?: ModelIDInput | null,
-  payeeName?: ModelStringInput | null,
-  amount?: ModelFloatInput | null,
+export type ModelDebtFilterInput = {
+  id?: ModelIDInput | null,
+  tripId?: ModelIDInput | null,
   currency?: ModelStringInput | null,
-  and?: Array< ModelExpenseShareConditionInput | null > | null,
-  or?: Array< ModelExpenseShareConditionInput | null > | null,
-  not?: ModelExpenseShareConditionInput | null,
+  debtor?: ModelStringInput | null,
+  creditor?: ModelStringInput | null,
+  amount?: ModelFloatInput | null,
   createdAt?: ModelStringInput | null,
   updatedAt?: ModelStringInput | null,
+  and?: Array< ModelDebtFilterInput | null > | null,
+  or?: Array< ModelDebtFilterInput | null > | null,
+  not?: ModelDebtFilterInput | null,
 };
 
-export type UpdateExpenseShareInput = {
-  id: string,
-  expenseId?: string | null,
-  payeeName?: string | null,
-  amount?: number | null,
-  currency?: string | null,
-};
-
-export type DeleteExpenseShareInput = {
-  id: string,
+export type ModelDebtConnection = {
+  __typename: "ModelDebtConnection",
+  items:  Array<Debt | null >,
+  nextToken?: string | null,
 };
 
 export type ModelUserFilterInput = {
@@ -565,25 +597,11 @@ export type ModelExpenseFilterInput = {
   amount?: ModelFloatInput | null,
   currency?: ModelStringInput | null,
   paidBy?: ModelStringInput | null,
-  paidByAndAmounts?: ModelStringInput | null,
   createdAt?: ModelStringInput | null,
   updatedAt?: ModelStringInput | null,
   and?: Array< ModelExpenseFilterInput | null > | null,
   or?: Array< ModelExpenseFilterInput | null > | null,
   not?: ModelExpenseFilterInput | null,
-};
-
-export type ModelExpenseShareFilterInput = {
-  id?: ModelIDInput | null,
-  expenseId?: ModelIDInput | null,
-  payeeName?: ModelStringInput | null,
-  amount?: ModelFloatInput | null,
-  currency?: ModelStringInput | null,
-  createdAt?: ModelStringInput | null,
-  updatedAt?: ModelStringInput | null,
-  and?: Array< ModelExpenseShareFilterInput | null > | null,
-  or?: Array< ModelExpenseShareFilterInput | null > | null,
-  not?: ModelExpenseShareFilterInput | null,
 };
 
 export enum ModelSortDirection {
@@ -592,19 +610,17 @@ export enum ModelSortDirection {
 }
 
 
-export type ModelSubscriptionUserFilterInput = {
+export type ModelSubscriptionDebtFilterInput = {
   id?: ModelSubscriptionIDInput | null,
-  username?: ModelSubscriptionStringInput | null,
-  email?: ModelSubscriptionStringInput | null,
-  fullName?: ModelSubscriptionStringInput | null,
-  avatarUrl?: ModelSubscriptionStringInput | null,
-  premiumStatus?: ModelSubscriptionStringInput | null,
-  friends?: ModelSubscriptionStringInput | null,
-  trips?: ModelSubscriptionStringInput | null,
+  tripId?: ModelSubscriptionIDInput | null,
+  currency?: ModelSubscriptionStringInput | null,
+  debtor?: ModelSubscriptionStringInput | null,
+  creditor?: ModelSubscriptionStringInput | null,
+  amount?: ModelSubscriptionFloatInput | null,
   createdAt?: ModelSubscriptionStringInput | null,
   updatedAt?: ModelSubscriptionStringInput | null,
-  and?: Array< ModelSubscriptionUserFilterInput | null > | null,
-  or?: Array< ModelSubscriptionUserFilterInput | null > | null,
+  and?: Array< ModelSubscriptionDebtFilterInput | null > | null,
+  or?: Array< ModelSubscriptionDebtFilterInput | null > | null,
 };
 
 export type ModelSubscriptionIDInput = {
@@ -637,6 +653,33 @@ export type ModelSubscriptionStringInput = {
   notIn?: Array< string | null > | null,
 };
 
+export type ModelSubscriptionFloatInput = {
+  ne?: number | null,
+  eq?: number | null,
+  le?: number | null,
+  lt?: number | null,
+  ge?: number | null,
+  gt?: number | null,
+  between?: Array< number | null > | null,
+  in?: Array< number | null > | null,
+  notIn?: Array< number | null > | null,
+};
+
+export type ModelSubscriptionUserFilterInput = {
+  id?: ModelSubscriptionIDInput | null,
+  username?: ModelSubscriptionStringInput | null,
+  email?: ModelSubscriptionStringInput | null,
+  fullName?: ModelSubscriptionStringInput | null,
+  avatarUrl?: ModelSubscriptionStringInput | null,
+  premiumStatus?: ModelSubscriptionStringInput | null,
+  friends?: ModelSubscriptionStringInput | null,
+  trips?: ModelSubscriptionStringInput | null,
+  createdAt?: ModelSubscriptionStringInput | null,
+  updatedAt?: ModelSubscriptionStringInput | null,
+  and?: Array< ModelSubscriptionUserFilterInput | null > | null,
+  or?: Array< ModelSubscriptionUserFilterInput | null > | null,
+};
+
 export type ModelSubscriptionFriendRequestFilterInput = {
   id?: ModelSubscriptionIDInput | null,
   username?: ModelSubscriptionStringInput | null,
@@ -663,18 +706,6 @@ export type ModelSubscriptionTripFilterInput = {
   updatedAt?: ModelSubscriptionStringInput | null,
   and?: Array< ModelSubscriptionTripFilterInput | null > | null,
   or?: Array< ModelSubscriptionTripFilterInput | null > | null,
-};
-
-export type ModelSubscriptionFloatInput = {
-  ne?: number | null,
-  eq?: number | null,
-  le?: number | null,
-  lt?: number | null,
-  ge?: number | null,
-  gt?: number | null,
-  between?: Array< number | null > | null,
-  in?: Array< number | null > | null,
-  notIn?: Array< number | null > | null,
 };
 
 export type ModelSubscriptionBooleanInput = {
@@ -717,23 +748,67 @@ export type ModelSubscriptionExpenseFilterInput = {
   amount?: ModelSubscriptionFloatInput | null,
   currency?: ModelSubscriptionStringInput | null,
   paidBy?: ModelSubscriptionStringInput | null,
-  paidByAndAmounts?: ModelSubscriptionStringInput | null,
   createdAt?: ModelSubscriptionStringInput | null,
   updatedAt?: ModelSubscriptionStringInput | null,
   and?: Array< ModelSubscriptionExpenseFilterInput | null > | null,
   or?: Array< ModelSubscriptionExpenseFilterInput | null > | null,
 };
 
-export type ModelSubscriptionExpenseShareFilterInput = {
-  id?: ModelSubscriptionIDInput | null,
-  expenseId?: ModelSubscriptionIDInput | null,
-  payeeName?: ModelSubscriptionStringInput | null,
-  amount?: ModelSubscriptionFloatInput | null,
-  currency?: ModelSubscriptionStringInput | null,
-  createdAt?: ModelSubscriptionStringInput | null,
-  updatedAt?: ModelSubscriptionStringInput | null,
-  and?: Array< ModelSubscriptionExpenseShareFilterInput | null > | null,
-  or?: Array< ModelSubscriptionExpenseShareFilterInput | null > | null,
+export type CreateDebtMutationVariables = {
+  input: CreateDebtInput,
+  condition?: ModelDebtConditionInput | null,
+};
+
+export type CreateDebtMutation = {
+  createDebt?:  {
+    __typename: "Debt",
+    id: string,
+    tripId: string,
+    currency: string,
+    debtor: string,
+    creditor: string,
+    amount: number,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
+};
+
+export type UpdateDebtMutationVariables = {
+  input: UpdateDebtInput,
+  condition?: ModelDebtConditionInput | null,
+};
+
+export type UpdateDebtMutation = {
+  updateDebt?:  {
+    __typename: "Debt",
+    id: string,
+    tripId: string,
+    currency: string,
+    debtor: string,
+    creditor: string,
+    amount: number,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
+};
+
+export type DeleteDebtMutationVariables = {
+  input: DeleteDebtInput,
+  condition?: ModelDebtConditionInput | null,
+};
+
+export type DeleteDebtMutation = {
+  deleteDebt?:  {
+    __typename: "Debt",
+    id: string,
+    tripId: string,
+    currency: string,
+    debtor: string,
+    creditor: string,
+    amount: number,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
 };
 
 export type CreateUserMutationVariables = {
@@ -1137,11 +1212,12 @@ export type CreateExpenseMutation = {
     amount: number,
     currency: string,
     paidBy: string,
-    sharedWith?:  {
-      __typename: "ModelExpenseShareConnection",
-      nextToken?: string | null,
-    } | null,
-    paidByAndAmounts?: string | null,
+    sharedWith?:  Array< {
+      __typename: "SharedWith",
+      payeeName: string,
+      amount: number,
+      currency: string,
+    } > | null,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -1176,11 +1252,12 @@ export type UpdateExpenseMutation = {
     amount: number,
     currency: string,
     paidBy: string,
-    sharedWith?:  {
-      __typename: "ModelExpenseShareConnection",
-      nextToken?: string | null,
-    } | null,
-    paidByAndAmounts?: string | null,
+    sharedWith?:  Array< {
+      __typename: "SharedWith",
+      payeeName: string,
+      amount: number,
+      currency: string,
+    } > | null,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -1215,103 +1292,56 @@ export type DeleteExpenseMutation = {
     amount: number,
     currency: string,
     paidBy: string,
-    sharedWith?:  {
-      __typename: "ModelExpenseShareConnection",
-      nextToken?: string | null,
-    } | null,
-    paidByAndAmounts?: string | null,
+    sharedWith?:  Array< {
+      __typename: "SharedWith",
+      payeeName: string,
+      amount: number,
+      currency: string,
+    } > | null,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
 };
 
-export type CreateExpenseShareMutationVariables = {
-  input: CreateExpenseShareInput,
-  condition?: ModelExpenseShareConditionInput | null,
+export type GetDebtQueryVariables = {
+  id: string,
 };
 
-export type CreateExpenseShareMutation = {
-  createExpenseShare?:  {
-    __typename: "ExpenseShare",
+export type GetDebtQuery = {
+  getDebt?:  {
+    __typename: "Debt",
     id: string,
-    expenseId: string,
-    expense?:  {
-      __typename: "Expense",
-      id: string,
-      tripId: string,
-      activityName: string,
-      amount: number,
-      currency: string,
-      paidBy: string,
-      paidByAndAmounts?: string | null,
-      createdAt?: string | null,
-      updatedAt?: string | null,
-    } | null,
-    payeeName: string,
-    amount: number,
+    tripId: string,
     currency: string,
-    createdAt: string,
-    updatedAt: string,
+    debtor: string,
+    creditor: string,
+    amount: number,
+    createdAt?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
-export type UpdateExpenseShareMutationVariables = {
-  input: UpdateExpenseShareInput,
-  condition?: ModelExpenseShareConditionInput | null,
+export type ListDebtsQueryVariables = {
+  filter?: ModelDebtFilterInput | null,
+  limit?: number | null,
+  nextToken?: string | null,
 };
 
-export type UpdateExpenseShareMutation = {
-  updateExpenseShare?:  {
-    __typename: "ExpenseShare",
-    id: string,
-    expenseId: string,
-    expense?:  {
-      __typename: "Expense",
+export type ListDebtsQuery = {
+  listDebts?:  {
+    __typename: "ModelDebtConnection",
+    items:  Array< {
+      __typename: "Debt",
       id: string,
       tripId: string,
-      activityName: string,
-      amount: number,
       currency: string,
-      paidBy: string,
-      paidByAndAmounts?: string | null,
+      debtor: string,
+      creditor: string,
+      amount: number,
       createdAt?: string | null,
       updatedAt?: string | null,
-    } | null,
-    payeeName: string,
-    amount: number,
-    currency: string,
-    createdAt: string,
-    updatedAt: string,
-  } | null,
-};
-
-export type DeleteExpenseShareMutationVariables = {
-  input: DeleteExpenseShareInput,
-  condition?: ModelExpenseShareConditionInput | null,
-};
-
-export type DeleteExpenseShareMutation = {
-  deleteExpenseShare?:  {
-    __typename: "ExpenseShare",
-    id: string,
-    expenseId: string,
-    expense?:  {
-      __typename: "Expense",
-      id: string,
-      tripId: string,
-      activityName: string,
-      amount: number,
-      currency: string,
-      paidBy: string,
-      paidByAndAmounts?: string | null,
-      createdAt?: string | null,
-      updatedAt?: string | null,
-    } | null,
-    payeeName: string,
-    amount: number,
-    currency: string,
-    createdAt: string,
-    updatedAt: string,
+    } | null >,
+    nextToken?: string | null,
   } | null,
 };
 
@@ -1566,11 +1596,12 @@ export type GetExpenseQuery = {
     amount: number,
     currency: string,
     paidBy: string,
-    sharedWith?:  {
-      __typename: "ModelExpenseShareConnection",
-      nextToken?: string | null,
-    } | null,
-    paidByAndAmounts?: string | null,
+    sharedWith?:  Array< {
+      __typename: "SharedWith",
+      payeeName: string,
+      amount: number,
+      currency: string,
+    } > | null,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -1593,61 +1624,8 @@ export type ListExpensesQuery = {
       amount: number,
       currency: string,
       paidBy: string,
-      paidByAndAmounts?: string | null,
       createdAt?: string | null,
       updatedAt?: string | null,
-    } | null >,
-    nextToken?: string | null,
-  } | null,
-};
-
-export type GetExpenseShareQueryVariables = {
-  id: string,
-};
-
-export type GetExpenseShareQuery = {
-  getExpenseShare?:  {
-    __typename: "ExpenseShare",
-    id: string,
-    expenseId: string,
-    expense?:  {
-      __typename: "Expense",
-      id: string,
-      tripId: string,
-      activityName: string,
-      amount: number,
-      currency: string,
-      paidBy: string,
-      paidByAndAmounts?: string | null,
-      createdAt?: string | null,
-      updatedAt?: string | null,
-    } | null,
-    payeeName: string,
-    amount: number,
-    currency: string,
-    createdAt: string,
-    updatedAt: string,
-  } | null,
-};
-
-export type ListExpenseSharesQueryVariables = {
-  filter?: ModelExpenseShareFilterInput | null,
-  limit?: number | null,
-  nextToken?: string | null,
-};
-
-export type ListExpenseSharesQuery = {
-  listExpenseShares?:  {
-    __typename: "ModelExpenseShareConnection",
-    items:  Array< {
-      __typename: "ExpenseShare",
-      id: string,
-      expenseId: string,
-      payeeName: string,
-      amount: number,
-      currency: string,
-      createdAt: string,
-      updatedAt: string,
     } | null >,
     nextToken?: string | null,
   } | null,
@@ -1788,7 +1766,6 @@ export type GetExpensesByTripQuery = {
       amount: number,
       currency: string,
       paidBy: string,
-      paidByAndAmounts?: string | null,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null >,
@@ -1796,28 +1773,57 @@ export type GetExpensesByTripQuery = {
   } | null,
 };
 
-export type GetSharesByExpenseQueryVariables = {
-  expenseId: string,
-  sortDirection?: ModelSortDirection | null,
-  filter?: ModelExpenseShareFilterInput | null,
-  limit?: number | null,
-  nextToken?: string | null,
+export type OnCreateDebtSubscriptionVariables = {
+  filter?: ModelSubscriptionDebtFilterInput | null,
 };
 
-export type GetSharesByExpenseQuery = {
-  getSharesByExpense?:  {
-    __typename: "ModelExpenseShareConnection",
-    items:  Array< {
-      __typename: "ExpenseShare",
-      id: string,
-      expenseId: string,
-      payeeName: string,
-      amount: number,
-      currency: string,
-      createdAt: string,
-      updatedAt: string,
-    } | null >,
-    nextToken?: string | null,
+export type OnCreateDebtSubscription = {
+  onCreateDebt?:  {
+    __typename: "Debt",
+    id: string,
+    tripId: string,
+    currency: string,
+    debtor: string,
+    creditor: string,
+    amount: number,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
+};
+
+export type OnUpdateDebtSubscriptionVariables = {
+  filter?: ModelSubscriptionDebtFilterInput | null,
+};
+
+export type OnUpdateDebtSubscription = {
+  onUpdateDebt?:  {
+    __typename: "Debt",
+    id: string,
+    tripId: string,
+    currency: string,
+    debtor: string,
+    creditor: string,
+    amount: number,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
+};
+
+export type OnDeleteDebtSubscriptionVariables = {
+  filter?: ModelSubscriptionDebtFilterInput | null,
+};
+
+export type OnDeleteDebtSubscription = {
+  onDeleteDebt?:  {
+    __typename: "Debt",
+    id: string,
+    tripId: string,
+    currency: string,
+    debtor: string,
+    creditor: string,
+    amount: number,
+    createdAt?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -2209,11 +2215,12 @@ export type OnCreateExpenseSubscription = {
     amount: number,
     currency: string,
     paidBy: string,
-    sharedWith?:  {
-      __typename: "ModelExpenseShareConnection",
-      nextToken?: string | null,
-    } | null,
-    paidByAndAmounts?: string | null,
+    sharedWith?:  Array< {
+      __typename: "SharedWith",
+      payeeName: string,
+      amount: number,
+      currency: string,
+    } > | null,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -2247,11 +2254,12 @@ export type OnUpdateExpenseSubscription = {
     amount: number,
     currency: string,
     paidBy: string,
-    sharedWith?:  {
-      __typename: "ModelExpenseShareConnection",
-      nextToken?: string | null,
-    } | null,
-    paidByAndAmounts?: string | null,
+    sharedWith?:  Array< {
+      __typename: "SharedWith",
+      payeeName: string,
+      amount: number,
+      currency: string,
+    } > | null,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -2285,99 +2293,13 @@ export type OnDeleteExpenseSubscription = {
     amount: number,
     currency: string,
     paidBy: string,
-    sharedWith?:  {
-      __typename: "ModelExpenseShareConnection",
-      nextToken?: string | null,
-    } | null,
-    paidByAndAmounts?: string | null,
+    sharedWith?:  Array< {
+      __typename: "SharedWith",
+      payeeName: string,
+      amount: number,
+      currency: string,
+    } > | null,
     createdAt?: string | null,
     updatedAt?: string | null,
-  } | null,
-};
-
-export type OnCreateExpenseShareSubscriptionVariables = {
-  filter?: ModelSubscriptionExpenseShareFilterInput | null,
-};
-
-export type OnCreateExpenseShareSubscription = {
-  onCreateExpenseShare?:  {
-    __typename: "ExpenseShare",
-    id: string,
-    expenseId: string,
-    expense?:  {
-      __typename: "Expense",
-      id: string,
-      tripId: string,
-      activityName: string,
-      amount: number,
-      currency: string,
-      paidBy: string,
-      paidByAndAmounts?: string | null,
-      createdAt?: string | null,
-      updatedAt?: string | null,
-    } | null,
-    payeeName: string,
-    amount: number,
-    currency: string,
-    createdAt: string,
-    updatedAt: string,
-  } | null,
-};
-
-export type OnUpdateExpenseShareSubscriptionVariables = {
-  filter?: ModelSubscriptionExpenseShareFilterInput | null,
-};
-
-export type OnUpdateExpenseShareSubscription = {
-  onUpdateExpenseShare?:  {
-    __typename: "ExpenseShare",
-    id: string,
-    expenseId: string,
-    expense?:  {
-      __typename: "Expense",
-      id: string,
-      tripId: string,
-      activityName: string,
-      amount: number,
-      currency: string,
-      paidBy: string,
-      paidByAndAmounts?: string | null,
-      createdAt?: string | null,
-      updatedAt?: string | null,
-    } | null,
-    payeeName: string,
-    amount: number,
-    currency: string,
-    createdAt: string,
-    updatedAt: string,
-  } | null,
-};
-
-export type OnDeleteExpenseShareSubscriptionVariables = {
-  filter?: ModelSubscriptionExpenseShareFilterInput | null,
-};
-
-export type OnDeleteExpenseShareSubscription = {
-  onDeleteExpenseShare?:  {
-    __typename: "ExpenseShare",
-    id: string,
-    expenseId: string,
-    expense?:  {
-      __typename: "Expense",
-      id: string,
-      tripId: string,
-      activityName: string,
-      amount: number,
-      currency: string,
-      paidBy: string,
-      paidByAndAmounts?: string | null,
-      createdAt?: string | null,
-      updatedAt?: string | null,
-    } | null,
-    payeeName: string,
-    amount: number,
-    currency: string,
-    createdAt: string,
-    updatedAt: string,
   } | null,
 };

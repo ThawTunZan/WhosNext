@@ -6,6 +6,35 @@ import { syncUserProfileToDynamoDB } from '@/src/services/syncUserProfile';
 
 const UserTripsContext = createContext(null);
 
+const cleanGraphQLData = (obj: any): any => {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(cleanGraphQLData);
+  }
+
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      // Skip GraphQL and AWS metadata fields
+      if (key === '__typename' || 
+          key === 'nextToken' || 
+          key === '_version' || 
+          key === '_deleted' ||
+          key === '_lastChangedAt') {
+        continue;
+      }
+      cleaned[key] = cleanGraphQLData(value);
+    }
+    return cleaned;
+  }
+
+  return obj;
+};
+
+
 export const UserTripsProvider = ({ children }) => {
   const { isLoaded, isSignedIn, user } = useUser();
   const [userData, setUserData] = useState(null);
@@ -31,7 +60,7 @@ export const UserTripsProvider = ({ children }) => {
         }
       });
 
-      const userMemberships = membersResponse.data.listMembers.items;
+      const userMemberships = cleanGraphQLData(membersResponse.data.listMembers.items);
       const tripIds = userMemberships.map(member => member.tripId);
 
       if (tripIds.length === 0) {
@@ -56,7 +85,9 @@ export const UserTripsProvider = ({ children }) => {
       );
 
       const tripResponses = await Promise.all(tripPromises);
-      const allTrips = tripResponses.map(res => res.data.getTrip).filter(Boolean);
+      const allTrips = tripResponses
+      .map(res => cleanGraphQLData(res.data.getTrip))
+      .filter(Boolean);
 
       const membersByTripId: Record<string, any[]> = {};
       for (const tripId of tripIds) {
@@ -64,7 +95,7 @@ export const UserTripsProvider = ({ children }) => {
           query: listMembers,
           variables: { filter: { tripId: { eq: tripId } } }
         });
-        membersByTripId[tripId] = membersResp.data.listMembers.items || [];
+        membersByTripId[tripId] = cleanGraphQLData(membersResp.data.listMembers.items) || [];
       }
 
       setTripMembersMap(membersByTripId);

@@ -19,7 +19,6 @@ import ReceiptSection from "@/app/screens/trip/ReceiptSection";
 import InviteSection from "@/src/components/Trip/Invite/InviteSection";
 import ChooseExistingOrNew from "@/src/components/Common/ChooseExistingOrNew";
 
-import { calculateNextPayer } from "@/src/components/Trip/Expenses/utilities/expenseService";
 import { TripHandler } from "@/src/utilities/TripHandler";
 import { AddMemberType } from "@/src/types/DataTypes";
 import TripLeaderboard from "@/app/screens/trip/TripLeaderboard";

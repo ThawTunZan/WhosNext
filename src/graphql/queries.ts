@@ -8,6 +8,42 @@ type GeneratedQuery<InputType, OutputType> = string & {
   __generatedQueryOutput: OutputType;
 };
 
+export const getDebt = /* GraphQL */ `query GetDebt($id: ID!) {
+  getDebt(id: $id) {
+    id
+    tripId
+    currency
+    debtor
+    creditor
+    amount
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedQuery<APITypes.GetDebtQueryVariables, APITypes.GetDebtQuery>;
+export const listDebts = /* GraphQL */ `query ListDebts(
+  $filter: ModelDebtFilterInput
+  $limit: Int
+  $nextToken: String
+) {
+  listDebts(filter: $filter, limit: $limit, nextToken: $nextToken) {
+    items {
+      id
+      tripId
+      currency
+      debtor
+      creditor
+      amount
+      createdAt
+      updatedAt
+      __typename
+    }
+    nextToken
+    __typename
+  }
+}
+` as GeneratedQuery<APITypes.ListDebtsQueryVariables, APITypes.ListDebtsQuery>;
 export const getUser = /* GraphQL */ `query GetUser($id: ID!) {
   getUser(id: $id) {
     id
@@ -240,10 +276,11 @@ export const getExpense = /* GraphQL */ `query GetExpense($id: ID!) {
     currency
     paidBy
     sharedWith {
-      nextToken
+      payeeName
+      amount
+      currency
       __typename
     }
-    paidByAndAmounts
     createdAt
     updatedAt
     __typename
@@ -266,7 +303,6 @@ export const listExpenses = /* GraphQL */ `query ListExpenses(
       amount
       currency
       paidBy
-      paidByAndAmounts
       createdAt
       updatedAt
       __typename
@@ -278,58 +314,6 @@ export const listExpenses = /* GraphQL */ `query ListExpenses(
 ` as GeneratedQuery<
   APITypes.ListExpensesQueryVariables,
   APITypes.ListExpensesQuery
->;
-export const getExpenseShare = /* GraphQL */ `query GetExpenseShare($id: ID!) {
-  getExpenseShare(id: $id) {
-    id
-    expenseId
-    expense {
-      id
-      tripId
-      activityName
-      amount
-      currency
-      paidBy
-      paidByAndAmounts
-      createdAt
-      updatedAt
-      __typename
-    }
-    payeeName
-    amount
-    currency
-    createdAt
-    updatedAt
-    __typename
-  }
-}
-` as GeneratedQuery<
-  APITypes.GetExpenseShareQueryVariables,
-  APITypes.GetExpenseShareQuery
->;
-export const listExpenseShares = /* GraphQL */ `query ListExpenseShares(
-  $filter: ModelExpenseShareFilterInput
-  $limit: Int
-  $nextToken: String
-) {
-  listExpenseShares(filter: $filter, limit: $limit, nextToken: $nextToken) {
-    items {
-      id
-      expenseId
-      payeeName
-      amount
-      currency
-      createdAt
-      updatedAt
-      __typename
-    }
-    nextToken
-    __typename
-  }
-}
-` as GeneratedQuery<
-  APITypes.ListExpenseSharesQueryVariables,
-  APITypes.ListExpenseSharesQuery
 >;
 export const getUserByUsername = /* GraphQL */ `query GetUserByUsername(
   $username: String!
@@ -496,7 +480,6 @@ export const getExpensesByTrip = /* GraphQL */ `query GetExpensesByTrip(
       amount
       currency
       paidBy
-      paidByAndAmounts
       createdAt
       updatedAt
       __typename
@@ -508,36 +491,4 @@ export const getExpensesByTrip = /* GraphQL */ `query GetExpensesByTrip(
 ` as GeneratedQuery<
   APITypes.GetExpensesByTripQueryVariables,
   APITypes.GetExpensesByTripQuery
->;
-export const getSharesByExpense = /* GraphQL */ `query GetSharesByExpense(
-  $expenseId: ID!
-  $sortDirection: ModelSortDirection
-  $filter: ModelExpenseShareFilterInput
-  $limit: Int
-  $nextToken: String
-) {
-  getSharesByExpense(
-    expenseId: $expenseId
-    sortDirection: $sortDirection
-    filter: $filter
-    limit: $limit
-    nextToken: $nextToken
-  ) {
-    items {
-      id
-      expenseId
-      payeeName
-      amount
-      currency
-      createdAt
-      updatedAt
-      __typename
-    }
-    nextToken
-    __typename
-  }
-}
-` as GeneratedQuery<
-  APITypes.GetSharesByExpenseQueryVariables,
-  APITypes.GetSharesByExpenseQuery
 >;

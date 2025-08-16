@@ -8,6 +8,57 @@ type GeneratedSubscription<InputType, OutputType> = string & {
   __generatedSubscriptionOutput: OutputType;
 };
 
+export const onCreateDebt = /* GraphQL */ `subscription OnCreateDebt($filter: ModelSubscriptionDebtFilterInput) {
+  onCreateDebt(filter: $filter) {
+    id
+    tripId
+    currency
+    debtor
+    creditor
+    amount
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnCreateDebtSubscriptionVariables,
+  APITypes.OnCreateDebtSubscription
+>;
+export const onUpdateDebt = /* GraphQL */ `subscription OnUpdateDebt($filter: ModelSubscriptionDebtFilterInput) {
+  onUpdateDebt(filter: $filter) {
+    id
+    tripId
+    currency
+    debtor
+    creditor
+    amount
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnUpdateDebtSubscriptionVariables,
+  APITypes.OnUpdateDebtSubscription
+>;
+export const onDeleteDebt = /* GraphQL */ `subscription OnDeleteDebt($filter: ModelSubscriptionDebtFilterInput) {
+  onDeleteDebt(filter: $filter) {
+    id
+    tripId
+    currency
+    debtor
+    creditor
+    amount
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnDeleteDebtSubscriptionVariables,
+  APITypes.OnDeleteDebtSubscription
+>;
 export const onCreateUser = /* GraphQL */ `subscription OnCreateUser($filter: ModelSubscriptionUserFilterInput) {
   onCreateUser(filter: $filter) {
     id
@@ -386,10 +437,11 @@ export const onCreateExpense = /* GraphQL */ `subscription OnCreateExpense($filt
     currency
     paidBy
     sharedWith {
-      nextToken
+      payeeName
+      amount
+      currency
       __typename
     }
-    paidByAndAmounts
     createdAt
     updatedAt
     __typename
@@ -423,10 +475,11 @@ export const onUpdateExpense = /* GraphQL */ `subscription OnUpdateExpense($filt
     currency
     paidBy
     sharedWith {
-      nextToken
+      payeeName
+      amount
+      currency
       __typename
     }
-    paidByAndAmounts
     createdAt
     updatedAt
     __typename
@@ -460,10 +513,11 @@ export const onDeleteExpense = /* GraphQL */ `subscription OnDeleteExpense($filt
     currency
     paidBy
     sharedWith {
-      nextToken
+      payeeName
+      amount
+      currency
       __typename
     }
-    paidByAndAmounts
     createdAt
     updatedAt
     __typename
@@ -472,94 +526,4 @@ export const onDeleteExpense = /* GraphQL */ `subscription OnDeleteExpense($filt
 ` as GeneratedSubscription<
   APITypes.OnDeleteExpenseSubscriptionVariables,
   APITypes.OnDeleteExpenseSubscription
->;
-export const onCreateExpenseShare = /* GraphQL */ `subscription OnCreateExpenseShare(
-  $filter: ModelSubscriptionExpenseShareFilterInput
-) {
-  onCreateExpenseShare(filter: $filter) {
-    id
-    expenseId
-    expense {
-      id
-      tripId
-      activityName
-      amount
-      currency
-      paidBy
-      paidByAndAmounts
-      createdAt
-      updatedAt
-      __typename
-    }
-    payeeName
-    amount
-    currency
-    createdAt
-    updatedAt
-    __typename
-  }
-}
-` as GeneratedSubscription<
-  APITypes.OnCreateExpenseShareSubscriptionVariables,
-  APITypes.OnCreateExpenseShareSubscription
->;
-export const onUpdateExpenseShare = /* GraphQL */ `subscription OnUpdateExpenseShare(
-  $filter: ModelSubscriptionExpenseShareFilterInput
-) {
-  onUpdateExpenseShare(filter: $filter) {
-    id
-    expenseId
-    expense {
-      id
-      tripId
-      activityName
-      amount
-      currency
-      paidBy
-      paidByAndAmounts
-      createdAt
-      updatedAt
-      __typename
-    }
-    payeeName
-    amount
-    currency
-    createdAt
-    updatedAt
-    __typename
-  }
-}
-` as GeneratedSubscription<
-  APITypes.OnUpdateExpenseShareSubscriptionVariables,
-  APITypes.OnUpdateExpenseShareSubscription
->;
-export const onDeleteExpenseShare = /* GraphQL */ `subscription OnDeleteExpenseShare(
-  $filter: ModelSubscriptionExpenseShareFilterInput
-) {
-  onDeleteExpenseShare(filter: $filter) {
-    id
-    expenseId
-    expense {
-      id
-      tripId
-      activityName
-      amount
-      currency
-      paidBy
-      paidByAndAmounts
-      createdAt
-      updatedAt
-      __typename
-    }
-    payeeName
-    amount
-    currency
-    createdAt
-    updatedAt
-    __typename
-  }
-}
-` as GeneratedSubscription<
-  APITypes.OnDeleteExpenseShareSubscriptionVariables,
-  APITypes.OnDeleteExpenseShareSubscription
 >;

@@ -23,9 +23,10 @@ const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const {expenses, loading: isLoading, error} = useTripExpensesContext();
-  const {trips} = useUserTripsContext()
+  const {trips, tripMembersMap} = useUserTripsContext()
   const trip = trips.find(t => t.id === tripId)
-  const members = trip.members;
+
+  const members = tripMembersMap[tripId]
 
   const [addExpenseModalVisible, setAddExpenseModalVisible] = useState(false);
   const [initialExpenseData, setInitialExpenseData] = useState<Partial<Expense> | null>(null);
@@ -208,7 +209,6 @@ const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
         tripId={tripId}
         initialData={initialExpenseData}
         editingExpenseId={editingExpenseId}
-        trip={trip}
         onWatchAd={() => {
           // TODO: Implement ad watching functionality
           console.log('Watch ad functionality not implemented yet');

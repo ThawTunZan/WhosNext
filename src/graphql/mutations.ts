@@ -8,6 +8,66 @@ type GeneratedMutation<InputType, OutputType> = string & {
   __generatedMutationOutput: OutputType;
 };
 
+export const createDebt = /* GraphQL */ `mutation CreateDebt(
+  $input: CreateDebtInput!
+  $condition: ModelDebtConditionInput
+) {
+  createDebt(input: $input, condition: $condition) {
+    id
+    tripId
+    currency
+    debtor
+    creditor
+    amount
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedMutation<
+  APITypes.CreateDebtMutationVariables,
+  APITypes.CreateDebtMutation
+>;
+export const updateDebt = /* GraphQL */ `mutation UpdateDebt(
+  $input: UpdateDebtInput!
+  $condition: ModelDebtConditionInput
+) {
+  updateDebt(input: $input, condition: $condition) {
+    id
+    tripId
+    currency
+    debtor
+    creditor
+    amount
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedMutation<
+  APITypes.UpdateDebtMutationVariables,
+  APITypes.UpdateDebtMutation
+>;
+export const deleteDebt = /* GraphQL */ `mutation DeleteDebt(
+  $input: DeleteDebtInput!
+  $condition: ModelDebtConditionInput
+) {
+  deleteDebt(input: $input, condition: $condition) {
+    id
+    tripId
+    currency
+    debtor
+    creditor
+    amount
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedMutation<
+  APITypes.DeleteDebtMutationVariables,
+  APITypes.DeleteDebtMutation
+>;
 export const createUser = /* GraphQL */ `mutation CreateUser(
   $input: CreateUserInput!
   $condition: ModelUserConditionInput
@@ -419,10 +479,11 @@ export const createExpense = /* GraphQL */ `mutation CreateExpense(
     currency
     paidBy
     sharedWith {
-      nextToken
+      payeeName
+      amount
+      currency
       __typename
     }
-    paidByAndAmounts
     createdAt
     updatedAt
     __typename
@@ -459,10 +520,11 @@ export const updateExpense = /* GraphQL */ `mutation UpdateExpense(
     currency
     paidBy
     sharedWith {
-      nextToken
+      payeeName
+      amount
+      currency
       __typename
     }
-    paidByAndAmounts
     createdAt
     updatedAt
     __typename
@@ -499,10 +561,11 @@ export const deleteExpense = /* GraphQL */ `mutation DeleteExpense(
     currency
     paidBy
     sharedWith {
-      nextToken
+      payeeName
+      amount
+      currency
       __typename
     }
-    paidByAndAmounts
     createdAt
     updatedAt
     __typename
@@ -511,97 +574,4 @@ export const deleteExpense = /* GraphQL */ `mutation DeleteExpense(
 ` as GeneratedMutation<
   APITypes.DeleteExpenseMutationVariables,
   APITypes.DeleteExpenseMutation
->;
-export const createExpenseShare = /* GraphQL */ `mutation CreateExpenseShare(
-  $input: CreateExpenseShareInput!
-  $condition: ModelExpenseShareConditionInput
-) {
-  createExpenseShare(input: $input, condition: $condition) {
-    id
-    expenseId
-    expense {
-      id
-      tripId
-      activityName
-      amount
-      currency
-      paidBy
-      paidByAndAmounts
-      createdAt
-      updatedAt
-      __typename
-    }
-    payeeName
-    amount
-    currency
-    createdAt
-    updatedAt
-    __typename
-  }
-}
-` as GeneratedMutation<
-  APITypes.CreateExpenseShareMutationVariables,
-  APITypes.CreateExpenseShareMutation
->;
-export const updateExpenseShare = /* GraphQL */ `mutation UpdateExpenseShare(
-  $input: UpdateExpenseShareInput!
-  $condition: ModelExpenseShareConditionInput
-) {
-  updateExpenseShare(input: $input, condition: $condition) {
-    id
-    expenseId
-    expense {
-      id
-      tripId
-      activityName
-      amount
-      currency
-      paidBy
-      paidByAndAmounts
-      createdAt
-      updatedAt
-      __typename
-    }
-    payeeName
-    amount
-    currency
-    createdAt
-    updatedAt
-    __typename
-  }
-}
-` as GeneratedMutation<
-  APITypes.UpdateExpenseShareMutationVariables,
-  APITypes.UpdateExpenseShareMutation
->;
-export const deleteExpenseShare = /* GraphQL */ `mutation DeleteExpenseShare(
-  $input: DeleteExpenseShareInput!
-  $condition: ModelExpenseShareConditionInput
-) {
-  deleteExpenseShare(input: $input, condition: $condition) {
-    id
-    expenseId
-    expense {
-      id
-      tripId
-      activityName
-      amount
-      currency
-      paidBy
-      paidByAndAmounts
-      createdAt
-      updatedAt
-      __typename
-    }
-    payeeName
-    amount
-    currency
-    createdAt
-    updatedAt
-    __typename
-  }
-}
-` as GeneratedMutation<
-  APITypes.DeleteExpenseShareMutationVariables,
-  APITypes.DeleteExpenseShareMutation
 >;

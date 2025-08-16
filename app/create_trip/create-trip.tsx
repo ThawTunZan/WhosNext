@@ -196,7 +196,7 @@ export default function CreateTripScreen() {
         variables: { input: memberInput }
       });
     
-      console.log("Member created:", memberResponse.data.createMember);
+      console.log("[create-trip.tsx] Member created:", memberResponse.data.createMember);
       await fetchTrips();
     
       // Done — navigate to home

@@ -39,7 +39,7 @@ const ExpenseList = memo(({
 
   const searchFields = (expense: Expense) => [
     expense.activityName,
-    expense.paidByAndAmounts[0]?.memberName || ''
+    expense.paidBy || ''
   ];
 
   const sections = groupByDate(expenses);
