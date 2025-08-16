@@ -18,12 +18,12 @@ import {
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useTrips } from '@/src/hooks/useTrips';
 import { useUser } from '@clerk/clerk-expo';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 // Currency symbol and name mapping for supported currencies only
 const CURRENCY_INFO = {
@@ -40,7 +40,7 @@ const CARD_WIDTH = width - (CARD_PADDING * 2);
 
 export default function TripsScreen() {
   const router = useRouter();
-  const { trips, isTripsLoading } = useTrips();
+  const {trips, loading: isTripsLoading} = useUserTripsContext()
   const { isLoaded, isSignedIn } = useUser();
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
@@ -85,7 +85,7 @@ export default function TripsScreen() {
                 <Text style={styles.emoji}>✈️</Text>
                 <View>
                   <Text style={[styles.destination, { color: theme.colors.text }]}>
-                    {item.destination}
+                    {item.name}
                   </Text>
                   {dateLabel && (
                     <Text style={{ color: theme.colors.subtext, fontSize: 13, marginTop: 2 }}>{dateLabel}</Text>
@@ -93,7 +93,7 @@ export default function TripsScreen() {
                 </View>
               </View>
             </View>
-
+{/*
             <View style={styles.cardContent}>
               <View style={styles.budgetInfo}>
                 <Text style={[styles.label, { color: theme.colors.subtext }]}>Total Budget</Text>
@@ -120,7 +120,9 @@ export default function TripsScreen() {
                 ]} 
               />
             </View>
+            */ }
           </View>
+          
         </Surface>
       </Pressable>
     );

@@ -41,12 +41,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { PremiumStatus } from '@/src/types/DataTypes';
 
 type Props = { tripId: string }
-type Expense = { id: string; activityName: string, paidById?: string }
-
-type TripInfo = {
-  premiumStatus: string;
-  destination?: string;
-}
 
 export default function ReceiptSection({ tripId }: Props) {
   const { isDarkMode } = useCustomTheme();

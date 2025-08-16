@@ -25,16 +25,13 @@ export default function ExpenseCard({
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
 
-  // Get array of payer names for this expense
   const paidByNames = expense.paidByAndAmounts.map(p => p.memberName || 'Someone').join(',  ');
 
-  // Calculate total shared amount
   const totalShared = expense.paidByAndAmounts.reduce(
     (sum, object) => sum + (typeof object.amount === 'number' ? object.amount : parseFloat(object.amount) || 0),
     0
   );
   
-  // Improved date formatting logic
   const formatDate = (dateValue: Date | Timestamp | string | null | undefined) => {
     if (!dateValue) return '';
     

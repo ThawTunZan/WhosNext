@@ -8,11 +8,174 @@ type GeneratedSubscription<InputType, OutputType> = string & {
   __generatedSubscriptionOutput: OutputType;
 };
 
+export const onCreateUser = /* GraphQL */ `subscription OnCreateUser($filter: ModelSubscriptionUserFilterInput) {
+  onCreateUser(filter: $filter) {
+    id
+    username
+    email
+    fullName
+    avatarUrl
+    premiumStatus
+    friends
+    incomingFriendRequests {
+      id
+      username
+      status
+      timestamp
+      createdAt
+      updatedAt
+      __typename
+    }
+    outgoingFriendRequests {
+      id
+      username
+      status
+      timestamp
+      createdAt
+      updatedAt
+      __typename
+    }
+    trips
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnCreateUserSubscriptionVariables,
+  APITypes.OnCreateUserSubscription
+>;
+export const onUpdateUser = /* GraphQL */ `subscription OnUpdateUser($filter: ModelSubscriptionUserFilterInput) {
+  onUpdateUser(filter: $filter) {
+    id
+    username
+    email
+    fullName
+    avatarUrl
+    premiumStatus
+    friends
+    incomingFriendRequests {
+      id
+      username
+      status
+      timestamp
+      createdAt
+      updatedAt
+      __typename
+    }
+    outgoingFriendRequests {
+      id
+      username
+      status
+      timestamp
+      createdAt
+      updatedAt
+      __typename
+    }
+    trips
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnUpdateUserSubscriptionVariables,
+  APITypes.OnUpdateUserSubscription
+>;
+export const onDeleteUser = /* GraphQL */ `subscription OnDeleteUser($filter: ModelSubscriptionUserFilterInput) {
+  onDeleteUser(filter: $filter) {
+    id
+    username
+    email
+    fullName
+    avatarUrl
+    premiumStatus
+    friends
+    incomingFriendRequests {
+      id
+      username
+      status
+      timestamp
+      createdAt
+      updatedAt
+      __typename
+    }
+    outgoingFriendRequests {
+      id
+      username
+      status
+      timestamp
+      createdAt
+      updatedAt
+      __typename
+    }
+    trips
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnDeleteUserSubscriptionVariables,
+  APITypes.OnDeleteUserSubscription
+>;
+export const onCreateFriendRequest = /* GraphQL */ `subscription OnCreateFriendRequest(
+  $filter: ModelSubscriptionFriendRequestFilterInput
+) {
+  onCreateFriendRequest(filter: $filter) {
+    id
+    username
+    status
+    timestamp
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnCreateFriendRequestSubscriptionVariables,
+  APITypes.OnCreateFriendRequestSubscription
+>;
+export const onUpdateFriendRequest = /* GraphQL */ `subscription OnUpdateFriendRequest(
+  $filter: ModelSubscriptionFriendRequestFilterInput
+) {
+  onUpdateFriendRequest(filter: $filter) {
+    id
+    username
+    status
+    timestamp
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnUpdateFriendRequestSubscriptionVariables,
+  APITypes.OnUpdateFriendRequestSubscription
+>;
+export const onDeleteFriendRequest = /* GraphQL */ `subscription OnDeleteFriendRequest(
+  $filter: ModelSubscriptionFriendRequestFilterInput
+) {
+  onDeleteFriendRequest(filter: $filter) {
+    id
+    username
+    status
+    timestamp
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnDeleteFriendRequestSubscriptionVariables,
+  APITypes.OnDeleteFriendRequestSubscription
+>;
 export const onCreateTrip = /* GraphQL */ `subscription OnCreateTrip($filter: ModelSubscriptionTripFilterInput) {
   onCreateTrip(filter: $filter) {
     id
     name
     currency
+    createdBy
     members {
       nextToken
       __typename
@@ -23,6 +186,10 @@ export const onCreateTrip = /* GraphQL */ `subscription OnCreateTrip($filter: Mo
     }
     debts
     totalAmtLeft
+    totalBudget
+    startDate
+    endDate
+    isTripPremium
     createdAt
     updatedAt
     __typename
@@ -37,6 +204,7 @@ export const onUpdateTrip = /* GraphQL */ `subscription OnUpdateTrip($filter: Mo
     id
     name
     currency
+    createdBy
     members {
       nextToken
       __typename
@@ -47,6 +215,10 @@ export const onUpdateTrip = /* GraphQL */ `subscription OnUpdateTrip($filter: Mo
     }
     debts
     totalAmtLeft
+    totalBudget
+    startDate
+    endDate
+    isTripPremium
     createdAt
     updatedAt
     __typename
@@ -61,6 +233,7 @@ export const onDeleteTrip = /* GraphQL */ `subscription OnDeleteTrip($filter: Mo
     id
     name
     currency
+    createdBy
     members {
       nextToken
       __typename
@@ -71,6 +244,10 @@ export const onDeleteTrip = /* GraphQL */ `subscription OnDeleteTrip($filter: Mo
     }
     debts
     totalAmtLeft
+    totalBudget
+    startDate
+    endDate
+    isTripPremium
     createdAt
     updatedAt
     __typename
@@ -90,17 +267,24 @@ export const onCreateMember = /* GraphQL */ `subscription OnCreateMember($filter
       id
       name
       currency
+      createdBy
       debts
       totalAmtLeft
+      totalBudget
+      startDate
+      endDate
+      isTripPremium
       createdAt
       updatedAt
       __typename
     }
     amtLeft
     owesTotalMap
+    addMemberType
+    budget
+    receiptsCount
     createdAt
     updatedAt
-    tripMembersId
     __typename
   }
 }
@@ -118,17 +302,24 @@ export const onUpdateMember = /* GraphQL */ `subscription OnUpdateMember($filter
       id
       name
       currency
+      createdBy
       debts
       totalAmtLeft
+      totalBudget
+      startDate
+      endDate
+      isTripPremium
       createdAt
       updatedAt
       __typename
     }
     amtLeft
     owesTotalMap
+    addMemberType
+    budget
+    receiptsCount
     createdAt
     updatedAt
-    tripMembersId
     __typename
   }
 }
@@ -146,17 +337,24 @@ export const onDeleteMember = /* GraphQL */ `subscription OnDeleteMember($filter
       id
       name
       currency
+      createdBy
       debts
       totalAmtLeft
+      totalBudget
+      startDate
+      endDate
+      isTripPremium
       createdAt
       updatedAt
       __typename
     }
     amtLeft
     owesTotalMap
+    addMemberType
+    budget
+    receiptsCount
     createdAt
     updatedAt
-    tripMembersId
     __typename
   }
 }
@@ -172,8 +370,13 @@ export const onCreateExpense = /* GraphQL */ `subscription OnCreateExpense($filt
       id
       name
       currency
+      createdBy
       debts
       totalAmtLeft
+      totalBudget
+      startDate
+      endDate
+      isTripPremium
       createdAt
       updatedAt
       __typename
@@ -189,7 +392,6 @@ export const onCreateExpense = /* GraphQL */ `subscription OnCreateExpense($filt
     paidByAndAmounts
     createdAt
     updatedAt
-    tripExpensesId
     __typename
   }
 }
@@ -205,8 +407,13 @@ export const onUpdateExpense = /* GraphQL */ `subscription OnUpdateExpense($filt
       id
       name
       currency
+      createdBy
       debts
       totalAmtLeft
+      totalBudget
+      startDate
+      endDate
+      isTripPremium
       createdAt
       updatedAt
       __typename
@@ -222,7 +429,6 @@ export const onUpdateExpense = /* GraphQL */ `subscription OnUpdateExpense($filt
     paidByAndAmounts
     createdAt
     updatedAt
-    tripExpensesId
     __typename
   }
 }
@@ -238,8 +444,13 @@ export const onDeleteExpense = /* GraphQL */ `subscription OnDeleteExpense($filt
       id
       name
       currency
+      createdBy
       debts
       totalAmtLeft
+      totalBudget
+      startDate
+      endDate
+      isTripPremium
       createdAt
       updatedAt
       __typename
@@ -255,7 +466,6 @@ export const onDeleteExpense = /* GraphQL */ `subscription OnDeleteExpense($filt
     paidByAndAmounts
     createdAt
     updatedAt
-    tripExpensesId
     __typename
   }
 }
@@ -279,7 +489,6 @@ export const onCreateExpenseShare = /* GraphQL */ `subscription OnCreateExpenseS
       paidByAndAmounts
       createdAt
       updatedAt
-      tripExpensesId
       __typename
     }
     payeeName
@@ -287,7 +496,6 @@ export const onCreateExpenseShare = /* GraphQL */ `subscription OnCreateExpenseS
     currency
     createdAt
     updatedAt
-    expenseSharedWithId
     __typename
   }
 }
@@ -311,7 +519,6 @@ export const onUpdateExpenseShare = /* GraphQL */ `subscription OnUpdateExpenseS
       paidByAndAmounts
       createdAt
       updatedAt
-      tripExpensesId
       __typename
     }
     payeeName
@@ -319,7 +526,6 @@ export const onUpdateExpenseShare = /* GraphQL */ `subscription OnUpdateExpenseS
     currency
     createdAt
     updatedAt
-    expenseSharedWithId
     __typename
   }
 }
@@ -343,7 +549,6 @@ export const onDeleteExpenseShare = /* GraphQL */ `subscription OnDeleteExpenseS
       paidByAndAmounts
       createdAt
       updatedAt
-      tripExpensesId
       __typename
     }
     payeeName
@@ -351,7 +556,6 @@ export const onDeleteExpenseShare = /* GraphQL */ `subscription OnDeleteExpenseS
     currency
     createdAt
     updatedAt
-    expenseSharedWithId
     __typename
   }
 }

@@ -14,9 +14,8 @@ import { useClerk, useUser } from "@clerk/clerk-expo"
 import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from '@/src/context/ThemeContext'
 import { lightTheme, darkTheme } from '@/src/theme/theme'
-import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService"
+import { upsertClerkUserToDynamoDB } from "@/src/services/syncUserProfile"
 import { useProfileActions } from "@/src/utilities/profileAction"
-import { useTrips } from '@/src/hooks/useTrips'
 import { useUserTripsContext } from "@/src/context/UserTripsContext"
 
 
@@ -48,7 +47,7 @@ export default function ProfileScreen() {
   const [uploading, setUploading] = useState(false)
   const { isDarkMode } = useTheme()
   const theme = isDarkMode ? darkTheme : lightTheme
-  const { trips } = useTrips()
+  const { trips } = useUserTripsContext()
   const [friendCount, setFriendCount] = useState<number>(0);
   const { userData } = useUserTripsContext();
 
@@ -60,10 +59,25 @@ export default function ProfileScreen() {
   useFocusEffect(
     React.useCallback(() => {
       if (user && userData?.friends) {
-        upsertClerkUserToFirestore(userData).catch(console.error);
+        // Convert Clerk user to the format expected by UserProfileService
+        const UserFromDynamo = {
+          username: user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'user',
+          fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
+          primaryEmailAddress: {
+            emailAddress: user.primaryEmailAddress?.emailAddress || ''
+          },
+          profileImageUrl: user.imageUrl || '',
+          friends: userData?.friends || [],
+          incomingFriendRequests: userData?.incomingFriendRequests || [],
+          outgoingFriendRequests: userData?.outgoingFriendRequests || [],
+          trips: userData?.trips || [],
+          premiumStatus: userData?.premiumStatus || 'free'
+        };
+        
+        upsertClerkUserToDynamoDB(UserFromDynamo).catch(console.error);
         setFriendCount(userData.friends.length);
       }
-    }, [user, userData?.friends])
+    }, [user, userData])
   );
 
   const handleImagePick = async () => {

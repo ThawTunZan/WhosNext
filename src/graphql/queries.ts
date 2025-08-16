@@ -8,11 +8,108 @@ type GeneratedQuery<InputType, OutputType> = string & {
   __generatedQueryOutput: OutputType;
 };
 
+export const getUser = /* GraphQL */ `query GetUser($id: ID!) {
+  getUser(id: $id) {
+    id
+    username
+    email
+    fullName
+    avatarUrl
+    premiumStatus
+    friends
+    incomingFriendRequests {
+      id
+      username
+      status
+      timestamp
+      createdAt
+      updatedAt
+      __typename
+    }
+    outgoingFriendRequests {
+      id
+      username
+      status
+      timestamp
+      createdAt
+      updatedAt
+      __typename
+    }
+    trips
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedQuery<APITypes.GetUserQueryVariables, APITypes.GetUserQuery>;
+export const listUsers = /* GraphQL */ `query ListUsers(
+  $filter: ModelUserFilterInput
+  $limit: Int
+  $nextToken: String
+) {
+  listUsers(filter: $filter, limit: $limit, nextToken: $nextToken) {
+    items {
+      id
+      username
+      email
+      fullName
+      avatarUrl
+      premiumStatus
+      friends
+      trips
+      createdAt
+      updatedAt
+      __typename
+    }
+    nextToken
+    __typename
+  }
+}
+` as GeneratedQuery<APITypes.ListUsersQueryVariables, APITypes.ListUsersQuery>;
+export const getFriendRequest = /* GraphQL */ `query GetFriendRequest($id: ID!) {
+  getFriendRequest(id: $id) {
+    id
+    username
+    status
+    timestamp
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedQuery<
+  APITypes.GetFriendRequestQueryVariables,
+  APITypes.GetFriendRequestQuery
+>;
+export const listFriendRequests = /* GraphQL */ `query ListFriendRequests(
+  $filter: ModelFriendRequestFilterInput
+  $limit: Int
+  $nextToken: String
+) {
+  listFriendRequests(filter: $filter, limit: $limit, nextToken: $nextToken) {
+    items {
+      id
+      username
+      status
+      timestamp
+      createdAt
+      updatedAt
+      __typename
+    }
+    nextToken
+    __typename
+  }
+}
+` as GeneratedQuery<
+  APITypes.ListFriendRequestsQueryVariables,
+  APITypes.ListFriendRequestsQuery
+>;
 export const getTrip = /* GraphQL */ `query GetTrip($id: ID!) {
   getTrip(id: $id) {
     id
     name
     currency
+    createdBy
     members {
       nextToken
       __typename
@@ -23,6 +120,10 @@ export const getTrip = /* GraphQL */ `query GetTrip($id: ID!) {
     }
     debts
     totalAmtLeft
+    totalBudget
+    startDate
+    endDate
+    isTripPremium
     createdAt
     updatedAt
     __typename
@@ -39,8 +140,13 @@ export const listTrips = /* GraphQL */ `query ListTrips(
       id
       name
       currency
+      createdBy
       debts
       totalAmtLeft
+      totalBudget
+      startDate
+      endDate
+      isTripPremium
       createdAt
       updatedAt
       __typename
@@ -60,17 +166,24 @@ export const getMember = /* GraphQL */ `query GetMember($id: ID!) {
       id
       name
       currency
+      createdBy
       debts
       totalAmtLeft
+      totalBudget
+      startDate
+      endDate
+      isTripPremium
       createdAt
       updatedAt
       __typename
     }
     amtLeft
     owesTotalMap
+    addMemberType
+    budget
+    receiptsCount
     createdAt
     updatedAt
-    tripMembersId
     __typename
   }
 }
@@ -88,9 +201,11 @@ export const listMembers = /* GraphQL */ `query ListMembers(
       tripId
       amtLeft
       owesTotalMap
+      addMemberType
+      budget
+      receiptsCount
       createdAt
       updatedAt
-      tripMembersId
       __typename
     }
     nextToken
@@ -109,8 +224,13 @@ export const getExpense = /* GraphQL */ `query GetExpense($id: ID!) {
       id
       name
       currency
+      createdBy
       debts
       totalAmtLeft
+      totalBudget
+      startDate
+      endDate
+      isTripPremium
       createdAt
       updatedAt
       __typename
@@ -126,7 +246,6 @@ export const getExpense = /* GraphQL */ `query GetExpense($id: ID!) {
     paidByAndAmounts
     createdAt
     updatedAt
-    tripExpensesId
     __typename
   }
 }
@@ -150,7 +269,6 @@ export const listExpenses = /* GraphQL */ `query ListExpenses(
       paidByAndAmounts
       createdAt
       updatedAt
-      tripExpensesId
       __typename
     }
     nextToken
@@ -175,7 +293,6 @@ export const getExpenseShare = /* GraphQL */ `query GetExpenseShare($id: ID!) {
       paidByAndAmounts
       createdAt
       updatedAt
-      tripExpensesId
       __typename
     }
     payeeName
@@ -183,7 +300,6 @@ export const getExpenseShare = /* GraphQL */ `query GetExpenseShare($id: ID!) {
     currency
     createdAt
     updatedAt
-    expenseSharedWithId
     __typename
   }
 }
@@ -205,7 +321,6 @@ export const listExpenseShares = /* GraphQL */ `query ListExpenseShares(
       currency
       createdAt
       updatedAt
-      expenseSharedWithId
       __typename
     }
     nextToken
@@ -215,4 +330,214 @@ export const listExpenseShares = /* GraphQL */ `query ListExpenseShares(
 ` as GeneratedQuery<
   APITypes.ListExpenseSharesQueryVariables,
   APITypes.ListExpenseSharesQuery
+>;
+export const getUserByUsername = /* GraphQL */ `query GetUserByUsername(
+  $username: String!
+  $sortDirection: ModelSortDirection
+  $filter: ModelUserFilterInput
+  $limit: Int
+  $nextToken: String
+) {
+  getUserByUsername(
+    username: $username
+    sortDirection: $sortDirection
+    filter: $filter
+    limit: $limit
+    nextToken: $nextToken
+  ) {
+    items {
+      id
+      username
+      email
+      fullName
+      avatarUrl
+      premiumStatus
+      friends
+      trips
+      createdAt
+      updatedAt
+      __typename
+    }
+    nextToken
+    __typename
+  }
+}
+` as GeneratedQuery<
+  APITypes.GetUserByUsernameQueryVariables,
+  APITypes.GetUserByUsernameQuery
+>;
+export const getTripsByCreator = /* GraphQL */ `query GetTripsByCreator(
+  $createdBy: String!
+  $sortDirection: ModelSortDirection
+  $filter: ModelTripFilterInput
+  $limit: Int
+  $nextToken: String
+) {
+  getTripsByCreator(
+    createdBy: $createdBy
+    sortDirection: $sortDirection
+    filter: $filter
+    limit: $limit
+    nextToken: $nextToken
+  ) {
+    items {
+      id
+      name
+      currency
+      createdBy
+      debts
+      totalAmtLeft
+      totalBudget
+      startDate
+      endDate
+      isTripPremium
+      createdAt
+      updatedAt
+      __typename
+    }
+    nextToken
+    __typename
+  }
+}
+` as GeneratedQuery<
+  APITypes.GetTripsByCreatorQueryVariables,
+  APITypes.GetTripsByCreatorQuery
+>;
+export const getMembersByUsername = /* GraphQL */ `query GetMembersByUsername(
+  $username: String!
+  $sortDirection: ModelSortDirection
+  $filter: ModelMemberFilterInput
+  $limit: Int
+  $nextToken: String
+) {
+  getMembersByUsername(
+    username: $username
+    sortDirection: $sortDirection
+    filter: $filter
+    limit: $limit
+    nextToken: $nextToken
+  ) {
+    items {
+      id
+      username
+      fullName
+      tripId
+      amtLeft
+      owesTotalMap
+      addMemberType
+      budget
+      receiptsCount
+      createdAt
+      updatedAt
+      __typename
+    }
+    nextToken
+    __typename
+  }
+}
+` as GeneratedQuery<
+  APITypes.GetMembersByUsernameQueryVariables,
+  APITypes.GetMembersByUsernameQuery
+>;
+export const getMembersByTrip = /* GraphQL */ `query GetMembersByTrip(
+  $tripId: ID!
+  $sortDirection: ModelSortDirection
+  $filter: ModelMemberFilterInput
+  $limit: Int
+  $nextToken: String
+) {
+  getMembersByTrip(
+    tripId: $tripId
+    sortDirection: $sortDirection
+    filter: $filter
+    limit: $limit
+    nextToken: $nextToken
+  ) {
+    items {
+      id
+      username
+      fullName
+      tripId
+      amtLeft
+      owesTotalMap
+      addMemberType
+      budget
+      receiptsCount
+      createdAt
+      updatedAt
+      __typename
+    }
+    nextToken
+    __typename
+  }
+}
+` as GeneratedQuery<
+  APITypes.GetMembersByTripQueryVariables,
+  APITypes.GetMembersByTripQuery
+>;
+export const getExpensesByTrip = /* GraphQL */ `query GetExpensesByTrip(
+  $tripId: ID!
+  $sortDirection: ModelSortDirection
+  $filter: ModelExpenseFilterInput
+  $limit: Int
+  $nextToken: String
+) {
+  getExpensesByTrip(
+    tripId: $tripId
+    sortDirection: $sortDirection
+    filter: $filter
+    limit: $limit
+    nextToken: $nextToken
+  ) {
+    items {
+      id
+      tripId
+      activityName
+      amount
+      currency
+      paidBy
+      paidByAndAmounts
+      createdAt
+      updatedAt
+      __typename
+    }
+    nextToken
+    __typename
+  }
+}
+` as GeneratedQuery<
+  APITypes.GetExpensesByTripQueryVariables,
+  APITypes.GetExpensesByTripQuery
+>;
+export const getSharesByExpense = /* GraphQL */ `query GetSharesByExpense(
+  $expenseId: ID!
+  $sortDirection: ModelSortDirection
+  $filter: ModelExpenseShareFilterInput
+  $limit: Int
+  $nextToken: String
+) {
+  getSharesByExpense(
+    expenseId: $expenseId
+    sortDirection: $sortDirection
+    filter: $filter
+    limit: $limit
+    nextToken: $nextToken
+  ) {
+    items {
+      id
+      expenseId
+      payeeName
+      amount
+      currency
+      createdAt
+      updatedAt
+      __typename
+    }
+    nextToken
+    __typename
+  }
+}
+` as GeneratedQuery<
+  APITypes.GetSharesByExpenseQueryVariables,
+  APITypes.GetSharesByExpenseQuery
 >;

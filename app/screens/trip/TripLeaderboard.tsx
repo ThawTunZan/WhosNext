@@ -4,11 +4,11 @@ import { Text, Button, Avatar, Card, Badge, useTheme, Surface } from 'react-nati
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { useRouter } from 'expo-router';
-import { TripData, Payment, Expense, FirestoreTrip } from '@/src/types/DataTypes';
+import { TripData, Payment, Expense, TripsTableDDB } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
 interface TripLeaderboardProps {
-  trip: FirestoreTrip;
+  trip: TripsTableDDB;
   expenses: Expense[];
   payments: Payment[];
 }

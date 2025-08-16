@@ -5,7 +5,7 @@ import {
 	getDoc,
 } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Member, AddMemberType, FirestoreTrip, } from '@/src/types/DataTypes';
+import { Member, AddMemberType, TripsTableDDB, } from '@/src/types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
@@ -93,7 +93,7 @@ export async function updatePersonalBudget(
 export const addMemberToTrip = async (
 	tripId: string,
 	memberName: string,
-	tripData: FirestoreTrip,
+	tripData: TripsTableDDB,
 	options: {
 		budget?: number,
 		addMemberType?: AddMemberType,

@@ -3,7 +3,7 @@
 import { useClerk } from "@clerk/clerk-expo"
 import { useUser } from "@clerk/clerk-expo"
 import { useRouter } from "expo-router"
-import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService"
+import { upsertClerkUserToDynamoDB } from "@/src/services/syncUserProfile"
 import { useUserTripsContext } from "../context/UserTripsContext"
 
 /**
@@ -33,12 +33,26 @@ export function useProfileActions() {
   }
 
   /**
-   * Mirror the current Clerk user into your Firestore `users/{id}` doc.
-   * Call this in a focus‐effect or whenever you want to keep Firestore in sync.
+   * Mirror the current Clerk user into DynamoDB
    */
   const syncProfile = () => {
     if (isLoaded && isSignedIn && user && userData) {
-      upsertClerkUserToFirestore(userData).catch(console.error)
+      // Convert Clerk user to the format expected by UserProfileService
+      const UserFromDynamo = {
+        username: user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'user',
+        fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
+        primaryEmailAddress: {
+          emailAddress: user.primaryEmailAddress?.emailAddress || ''
+        },
+        profileImageUrl: user.imageUrl || '',
+        friends: userData?.friends || [],
+        incomingFriendRequests: userData?.incomingFriendRequests || [],
+        outgoingFriendRequests: userData?.outgoingFriendRequests || [],
+        trips: userData?.trips || [],
+        premiumStatus: userData?.premiumStatus || 'free'
+      };
+      
+      upsertClerkUserToDynamoDB(UserFromDynamo).catch(console.error)
     }
   }
 

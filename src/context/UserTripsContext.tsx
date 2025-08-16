@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, useRef, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from "react";
 import { useUser } from "@clerk/clerk-expo";
-import { db } from "@/firebase";
-import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
-import { incrementFirestoreRead } from "@/src/utilities/firestoreReadCounter";
+import { generateClient } from 'aws-amplify/api';
+import { listTrips, listMembers, getTrip } from '@/src/graphql/queries';
+import { syncUserProfileToDynamoDB } from '@/src/services/syncUserProfile';
 
 const UserTripsContext = createContext(null);
 
@@ -10,20 +10,92 @@ export const UserTripsProvider = ({ children }) => {
   const { isLoaded, isSignedIn, user } = useUser();
   const [userData, setUserData] = useState(null);
   const [trips, setTrips] = useState([]);
+  const [tripMembersMap, setTripMembersMap] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const tripsUnsubRef = useRef([]);
-  const userUnsubRef = useRef(null);
+  const client = useMemo(() => generateClient(), []);
+
+  const fetchTrips = useCallback(async () => {
+    if (!user?.username) return;
+    
+    setLoading(true);
+    setError(null);
+
+    try {
+      const membersResponse = await client.graphql({
+        query: listMembers,
+        variables: {
+          filter: {
+            username: { eq: user.username }
+          }
+        }
+      });
+
+      const userMemberships = membersResponse.data.listMembers.items;
+      const tripIds = userMemberships.map(member => member.tripId);
+
+      if (tripIds.length === 0) {
+        setTrips([]);
+        setUserData({
+          username: user.username,
+          trips: [],
+          friends: [],
+          incomingFriendRequests: [],
+          outgoingFriendRequests: [],
+          premiumStatus: 'free'
+        });
+        setLoading(false);
+        return;
+      }
+
+      const tripPromises = tripIds.map(tripId =>
+        client.graphql({
+          query: getTrip,
+          variables: { id: tripId }
+        })
+      );
+
+      const tripResponses = await Promise.all(tripPromises);
+      const allTrips = tripResponses.map(res => res.data.getTrip).filter(Boolean);
+
+      const membersByTripId: Record<string, any[]> = {};
+      for (const tripId of tripIds) {
+        const membersResp = await client.graphql({
+          query: listMembers,
+          variables: { filter: { tripId: { eq: tripId } } }
+        });
+        membersByTripId[tripId] = membersResp.data.listMembers.items || [];
+      }
+
+      setTripMembersMap(membersByTripId);
+      setTrips(allTrips);
+      setUserData({
+        username: user.username,
+        trips: allTrips.map(trip => trip.id),
+        friends: [],
+        incomingFriendRequests: [],
+        outgoingFriendRequests: [],
+        premiumStatus: 'free'
+      });
+    } catch (err) {
+      console.error('[UserTripsContext] Error fetching trips:', err);
+      setError(err);
+      setUserData({
+        username: user.username,
+        trips: [],
+        friends: [],
+        incomingFriendRequests: [],
+        outgoingFriendRequests: [],
+        premiumStatus: 'free'
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.username]);
 
   useEffect(() => {
-    console.log('[UserTripsContext] useEffect triggered. Setting up listeners.');
-    tripsUnsubRef.current.forEach(unsub => unsub && unsub());
-    tripsUnsubRef.current = [];
-    if (userUnsubRef.current) {
-      userUnsubRef.current();
-      userUnsubRef.current = null;
-      console.log('[UserTripsContext] Cleaned up previous user doc listener.');
-    }
+    console.log('[UserTripsContext] useEffect triggered. Setting up AWS GraphQL queries.');
+    
     setLoading(true);
     setError(null);
     setUserData(null);
@@ -34,80 +106,37 @@ export const UserTripsProvider = ({ children }) => {
       return;
     }
 
-    // Listen to user doc for trips array
-    const userDocRef = doc(db, "users", user.username || user.fullName);
-    console.log(`[UserTripsContext] Setting up user doc listener for user: ${user.username || user.fullName}`);
-    userUnsubRef.current = onSnapshot(userDocRef, async (userDocSnap) => {
-      incrementFirestoreRead();
-      if (!userDocSnap.exists()) {
-        setUserData(null);
-        setTrips([]);
-        setLoading(false);
-        return;
-      }
-      const userDocData = userDocSnap.data();
-      setUserData(userDocData);
-      const tripIds = userDocData?.trips || [];
-      if (!tripIds.length) {
-        setTrips([]);
-        setLoading(false);
-        return;
-      }
-      // Clean up previous trip listeners
-      tripsUnsubRef.current.forEach(unsub => unsub && unsub());
-      tripsUnsubRef.current = [];
-      let allTrips = [];
-      let completedBatches = 0;
-      const batchSize = 10;
-      setLoading(true);
-      for (let i = 0; i < tripIds.length; i += batchSize) {
-        const batchIds = tripIds.slice(i, i + batchSize);
-        const q = query(collection(db, "trips"), where("__name__", "in", batchIds));
-        console.log(`[UserTripsContext] Setting up trip batch listener for batch: ${batchIds.join(', ')}`);
-        const unsub = onSnapshot(q, (batchSnap) => {
-          incrementFirestoreRead(batchSnap.size);
-          // Remove old trips from this batch
-          allTrips = allTrips.filter(trip => !batchIds.includes(trip.id));
-          // Add new trips from this batch
-          batchSnap.forEach(docSnap => {
-            allTrips.push({ id: docSnap.id, ...docSnap.data() });
-          });
-          // If all batches have been processed, update state
-          completedBatches++;
-          if (completedBatches * batchSize >= tripIds.length) {
-            setTrips([...allTrips]);
-            setLoading(false);
-          }
-        }, (err) => {
-          setError(err);
-          setLoading(false);
-        });
-        tripsUnsubRef.current.push(() => {
-          console.log(`[UserTripsContext] Cleaning up trip batch listener for batch: ${batchIds.join(', ')}`);
-          unsub();
-        });
-      }
-    }, (err) => {
-      setError(err);
-      setLoading(false);
-    });
+    // Sync user to DynamoDB
+    try {
+      const userFromClerk = {
+        id: user.username,
+        username: user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'user',
+        fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
+        primaryEmailAddress: user.primaryEmailAddress?.emailAddress || '',
+        profileImageUrl: user.imageUrl || '',
+        friends: [], // TODO: update this later with real data
+        incomingFriendRequests: [],
+        outgoingFriendRequests: [],
+        trips: [],
+        premiumStatus: userData?.premiumStatus || 'free',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    
+      syncUserProfileToDynamoDB(userFromClerk).catch(console.error);
+    } catch (err) {
+      console.error("Error syncing user profile to DB:", err);
+    }
+    
 
-
-    // Cleanup
+    fetchTrips();
     return () => {
-      console.log('[UserTripsContext] useEffect cleanup. Tearing down all listeners.');
-      tripsUnsubRef.current.forEach(unsub => unsub && unsub());
-      tripsUnsubRef.current = [];
-      if (userUnsubRef.current) {
-        userUnsubRef.current();
-        userUnsubRef.current = null;
-        console.log('[UserTripsContext] Cleaned up user doc listener on unmount.');
-      }
+      console.log('[UserTripsContext] useEffect cleanup. Cleaning up AWS client.');
     };
-  }, [isLoaded, isSignedIn, user]);
+  }, [isLoaded, isSignedIn, user?.username]);
 
   return (
-    <UserTripsContext.Provider value={{ user: userData, trips, loading, error }}>
+    <UserTripsContext.Provider value={{ user: userData, trips, loading, error,tripMembersMap, fetchTrips }}>
       {children}
     </UserTripsContext.Provider>
   );

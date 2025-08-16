@@ -8,7 +8,7 @@ import {
 	updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/firebase';
-import { Expense, Member, Debt, FREE_USER_LIMITS, PREMIUM_USER_LIMITS, ErrorType, FirestoreExpense, TripData, FirestoreTrip } from '@/src/types/DataTypes';
+import { Expense, Member, Debt, FREE_USER_LIMITS, PREMIUM_USER_LIMITS, ErrorType, FirestoreExpense, TripData, TripsTableDDB } from '@/src/types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
@@ -257,11 +257,13 @@ export const addExpenseAndCalculateDebts = async (
 	tripId: string,
 	expenseData: Expense,
 	members: Record<string, Member>,
-	tripData: FirestoreTrip
+	tripData: TripsTableDDB
 ): Promise<void> => {
 
 	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);
 
+	// TODO: add premium feature later
+	/*
 	const isPremium = tripData.isTripPremium || tripData.premiumStatus === 'premium';
 	const today = new Date().toISOString().slice(0, 10);
 
@@ -269,8 +271,9 @@ export const addExpenseAndCalculateDebts = async (
 		const amtLeft = tripData.dailyExpenseLimit?.[today] ?? FREE_USER_LIMITS.maxExpensesPerDayPerTrip;
 		if (amtLeft <= 0) {
 		throw new Error(ErrorType.MAX_EXPENSES_FREE_USER);
+		}
 	}
-	}
+		*/
 
 	const expenseDocData = {
 		...expenseData,
@@ -288,13 +291,14 @@ export const addExpenseAndCalculateDebts = async (
 	let updates = formatToFirebase(updatesRaw);
 	updates['expensesCount'] = increment(1);
 
-	// For non-premium, decrement amtLeft for today
+	// TODO: premium feature
+	/*
 	if (!isPremium) {
 		const amtLeft = tripData.dailyExpenseLimit?.[today] ?? FREE_USER_LIMITS.maxExpensesPerDayPerTrip;
 		const newAmtLeft = amtLeft - 1;
 		updates[`dailyExpenseLimit.${today}`] = newAmtLeft;
 	}
-
+	*/
 	batch.update(tripDocRef, updates);
 	
 	try {
@@ -329,7 +333,7 @@ export const addExpenseAndCalculateDebts = async (
 
 // Function to delete an expense
 // IMPORTANT: Deleting an expense requires recalculating/reversing the debt updates.
-export const deleteExpense = async (tripId: string, expenseId: string, expense: FirestoreExpense, tripData: FirestoreTrip): Promise<void> => {
+export const deleteExpense = async (tripId: string, expenseId: string, expense: FirestoreExpense, tripData: TripsTableDDB): Promise<void> => {
 	try {
 		// Get the expense data first
 		const expenseRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
@@ -414,7 +418,7 @@ export const reverseExpensesAndUpdate = async (
 	members: Record<string, Member>, // Needed for payer ID lookup if not stored on expense
 	reverse: boolean,
 	expenses: FirestoreExpense,
-	tripData: FirestoreTrip
+	tripData: TripsTableDDB
 ): Promise<void> => {
 	const expenseDocRef = doc(db, TRIPS_COLLECTION, tripId, EXPENSES_SUBCOLLECTION, expenseId);
 	const tripDocRef = doc(db, TRIPS_COLLECTION, tripId);

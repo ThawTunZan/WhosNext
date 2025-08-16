@@ -144,7 +144,6 @@ export default function SignUpScreen() {
       const attempt = await signUp.attemptEmailAddressVerification({ code })
       if (attempt.status === 'complete') {
         await setActive({ session: attempt.createdSessionId })
-
         router.push('/')
       }
     } catch (err: any) {

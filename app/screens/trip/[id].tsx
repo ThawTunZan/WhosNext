@@ -1,22 +1,16 @@
 // app/trip/[id].tsx
 
-import React, { useState } from "react";
+import { useCallback, useState } from "react";
 import { View, KeyboardAvoidingView, Platform, StyleSheet, Text } from "react-native";
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { Snackbar, Portal, Button, ActivityIndicator } from "react-native-paper";
-
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { TripPaymentsProvider, useTripPaymentsContext } from '@/src/context/TripPaymentsContext';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '@/firebase';
-
 import { useUser } from "@clerk/clerk-expo";
-
 import TripHeader from "@/src/components/TripHeader";
 import TabBar from "@/src/components/Common/TabBar";
 import BudgetDialog from "@/src/components/Trip/Overview/components/BudgetDialog";
-import ErrorStates from "@/src/components/Common/ErrorStates";
 import OverviewTab from "@/app/screens/trip/OverviewTab";
 import ExpensesSection from "@/app/screens/trip/ExpenseSection";
 import SettleUpSection from "@/app/screens/trip/Settleup";
@@ -27,14 +21,13 @@ import ChooseExistingOrNew from "@/src/components/Common/ChooseExistingOrNew";
 
 import { calculateNextPayer } from "@/src/components/Trip/Expenses/utilities/expenseService";
 import { TripHandler } from "@/src/utilities/TripHandler";
-import { useTripState } from "@/src/hooks/useTripState";
 import { AddMemberType } from "@/src/types/DataTypes";
 import TripLeaderboard from "@/app/screens/trip/TripLeaderboard";
 import { TripExpensesProvider } from '@/src/context/TripExpensesContext';
-import type { FirestoreTrip, Member, Debt } from '@/src/types/DataTypes';
+import type { TripsTableDDB, Member, Debt } from '@/src/types/DataTypes';
 import { SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
 import { useHandleDeleteActivity } from '@/src/components/Trip/Activity/utilities/ActivityUtilities';
-import { claimMockUser } from "@/src/utilities/TripUtilities";
+import { claimMockUser, updatePersonalBudget } from "@/src/utilities/TripUtilities";
 
 export default function TripPageWrapper() {
   const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -50,7 +43,7 @@ export default function TripPageWrapper() {
 }
 
 function TripPage({ tripId }) {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { user } = useUser();
   const currentUsername = user?.username;
 
   const [selectedTab, setSelectedTab] = useState<
@@ -58,39 +51,28 @@ function TripPage({ tripId }) {
   >("overview");
 
   // Get trip from UserTripsContext
-  const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
-  const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
+  const { trips, loading: tripsLoading, tripMembersMap, error: tripsError } = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId);
   
   // Get expenses from TripExpensesContext
   const { expenses, loading: expensesLoading, error: expensesError } = useTripExpensesContext();
   const { payments, loading: paymentsLoading, error: paymentsError } = useTripPaymentsContext();
 
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [budgetDialogVisible, setBudgetDialogVisible] = useState(false);
+  const [newBudgetInput, setNewBudgetInput] = useState<string>("");
+
   // Compose loading and error states
   const loading = tripsLoading || expensesLoading || paymentsLoading;
-  const dataError = tripsError || expensesError || paymentsError;
   const [showChooseModal, setShowChooseModal] = useState(false);
 
   // When passing members, cast as Record<string, Member> and cast currency and addMemberType fields, and fix owesTotalMap
   const safeMembers: Record<string, Member> = Object.fromEntries(
-    Object.entries(trip?.members || {}).map(([k, v]) => [k, toMember(v)])
+    Object.entries(tripMembersMap[tripId] || {}).map(([k, v]) => [k, toMember(v)])
   );
 
 
-  const {
-    activityToDeleteId,
-    snackbarVisible,
-    snackbarMessage,    hasLeftTrip,
-    budgetDialogVisible,
-    newBudgetInput,
-    setNewBudgetInput,
-    openBudgetDialog,
-    submitBudgetChange,
-    setBudgetDialogVisible,
-    setSnackbarVisible,
-    setHasLeftTrip,
-    setActivityToDeleteId,
-    setSnackbarMessage,
-  } = useTripState(tripId!, currentUsername!);
 
 
   // Use the new hook for handling activity deletion
@@ -99,6 +81,30 @@ function TripPage({ tripId }) {
     setSnackbarMessage,
     setSnackbarVisible
   );
+
+  const openBudgetDialog = useCallback(() => {
+    setBudgetDialogVisible(true);
+  }, []);
+
+  const submitBudgetChange = useCallback(async (currency: string) => {
+    const parsed = parseFloat(newBudgetInput);
+    if (isNaN(parsed) || parsed < 0) {
+      setSnackbarMessage("Please enter a valid number.");
+      setSnackbarVisible(true);
+      return;
+    }
+    try {
+      await updatePersonalBudget(tripId, currentUsername, parsed, currency);
+      setSnackbarMessage("Personal budget updated!");
+      setSnackbarVisible(true);
+    } catch (err: any) {
+      console.error(err);
+      setSnackbarMessage(err.message || "Failed to update budget.");
+      setSnackbarVisible(true);
+    } finally {
+      setBudgetDialogVisible(false);
+    }
+  }, [newBudgetInput, tripId, currentUsername]);
 
   // Helper to convert Firestore member to Member type
   function toMember(v: any): Member {
@@ -159,14 +165,6 @@ function TripPage({ tripId }) {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.outerContainer}
       >
-        <ErrorStates
-          isLoaded={isLoaded}
-          isSignedIn={isSignedIn}
-          loading={loading}
-          error={dataError}
-          hasLeftTrip={hasLeftTrip}
-          tripExists={!!trip || !!trip}
-        />
 
         {loading ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -179,7 +177,7 @@ function TripPage({ tripId }) {
         ) : (
           <>
             <TripHeader
-              destination={trip.destination}
+              destination={trip.name}
             />
 
             <TabBar
@@ -197,10 +195,7 @@ function TripPage({ tripId }) {
             )}
 
             {selectedTab === "expenses" && (
-              <ExpensesSection
-                tripId={tripId!}
-                activityToDeleteId={activityToDeleteId}
-              />
+              <ExpensesSection tripId={tripId!}/>
             )}
 
             {selectedTab === "settle" && (

@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, useTheme, Text } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Member, AddMemberType, FirestoreTrip } from '@/src/types/DataTypes';
+import { Member, AddMemberType, TripsTableDDB } from '@/src/types/DataTypes';
 import BudgetSummaryCard from '@/src/components/Trip/Overview/components/BudgetSummaryCard';
 import PersonalBudgetCard from '@/src/components/Trip/Overview/components/PersonalBudgetCard';
 import MemberList from '@/src/components/Common/MemberList';
@@ -31,16 +31,17 @@ export default function OverviewTab({
 }: OverviewTabProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const { trips } = useUserTripsContext();
+  const { trips, tripMembersMap } = useUserTripsContext();
   const { expenses } = useTripExpensesContext();
   const { user } = useUser();
   const router = useRouter();
+  const currTripMembers = tripMembersMap[tripId]
 
   const currentUsername = user?.username;
+  const curr_member = currTripMembers[tripId]?.find(m => m.username === currentUsername);
 
   // Memoize trip and members
-  const trip = useMemo(() => TripHandler.getTripById(tripId, trips), [tripId, trips]);
-  const members = useMemo(() => trip?.members || {}, [trip]);
+  const trip = useMemo(() => trips.find(trip => trip.id === tripId), [tripId, trips]);
 
   const [isDeletingTrip, setIsDeletingTrip] = useState(false);
 
@@ -81,7 +82,7 @@ export default function OverviewTab({
       return;
     }
 
-    const result = await TripHandler.removeMember(tripId, memberId, trip.members[memberId], expenses, trip);
+    const result = await TripHandler.removeMember(tripId, memberId, curr_member, expenses, trip);
     if (result.success) {
       setSnackbarMessage(`${memberId} removed.`);
       setSnackbarVisible(true);
@@ -94,7 +95,8 @@ export default function OverviewTab({
   const handleLeaveTrip = async () => {
     if (!trip?.members?.[currentUsername]) return;
     
-    const result = await TripHandler.leaveTrip(tripId, currentUsername, trip.members[currentUsername]);
+    
+    const result = await TripHandler.leaveTrip(tripId, currentUsername, curr_member);
     if (result.success) {
       setSnackbarMessage("You left the trip.");
       setSnackbarVisible(true);
@@ -157,15 +159,15 @@ export default function OverviewTab({
           💰 Budget
         </Text>
         <BudgetSummaryCard
-          members={members}
+          members={currTripMembers}
           totalBudget={trip?.totalBudget || 0}
           totalAmtLeft={trip?.totalAmtLeft || 0}
           tripCurrency={trip?.currency || 'USD'}
         />
 
-        {members[currentUsername] && (
+        {curr_member && (
           <PersonalBudgetCard
-            member={members[currentUsername]}
+            member={curr_member}
             onEditBudget={onEditBudget}
           />
         )}

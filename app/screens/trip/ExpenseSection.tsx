@@ -13,13 +13,11 @@ import { SearchBar } from '@/src/components/Common/SearchBar';
 import { BaseSection } from '@/src/components/Common/BaseSection';
 import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
-import { deleteProposedActivity } from '@/src/components/Trip/Activity/utilities/ActivityUtilities';
 
-const ExpensesSection = ({ tripId, onAddExpensePress, onEditExpense, activityToDeleteId }: ExpensesSectionProps) => {
+const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -79,9 +77,6 @@ const ExpensesSection = ({ tripId, onAddExpensePress, onEditExpense, activityToD
           const result = await ExpenseHandler.addExpense(tripId, expenseData, members, trip);
           if (result.success) {
             setSnackbarMessage("Expense added successfully!");
-            if (activityToDeleteId) {
-              await deleteProposedActivity(tripId, activityToDeleteId);
-            }
           } else {
             throw result.error;
           }
@@ -103,7 +98,7 @@ const ExpensesSection = ({ tripId, onAddExpensePress, onEditExpense, activityToD
         }
       }
     },
-    [tripId, trip, activityToDeleteId, closeAddExpenseModal, members, expenses]
+    [tripId, trip, closeAddExpenseModal, members, expenses]
   );
 
   // Handle edit expense (moved from TripHandler)

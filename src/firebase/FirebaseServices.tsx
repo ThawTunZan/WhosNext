@@ -20,12 +20,12 @@ import {
   Timestamp,
   FieldValue,
 } from 'firebase/firestore';
-import { Debt, Payment, UserFromFirebase } from '@/src/types/DataTypes';
+import { Debt, Payment, UserFromDynamo } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 import { deletePayment } from '@/src/components/Trip/Payment/utilities/PaymentUtilities';
 
 
-export const getUserByUsername = async (username: string): Promise<UserFromFirebase | null> => {
+export const getUserByUsername = async (username: string): Promise<UserFromDynamo | null> => {
   if (!username || typeof username !== 'string' || username.trim() === '') {
     console.error('getUserByUsername called with invalid username:', username);
     return null;

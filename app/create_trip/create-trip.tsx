@@ -55,7 +55,7 @@ export default function CreateTripScreen() {
   const [tripDate, setTripDate] = useState<Date>(new Date());
   const [tripEndDate, setTripEndDate] = useState<Date>(new Date());
   const [errors, setErrors] = useState<{ name?: string; budget?: string; date?: string }>({});
-  const { user: userFirebase } = useUserTripsContext();
+  const { user: userFirebase, fetchTrips } = useUserTripsContext();
 
   // Bottom sheet snap points
   const snapPoints = useMemo(() => ['25%', '75%'], []);
@@ -158,7 +158,10 @@ export default function CreateTripScreen() {
       id: tripId,
       name: destination.trim(),
       currency: selectedCurrency,
+      createdBy: username,
       totalAmtLeft: parsedBudget,
+      totalBudget: parsedBudget,
+      isTripPremium,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       debts: JSON.stringify({}), // Must be a string for AWSJSON
@@ -179,9 +182,10 @@ export default function CreateTripScreen() {
       const memberInput = {
         id: uuidv4(),
         username: username,
-        fullName: username, // If you have full name, replace here
+        fullName: username,
         tripId: createdTrip.id,
         amtLeft: parsedBudget,
+        budget: parsedBudget,
         owesTotalMap: JSON.stringify({
           USD: 0, EUR: 0, GBP: 0, JPY: 0, CNY: 0, SGD: 0
         }),
@@ -193,6 +197,7 @@ export default function CreateTripScreen() {
       });
     
       console.log("Member created:", memberResponse.data.createMember);
+      await fetchTrips();
     
       // Done — navigate to home
       router.push('/');

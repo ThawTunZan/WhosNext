@@ -1,12 +1,12 @@
 import { addExpenseAndCalculateDebts, updateExpense, deleteExpense } from '@/src/components/Trip/Expenses/utilities/expenseService';
-import { Expense, Member, FirestoreTrip } from '@/src/types/DataTypes';
+import { Expense, Member, TripsTableDDB } from '@/src/types/DataTypes';
 
 export class ExpenseHandler {
   static async addExpense(
     tripId: string, 
     expenseData: Expense, 
     members: Record<string, Member>, 
-    trip: FirestoreTrip
+    trip: TripsTableDDB
   ): Promise<{ success: boolean; error?: any }> {
     try {
       await addExpenseAndCalculateDebts(tripId, expenseData, members, trip);

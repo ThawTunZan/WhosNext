@@ -2,7 +2,7 @@ import { getStorage, ref, deleteObject } from "firebase/storage";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '@/firebase';
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc, Timestamp } from 'firebase/firestore';
-import { PremiumStatus, FirestoreTrip } from '@/src/types/DataTypes';
+import { PremiumStatus, TripsTableDDB } from '@/src/types/DataTypes';
 
 export type Receipt = {
   id: string;

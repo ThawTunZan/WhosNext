@@ -9,7 +9,7 @@ import { useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-cont
 import { StatusBar } from 'expo-status-bar';
 import { Redirect, router, Stack, useFocusEffect, usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { upsertClerkUserToFirestore } from "@/src/services/UserProfileService";
+import { syncUserProfileToDynamoDB } from "@/src/services/syncUserProfile";
 import { ThemeProvider } from '@/src/context/ThemeContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
@@ -17,8 +17,10 @@ import { UserTripsProvider, useUserTripsContext } from "@/src/context/UserTripsC
 import { useAuth } from '@clerk/clerk-expo';
 import {Amplify} from 'aws-amplify';
 import awsconfig from '../src/aws-exports';
+import { migrateExistingTrips } from '@/src/utilities/TripMigrationUtilities';
 
 let amplifyConfigured = false;
+let migrationRun = false;
 
 
 // NavButton component memoized
@@ -91,6 +93,12 @@ export default function RootLayout() {
     if (!amplifyConfigured) {
       Amplify.configure(awsconfig);
       amplifyConfigured = true;
+      
+      // Run migration for existing trips only once
+      if (!migrationRun) {
+        migrationRun = true;
+        migrateExistingTrips().catch(console.error);
+      }
     }
   }, []);
   return (
@@ -128,9 +136,25 @@ function AuthGateAndStack() {
 
   const syncUser = useCallback(() => {
     if (isLoaded && isSignedIn && user) {
-      upsertClerkUserToFirestore(userData).catch(console.error);
+      // Convert Clerk user to the format expected by UserProfileService
+      const UserFromDynamo = {
+        id: user.username,
+        username: user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'user',
+        fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
+        primaryEmailAddress: user.primaryEmailAddress?.emailAddress || '',
+        profileImageUrl: user.imageUrl || '',
+        friends: userData?.friends || [],
+        incomingFriendRequests: userData?.incomingFriendRequests || [],
+        outgoingFriendRequests: userData?.outgoingFriendRequests || [],
+        trips: userData?.trips || [],
+        premiumStatus: userData?.premiumStatus || 'free',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      syncUserProfileToDynamoDB(UserFromDynamo).catch(console.error);
     }
-  }, [isLoaded, isSignedIn, user]);
+  }, [isLoaded, isSignedIn, user, userData]);
 
   useFocusEffect(syncUser);
 

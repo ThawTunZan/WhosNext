@@ -7,8 +7,38 @@ export type Friend = {
   timestamp: any,
 }
 
+export type MemberDDB = {
+  id: string;
+  __typename?: string;
+  username: string;
+  fullName: string;
+  tripId: string;
+  amtLeft: number;
+  budget: number;
+  owesTotalMap: Record<string, number>;
+  addMemberType?: string; // assuming it's optional
+  receiptsCount?: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 // Firestore Trip Document Type
-export type FirestoreTrip = {
+export type TripsTableDDB = {
+  id: string;
+  __typename?: string;
+  name: string;
+  currency: string;
+  createdBy: string;
+  debts: Record<string, any>;
+  isTripPremium: boolean;
+  totalAmtLeft: number;
+  totalBudget: number;
+  createdAt: string; // ISO string from AWSDateTime
+  updatedAt: string;
+  startDate?: string;
+  endDate?: string;  
+
+  /*
   activitiesCount: number;
   createdBy: string;
   currency: string;
@@ -39,6 +69,7 @@ export type FirestoreTrip = {
   totalBudget: number;
   premiumStatus: string;
   dailyExpenseLimit?: { [date: string]: number };
+  */
 };
 
 export type FirestoreExpense = {
@@ -57,7 +88,21 @@ export type FirestoreExpense = {
   }[];
 };
 
-export type UserFromFirebase = {
+export type UserFromDynamo = {
+  id: string;
+  __typename?: string;
+  username: string;
+  fullName: string;
+  primaryEmailAddress: string;
+  //avatarUrl?: string;
+  premiumStatus: "free" | "premium" | "trial";
+  friends: string[];
+  incomingFriendRequests?: { senderUsername: string, timestamp: string }[]
+  outgoingFriendRequests?: { receiverUsername: string, timestamp: string }[]
+  trips: string[];
+  createdAt: string;
+  updatedAt: string;
+/*
     username?: string
     fullName?: string
     primaryEmailAddress?: { emailAddress: string }
@@ -67,6 +112,7 @@ export type UserFromFirebase = {
     outgoingFriendRequests?: { receiverUsername: string, status: string, timestamp: string }[]
     trips: string[],
     premiumStatus: string,
+    */
 }
 
 export enum ErrorType {
@@ -168,11 +214,6 @@ export type Expense = {
 // Props for the main ExpensesSection component
 export type ExpensesSectionProps = {
   tripId: string;
-  // Consider removing setIsRowSwiping if swipe logic is handled differently or locally
-  // setIsRowSwiping: (v: boolean) => void;
-  onAddExpensePress?: () => void;
-  onEditExpense?: (expense: Expense) => void;
-  activityToDeleteId?: string | null;
 };
 
 // Props for the ExpenseListItem component

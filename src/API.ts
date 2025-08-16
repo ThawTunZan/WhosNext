@@ -2,26 +2,39 @@
 /* eslint-disable */
 //  This file was automatically generated and should not be edited.
 
-export type CreateTripInput = {
+export type CreateUserInput = {
   id?: string | null,
-  name: string,
-  currency: string,
-  debts?: string | null,
-  totalAmtLeft?: number | null,
+  username: string,
+  email: string,
+  fullName: string,
+  avatarUrl?: string | null,
+  premiumStatus: PremiumStatus,
+  friends?: Array< string | null > | null,
+  trips?: Array< string | null > | null,
   createdAt?: string | null,
   updatedAt?: string | null,
 };
 
-export type ModelTripConditionInput = {
-  name?: ModelStringInput | null,
-  currency?: ModelStringInput | null,
-  debts?: ModelStringInput | null,
-  totalAmtLeft?: ModelFloatInput | null,
+export enum PremiumStatus {
+  free = "free",
+  trial = "trial",
+  premium = "premium",
+}
+
+
+export type ModelUserConditionInput = {
+  username?: ModelStringInput | null,
+  email?: ModelStringInput | null,
+  fullName?: ModelStringInput | null,
+  avatarUrl?: ModelStringInput | null,
+  premiumStatus?: ModelPremiumStatusInput | null,
+  friends?: ModelStringInput | null,
+  trips?: ModelStringInput | null,
   createdAt?: ModelStringInput | null,
   updatedAt?: ModelStringInput | null,
-  and?: Array< ModelTripConditionInput | null > | null,
-  or?: Array< ModelTripConditionInput | null > | null,
-  not?: ModelTripConditionInput | null,
+  and?: Array< ModelUserConditionInput | null > | null,
+  or?: Array< ModelUserConditionInput | null > | null,
+  not?: ModelUserConditionInput | null,
 };
 
 export type ModelStringInput = {
@@ -64,6 +77,127 @@ export type ModelSizeInput = {
   between?: Array< number | null > | null,
 };
 
+export type ModelPremiumStatusInput = {
+  eq?: PremiumStatus | null,
+  ne?: PremiumStatus | null,
+};
+
+export type User = {
+  __typename: "User",
+  id: string,
+  username: string,
+  email: string,
+  fullName: string,
+  avatarUrl?: string | null,
+  premiumStatus: PremiumStatus,
+  friends?: Array< string | null > | null,
+  incomingFriendRequests?:  Array<FriendRequest | null > | null,
+  outgoingFriendRequests?:  Array<FriendRequest | null > | null,
+  trips?: Array< string | null > | null,
+  createdAt?: string | null,
+  updatedAt?: string | null,
+};
+
+export type FriendRequest = {
+  __typename: "FriendRequest",
+  id: string,
+  username: string,
+  status: RequestStatus,
+  timestamp: string,
+  createdAt: string,
+  updatedAt: string,
+};
+
+export enum RequestStatus {
+  pending = "pending",
+  accepted = "accepted",
+  rejected = "rejected",
+}
+
+
+export type UpdateUserInput = {
+  id: string,
+  username?: string | null,
+  email?: string | null,
+  fullName?: string | null,
+  avatarUrl?: string | null,
+  premiumStatus?: PremiumStatus | null,
+  friends?: Array< string | null > | null,
+  trips?: Array< string | null > | null,
+  createdAt?: string | null,
+  updatedAt?: string | null,
+};
+
+export type DeleteUserInput = {
+  id: string,
+};
+
+export type CreateFriendRequestInput = {
+  id?: string | null,
+  username: string,
+  status: RequestStatus,
+  timestamp: string,
+};
+
+export type ModelFriendRequestConditionInput = {
+  username?: ModelStringInput | null,
+  status?: ModelRequestStatusInput | null,
+  timestamp?: ModelStringInput | null,
+  and?: Array< ModelFriendRequestConditionInput | null > | null,
+  or?: Array< ModelFriendRequestConditionInput | null > | null,
+  not?: ModelFriendRequestConditionInput | null,
+  createdAt?: ModelStringInput | null,
+  updatedAt?: ModelStringInput | null,
+};
+
+export type ModelRequestStatusInput = {
+  eq?: RequestStatus | null,
+  ne?: RequestStatus | null,
+};
+
+export type UpdateFriendRequestInput = {
+  id: string,
+  username?: string | null,
+  status?: RequestStatus | null,
+  timestamp?: string | null,
+};
+
+export type DeleteFriendRequestInput = {
+  id: string,
+};
+
+export type CreateTripInput = {
+  id?: string | null,
+  name: string,
+  currency: string,
+  createdBy: string,
+  debts?: string | null,
+  totalAmtLeft?: number | null,
+  totalBudget?: number | null,
+  startDate?: string | null,
+  endDate?: string | null,
+  isTripPremium: boolean,
+  createdAt?: string | null,
+  updatedAt?: string | null,
+};
+
+export type ModelTripConditionInput = {
+  name?: ModelStringInput | null,
+  currency?: ModelStringInput | null,
+  createdBy?: ModelStringInput | null,
+  debts?: ModelStringInput | null,
+  totalAmtLeft?: ModelFloatInput | null,
+  totalBudget?: ModelFloatInput | null,
+  startDate?: ModelStringInput | null,
+  endDate?: ModelStringInput | null,
+  isTripPremium?: ModelBooleanInput | null,
+  createdAt?: ModelStringInput | null,
+  updatedAt?: ModelStringInput | null,
+  and?: Array< ModelTripConditionInput | null > | null,
+  or?: Array< ModelTripConditionInput | null > | null,
+  not?: ModelTripConditionInput | null,
+};
+
 export type ModelFloatInput = {
   ne?: number | null,
   eq?: number | null,
@@ -76,15 +210,27 @@ export type ModelFloatInput = {
   attributeType?: ModelAttributeTypes | null,
 };
 
+export type ModelBooleanInput = {
+  ne?: boolean | null,
+  eq?: boolean | null,
+  attributeExists?: boolean | null,
+  attributeType?: ModelAttributeTypes | null,
+};
+
 export type Trip = {
   __typename: "Trip",
   id: string,
   name: string,
   currency: string,
+  createdBy: string,
   members?: ModelMemberConnection | null,
   expenses?: ModelExpenseConnection | null,
   debts?: string | null,
   totalAmtLeft?: number | null,
+  totalBudget?: number | null,
+  startDate?: string | null,
+  endDate?: string | null,
+  isTripPremium: boolean,
   createdAt?: string | null,
   updatedAt?: string | null,
 };
@@ -104,10 +250,19 @@ export type Member = {
   trip?: Trip | null,
   amtLeft?: number | null,
   owesTotalMap?: string | null,
-  createdAt: string,
-  updatedAt: string,
-  tripMembersId?: string | null,
+  addMemberType?: AddMemberType | null,
+  budget?: number | null,
+  receiptsCount?: number | null,
+  createdAt?: string | null,
+  updatedAt?: string | null,
 };
+
+export enum AddMemberType {
+  friends = "friends",
+  public = "public",
+  private = "private",
+}
+
 
 export type ModelExpenseConnection = {
   __typename: "ModelExpenseConnection",
@@ -127,8 +282,7 @@ export type Expense = {
   sharedWith?: ModelExpenseShareConnection | null,
   paidByAndAmounts?: string | null,
   createdAt?: string | null,
-  updatedAt: string,
-  tripExpensesId?: string | null,
+  updatedAt?: string | null,
 };
 
 export type ModelExpenseShareConnection = {
@@ -147,15 +301,19 @@ export type ExpenseShare = {
   currency: string,
   createdAt: string,
   updatedAt: string,
-  expenseSharedWithId?: string | null,
 };
 
 export type UpdateTripInput = {
   id: string,
   name?: string | null,
   currency?: string | null,
+  createdBy?: string | null,
   debts?: string | null,
   totalAmtLeft?: number | null,
+  totalBudget?: number | null,
+  startDate?: string | null,
+  endDate?: string | null,
+  isTripPremium?: boolean | null,
   createdAt?: string | null,
   updatedAt?: string | null,
 };
@@ -171,7 +329,11 @@ export type CreateMemberInput = {
   tripId: string,
   amtLeft?: number | null,
   owesTotalMap?: string | null,
-  tripMembersId?: string | null,
+  addMemberType?: AddMemberType | null,
+  budget?: number | null,
+  receiptsCount?: number | null,
+  createdAt?: string | null,
+  updatedAt?: string | null,
 };
 
 export type ModelMemberConditionInput = {
@@ -180,12 +342,14 @@ export type ModelMemberConditionInput = {
   tripId?: ModelIDInput | null,
   amtLeft?: ModelFloatInput | null,
   owesTotalMap?: ModelStringInput | null,
+  addMemberType?: ModelAddMemberTypeInput | null,
+  budget?: ModelFloatInput | null,
+  receiptsCount?: ModelIntInput | null,
+  createdAt?: ModelStringInput | null,
+  updatedAt?: ModelStringInput | null,
   and?: Array< ModelMemberConditionInput | null > | null,
   or?: Array< ModelMemberConditionInput | null > | null,
   not?: ModelMemberConditionInput | null,
-  createdAt?: ModelStringInput | null,
-  updatedAt?: ModelStringInput | null,
-  tripMembersId?: ModelIDInput | null,
 };
 
 export type ModelIDInput = {
@@ -204,6 +368,23 @@ export type ModelIDInput = {
   size?: ModelSizeInput | null,
 };
 
+export type ModelAddMemberTypeInput = {
+  eq?: AddMemberType | null,
+  ne?: AddMemberType | null,
+};
+
+export type ModelIntInput = {
+  ne?: number | null,
+  eq?: number | null,
+  le?: number | null,
+  lt?: number | null,
+  ge?: number | null,
+  gt?: number | null,
+  between?: Array< number | null > | null,
+  attributeExists?: boolean | null,
+  attributeType?: ModelAttributeTypes | null,
+};
+
 export type UpdateMemberInput = {
   id: string,
   username?: string | null,
@@ -211,7 +392,11 @@ export type UpdateMemberInput = {
   tripId?: string | null,
   amtLeft?: number | null,
   owesTotalMap?: string | null,
-  tripMembersId?: string | null,
+  addMemberType?: AddMemberType | null,
+  budget?: number | null,
+  receiptsCount?: number | null,
+  createdAt?: string | null,
+  updatedAt?: string | null,
 };
 
 export type DeleteMemberInput = {
@@ -227,7 +412,7 @@ export type CreateExpenseInput = {
   paidBy: string,
   paidByAndAmounts?: string | null,
   createdAt?: string | null,
-  tripExpensesId?: string | null,
+  updatedAt?: string | null,
 };
 
 export type ModelExpenseConditionInput = {
@@ -238,11 +423,10 @@ export type ModelExpenseConditionInput = {
   paidBy?: ModelStringInput | null,
   paidByAndAmounts?: ModelStringInput | null,
   createdAt?: ModelStringInput | null,
+  updatedAt?: ModelStringInput | null,
   and?: Array< ModelExpenseConditionInput | null > | null,
   or?: Array< ModelExpenseConditionInput | null > | null,
   not?: ModelExpenseConditionInput | null,
-  updatedAt?: ModelStringInput | null,
-  tripExpensesId?: ModelIDInput | null,
 };
 
 export type UpdateExpenseInput = {
@@ -254,7 +438,7 @@ export type UpdateExpenseInput = {
   paidBy?: string | null,
   paidByAndAmounts?: string | null,
   createdAt?: string | null,
-  tripExpensesId?: string | null,
+  updatedAt?: string | null,
 };
 
 export type DeleteExpenseInput = {
@@ -267,7 +451,6 @@ export type CreateExpenseShareInput = {
   payeeName: string,
   amount: number,
   currency: string,
-  expenseSharedWithId?: string | null,
 };
 
 export type ModelExpenseShareConditionInput = {
@@ -280,7 +463,6 @@ export type ModelExpenseShareConditionInput = {
   not?: ModelExpenseShareConditionInput | null,
   createdAt?: ModelStringInput | null,
   updatedAt?: ModelStringInput | null,
-  expenseSharedWithId?: ModelIDInput | null,
 };
 
 export type UpdateExpenseShareInput = {
@@ -289,19 +471,63 @@ export type UpdateExpenseShareInput = {
   payeeName?: string | null,
   amount?: number | null,
   currency?: string | null,
-  expenseSharedWithId?: string | null,
 };
 
 export type DeleteExpenseShareInput = {
   id: string,
 };
 
+export type ModelUserFilterInput = {
+  id?: ModelIDInput | null,
+  username?: ModelStringInput | null,
+  email?: ModelStringInput | null,
+  fullName?: ModelStringInput | null,
+  avatarUrl?: ModelStringInput | null,
+  premiumStatus?: ModelPremiumStatusInput | null,
+  friends?: ModelStringInput | null,
+  trips?: ModelStringInput | null,
+  createdAt?: ModelStringInput | null,
+  updatedAt?: ModelStringInput | null,
+  and?: Array< ModelUserFilterInput | null > | null,
+  or?: Array< ModelUserFilterInput | null > | null,
+  not?: ModelUserFilterInput | null,
+};
+
+export type ModelUserConnection = {
+  __typename: "ModelUserConnection",
+  items:  Array<User | null >,
+  nextToken?: string | null,
+};
+
+export type ModelFriendRequestFilterInput = {
+  id?: ModelIDInput | null,
+  username?: ModelStringInput | null,
+  status?: ModelRequestStatusInput | null,
+  timestamp?: ModelStringInput | null,
+  createdAt?: ModelStringInput | null,
+  updatedAt?: ModelStringInput | null,
+  and?: Array< ModelFriendRequestFilterInput | null > | null,
+  or?: Array< ModelFriendRequestFilterInput | null > | null,
+  not?: ModelFriendRequestFilterInput | null,
+};
+
+export type ModelFriendRequestConnection = {
+  __typename: "ModelFriendRequestConnection",
+  items:  Array<FriendRequest | null >,
+  nextToken?: string | null,
+};
+
 export type ModelTripFilterInput = {
   id?: ModelIDInput | null,
   name?: ModelStringInput | null,
   currency?: ModelStringInput | null,
+  createdBy?: ModelStringInput | null,
   debts?: ModelStringInput | null,
   totalAmtLeft?: ModelFloatInput | null,
+  totalBudget?: ModelFloatInput | null,
+  startDate?: ModelStringInput | null,
+  endDate?: ModelStringInput | null,
+  isTripPremium?: ModelBooleanInput | null,
   createdAt?: ModelStringInput | null,
   updatedAt?: ModelStringInput | null,
   and?: Array< ModelTripFilterInput | null > | null,
@@ -322,12 +548,14 @@ export type ModelMemberFilterInput = {
   tripId?: ModelIDInput | null,
   amtLeft?: ModelFloatInput | null,
   owesTotalMap?: ModelStringInput | null,
+  addMemberType?: ModelAddMemberTypeInput | null,
+  budget?: ModelFloatInput | null,
+  receiptsCount?: ModelIntInput | null,
   createdAt?: ModelStringInput | null,
   updatedAt?: ModelStringInput | null,
   and?: Array< ModelMemberFilterInput | null > | null,
   or?: Array< ModelMemberFilterInput | null > | null,
   not?: ModelMemberFilterInput | null,
-  tripMembersId?: ModelIDInput | null,
 };
 
 export type ModelExpenseFilterInput = {
@@ -343,7 +571,6 @@ export type ModelExpenseFilterInput = {
   and?: Array< ModelExpenseFilterInput | null > | null,
   or?: Array< ModelExpenseFilterInput | null > | null,
   not?: ModelExpenseFilterInput | null,
-  tripExpensesId?: ModelIDInput | null,
 };
 
 export type ModelExpenseShareFilterInput = {
@@ -357,21 +584,27 @@ export type ModelExpenseShareFilterInput = {
   and?: Array< ModelExpenseShareFilterInput | null > | null,
   or?: Array< ModelExpenseShareFilterInput | null > | null,
   not?: ModelExpenseShareFilterInput | null,
-  expenseSharedWithId?: ModelIDInput | null,
 };
 
-export type ModelSubscriptionTripFilterInput = {
+export enum ModelSortDirection {
+  ASC = "ASC",
+  DESC = "DESC",
+}
+
+
+export type ModelSubscriptionUserFilterInput = {
   id?: ModelSubscriptionIDInput | null,
-  name?: ModelSubscriptionStringInput | null,
-  currency?: ModelSubscriptionStringInput | null,
-  debts?: ModelSubscriptionStringInput | null,
-  totalAmtLeft?: ModelSubscriptionFloatInput | null,
+  username?: ModelSubscriptionStringInput | null,
+  email?: ModelSubscriptionStringInput | null,
+  fullName?: ModelSubscriptionStringInput | null,
+  avatarUrl?: ModelSubscriptionStringInput | null,
+  premiumStatus?: ModelSubscriptionStringInput | null,
+  friends?: ModelSubscriptionStringInput | null,
+  trips?: ModelSubscriptionStringInput | null,
   createdAt?: ModelSubscriptionStringInput | null,
   updatedAt?: ModelSubscriptionStringInput | null,
-  and?: Array< ModelSubscriptionTripFilterInput | null > | null,
-  or?: Array< ModelSubscriptionTripFilterInput | null > | null,
-  tripMembersId?: ModelSubscriptionIDInput | null,
-  tripExpensesId?: ModelSubscriptionIDInput | null,
+  and?: Array< ModelSubscriptionUserFilterInput | null > | null,
+  or?: Array< ModelSubscriptionUserFilterInput | null > | null,
 };
 
 export type ModelSubscriptionIDInput = {
@@ -404,6 +637,34 @@ export type ModelSubscriptionStringInput = {
   notIn?: Array< string | null > | null,
 };
 
+export type ModelSubscriptionFriendRequestFilterInput = {
+  id?: ModelSubscriptionIDInput | null,
+  username?: ModelSubscriptionStringInput | null,
+  status?: ModelSubscriptionStringInput | null,
+  timestamp?: ModelSubscriptionStringInput | null,
+  createdAt?: ModelSubscriptionStringInput | null,
+  updatedAt?: ModelSubscriptionStringInput | null,
+  and?: Array< ModelSubscriptionFriendRequestFilterInput | null > | null,
+  or?: Array< ModelSubscriptionFriendRequestFilterInput | null > | null,
+};
+
+export type ModelSubscriptionTripFilterInput = {
+  id?: ModelSubscriptionIDInput | null,
+  name?: ModelSubscriptionStringInput | null,
+  currency?: ModelSubscriptionStringInput | null,
+  createdBy?: ModelSubscriptionStringInput | null,
+  debts?: ModelSubscriptionStringInput | null,
+  totalAmtLeft?: ModelSubscriptionFloatInput | null,
+  totalBudget?: ModelSubscriptionFloatInput | null,
+  startDate?: ModelSubscriptionStringInput | null,
+  endDate?: ModelSubscriptionStringInput | null,
+  isTripPremium?: ModelSubscriptionBooleanInput | null,
+  createdAt?: ModelSubscriptionStringInput | null,
+  updatedAt?: ModelSubscriptionStringInput | null,
+  and?: Array< ModelSubscriptionTripFilterInput | null > | null,
+  or?: Array< ModelSubscriptionTripFilterInput | null > | null,
+};
+
 export type ModelSubscriptionFloatInput = {
   ne?: number | null,
   eq?: number | null,
@@ -416,6 +677,11 @@ export type ModelSubscriptionFloatInput = {
   notIn?: Array< number | null > | null,
 };
 
+export type ModelSubscriptionBooleanInput = {
+  ne?: boolean | null,
+  eq?: boolean | null,
+};
+
 export type ModelSubscriptionMemberFilterInput = {
   id?: ModelSubscriptionIDInput | null,
   username?: ModelSubscriptionStringInput | null,
@@ -423,10 +689,25 @@ export type ModelSubscriptionMemberFilterInput = {
   tripId?: ModelSubscriptionIDInput | null,
   amtLeft?: ModelSubscriptionFloatInput | null,
   owesTotalMap?: ModelSubscriptionStringInput | null,
+  addMemberType?: ModelSubscriptionStringInput | null,
+  budget?: ModelSubscriptionFloatInput | null,
+  receiptsCount?: ModelSubscriptionIntInput | null,
   createdAt?: ModelSubscriptionStringInput | null,
   updatedAt?: ModelSubscriptionStringInput | null,
   and?: Array< ModelSubscriptionMemberFilterInput | null > | null,
   or?: Array< ModelSubscriptionMemberFilterInput | null > | null,
+};
+
+export type ModelSubscriptionIntInput = {
+  ne?: number | null,
+  eq?: number | null,
+  le?: number | null,
+  lt?: number | null,
+  ge?: number | null,
+  gt?: number | null,
+  between?: Array< number | null > | null,
+  in?: Array< number | null > | null,
+  notIn?: Array< number | null > | null,
 };
 
 export type ModelSubscriptionExpenseFilterInput = {
@@ -441,7 +722,6 @@ export type ModelSubscriptionExpenseFilterInput = {
   updatedAt?: ModelSubscriptionStringInput | null,
   and?: Array< ModelSubscriptionExpenseFilterInput | null > | null,
   or?: Array< ModelSubscriptionExpenseFilterInput | null > | null,
-  expenseSharedWithId?: ModelSubscriptionIDInput | null,
 };
 
 export type ModelSubscriptionExpenseShareFilterInput = {
@@ -456,6 +736,174 @@ export type ModelSubscriptionExpenseShareFilterInput = {
   or?: Array< ModelSubscriptionExpenseShareFilterInput | null > | null,
 };
 
+export type CreateUserMutationVariables = {
+  input: CreateUserInput,
+  condition?: ModelUserConditionInput | null,
+};
+
+export type CreateUserMutation = {
+  createUser?:  {
+    __typename: "User",
+    id: string,
+    username: string,
+    email: string,
+    fullName: string,
+    avatarUrl?: string | null,
+    premiumStatus: PremiumStatus,
+    friends?: Array< string | null > | null,
+    incomingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    outgoingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    trips?: Array< string | null > | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
+};
+
+export type UpdateUserMutationVariables = {
+  input: UpdateUserInput,
+  condition?: ModelUserConditionInput | null,
+};
+
+export type UpdateUserMutation = {
+  updateUser?:  {
+    __typename: "User",
+    id: string,
+    username: string,
+    email: string,
+    fullName: string,
+    avatarUrl?: string | null,
+    premiumStatus: PremiumStatus,
+    friends?: Array< string | null > | null,
+    incomingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    outgoingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    trips?: Array< string | null > | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
+};
+
+export type DeleteUserMutationVariables = {
+  input: DeleteUserInput,
+  condition?: ModelUserConditionInput | null,
+};
+
+export type DeleteUserMutation = {
+  deleteUser?:  {
+    __typename: "User",
+    id: string,
+    username: string,
+    email: string,
+    fullName: string,
+    avatarUrl?: string | null,
+    premiumStatus: PremiumStatus,
+    friends?: Array< string | null > | null,
+    incomingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    outgoingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    trips?: Array< string | null > | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
+};
+
+export type CreateFriendRequestMutationVariables = {
+  input: CreateFriendRequestInput,
+  condition?: ModelFriendRequestConditionInput | null,
+};
+
+export type CreateFriendRequestMutation = {
+  createFriendRequest?:  {
+    __typename: "FriendRequest",
+    id: string,
+    username: string,
+    status: RequestStatus,
+    timestamp: string,
+    createdAt: string,
+    updatedAt: string,
+  } | null,
+};
+
+export type UpdateFriendRequestMutationVariables = {
+  input: UpdateFriendRequestInput,
+  condition?: ModelFriendRequestConditionInput | null,
+};
+
+export type UpdateFriendRequestMutation = {
+  updateFriendRequest?:  {
+    __typename: "FriendRequest",
+    id: string,
+    username: string,
+    status: RequestStatus,
+    timestamp: string,
+    createdAt: string,
+    updatedAt: string,
+  } | null,
+};
+
+export type DeleteFriendRequestMutationVariables = {
+  input: DeleteFriendRequestInput,
+  condition?: ModelFriendRequestConditionInput | null,
+};
+
+export type DeleteFriendRequestMutation = {
+  deleteFriendRequest?:  {
+    __typename: "FriendRequest",
+    id: string,
+    username: string,
+    status: RequestStatus,
+    timestamp: string,
+    createdAt: string,
+    updatedAt: string,
+  } | null,
+};
+
 export type CreateTripMutationVariables = {
   input: CreateTripInput,
   condition?: ModelTripConditionInput | null,
@@ -467,6 +915,7 @@ export type CreateTripMutation = {
     id: string,
     name: string,
     currency: string,
+    createdBy: string,
     members?:  {
       __typename: "ModelMemberConnection",
       nextToken?: string | null,
@@ -477,6 +926,10 @@ export type CreateTripMutation = {
     } | null,
     debts?: string | null,
     totalAmtLeft?: number | null,
+    totalBudget?: number | null,
+    startDate?: string | null,
+    endDate?: string | null,
+    isTripPremium: boolean,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -493,6 +946,7 @@ export type UpdateTripMutation = {
     id: string,
     name: string,
     currency: string,
+    createdBy: string,
     members?:  {
       __typename: "ModelMemberConnection",
       nextToken?: string | null,
@@ -503,6 +957,10 @@ export type UpdateTripMutation = {
     } | null,
     debts?: string | null,
     totalAmtLeft?: number | null,
+    totalBudget?: number | null,
+    startDate?: string | null,
+    endDate?: string | null,
+    isTripPremium: boolean,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -519,6 +977,7 @@ export type DeleteTripMutation = {
     id: string,
     name: string,
     currency: string,
+    createdBy: string,
     members?:  {
       __typename: "ModelMemberConnection",
       nextToken?: string | null,
@@ -529,6 +988,10 @@ export type DeleteTripMutation = {
     } | null,
     debts?: string | null,
     totalAmtLeft?: number | null,
+    totalBudget?: number | null,
+    startDate?: string | null,
+    endDate?: string | null,
+    isTripPremium: boolean,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -551,16 +1014,23 @@ export type CreateMemberMutation = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
     amtLeft?: number | null,
     owesTotalMap?: string | null,
-    createdAt: string,
-    updatedAt: string,
-    tripMembersId?: string | null,
+    addMemberType?: AddMemberType | null,
+    budget?: number | null,
+    receiptsCount?: number | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -581,16 +1051,23 @@ export type UpdateMemberMutation = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
     amtLeft?: number | null,
     owesTotalMap?: string | null,
-    createdAt: string,
-    updatedAt: string,
-    tripMembersId?: string | null,
+    addMemberType?: AddMemberType | null,
+    budget?: number | null,
+    receiptsCount?: number | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -611,16 +1088,23 @@ export type DeleteMemberMutation = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
     amtLeft?: number | null,
     owesTotalMap?: string | null,
-    createdAt: string,
-    updatedAt: string,
-    tripMembersId?: string | null,
+    addMemberType?: AddMemberType | null,
+    budget?: number | null,
+    receiptsCount?: number | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -639,8 +1123,13 @@ export type CreateExpenseMutation = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
@@ -654,8 +1143,7 @@ export type CreateExpenseMutation = {
     } | null,
     paidByAndAmounts?: string | null,
     createdAt?: string | null,
-    updatedAt: string,
-    tripExpensesId?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -674,8 +1162,13 @@ export type UpdateExpenseMutation = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
@@ -689,8 +1182,7 @@ export type UpdateExpenseMutation = {
     } | null,
     paidByAndAmounts?: string | null,
     createdAt?: string | null,
-    updatedAt: string,
-    tripExpensesId?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -709,8 +1201,13 @@ export type DeleteExpenseMutation = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
@@ -724,8 +1221,7 @@ export type DeleteExpenseMutation = {
     } | null,
     paidByAndAmounts?: string | null,
     createdAt?: string | null,
-    updatedAt: string,
-    tripExpensesId?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -749,15 +1245,13 @@ export type CreateExpenseShareMutation = {
       paidBy: string,
       paidByAndAmounts?: string | null,
       createdAt?: string | null,
-      updatedAt: string,
-      tripExpensesId?: string | null,
+      updatedAt?: string | null,
     } | null,
     payeeName: string,
     amount: number,
     currency: string,
     createdAt: string,
     updatedAt: string,
-    expenseSharedWithId?: string | null,
   } | null,
 };
 
@@ -781,15 +1275,13 @@ export type UpdateExpenseShareMutation = {
       paidBy: string,
       paidByAndAmounts?: string | null,
       createdAt?: string | null,
-      updatedAt: string,
-      tripExpensesId?: string | null,
+      updatedAt?: string | null,
     } | null,
     payeeName: string,
     amount: number,
     currency: string,
     createdAt: string,
     updatedAt: string,
-    expenseSharedWithId?: string | null,
   } | null,
 };
 
@@ -813,15 +1305,115 @@ export type DeleteExpenseShareMutation = {
       paidBy: string,
       paidByAndAmounts?: string | null,
       createdAt?: string | null,
-      updatedAt: string,
-      tripExpensesId?: string | null,
+      updatedAt?: string | null,
     } | null,
     payeeName: string,
     amount: number,
     currency: string,
     createdAt: string,
     updatedAt: string,
-    expenseSharedWithId?: string | null,
+  } | null,
+};
+
+export type GetUserQueryVariables = {
+  id: string,
+};
+
+export type GetUserQuery = {
+  getUser?:  {
+    __typename: "User",
+    id: string,
+    username: string,
+    email: string,
+    fullName: string,
+    avatarUrl?: string | null,
+    premiumStatus: PremiumStatus,
+    friends?: Array< string | null > | null,
+    incomingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    outgoingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    trips?: Array< string | null > | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
+};
+
+export type ListUsersQueryVariables = {
+  filter?: ModelUserFilterInput | null,
+  limit?: number | null,
+  nextToken?: string | null,
+};
+
+export type ListUsersQuery = {
+  listUsers?:  {
+    __typename: "ModelUserConnection",
+    items:  Array< {
+      __typename: "User",
+      id: string,
+      username: string,
+      email: string,
+      fullName: string,
+      avatarUrl?: string | null,
+      premiumStatus: PremiumStatus,
+      friends?: Array< string | null > | null,
+      trips?: Array< string | null > | null,
+      createdAt?: string | null,
+      updatedAt?: string | null,
+    } | null >,
+    nextToken?: string | null,
+  } | null,
+};
+
+export type GetFriendRequestQueryVariables = {
+  id: string,
+};
+
+export type GetFriendRequestQuery = {
+  getFriendRequest?:  {
+    __typename: "FriendRequest",
+    id: string,
+    username: string,
+    status: RequestStatus,
+    timestamp: string,
+    createdAt: string,
+    updatedAt: string,
+  } | null,
+};
+
+export type ListFriendRequestsQueryVariables = {
+  filter?: ModelFriendRequestFilterInput | null,
+  limit?: number | null,
+  nextToken?: string | null,
+};
+
+export type ListFriendRequestsQuery = {
+  listFriendRequests?:  {
+    __typename: "ModelFriendRequestConnection",
+    items:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null >,
+    nextToken?: string | null,
   } | null,
 };
 
@@ -835,6 +1427,7 @@ export type GetTripQuery = {
     id: string,
     name: string,
     currency: string,
+    createdBy: string,
     members?:  {
       __typename: "ModelMemberConnection",
       nextToken?: string | null,
@@ -845,6 +1438,10 @@ export type GetTripQuery = {
     } | null,
     debts?: string | null,
     totalAmtLeft?: number | null,
+    totalBudget?: number | null,
+    startDate?: string | null,
+    endDate?: string | null,
+    isTripPremium: boolean,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -864,8 +1461,13 @@ export type ListTripsQuery = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null >,
@@ -889,16 +1491,23 @@ export type GetMemberQuery = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
     amtLeft?: number | null,
     owesTotalMap?: string | null,
-    createdAt: string,
-    updatedAt: string,
-    tripMembersId?: string | null,
+    addMemberType?: AddMemberType | null,
+    budget?: number | null,
+    receiptsCount?: number | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -919,9 +1528,11 @@ export type ListMembersQuery = {
       tripId: string,
       amtLeft?: number | null,
       owesTotalMap?: string | null,
-      createdAt: string,
-      updatedAt: string,
-      tripMembersId?: string | null,
+      addMemberType?: AddMemberType | null,
+      budget?: number | null,
+      receiptsCount?: number | null,
+      createdAt?: string | null,
+      updatedAt?: string | null,
     } | null >,
     nextToken?: string | null,
   } | null,
@@ -941,8 +1552,13 @@ export type GetExpenseQuery = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
@@ -956,8 +1572,7 @@ export type GetExpenseQuery = {
     } | null,
     paidByAndAmounts?: string | null,
     createdAt?: string | null,
-    updatedAt: string,
-    tripExpensesId?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -980,8 +1595,7 @@ export type ListExpensesQuery = {
       paidBy: string,
       paidByAndAmounts?: string | null,
       createdAt?: string | null,
-      updatedAt: string,
-      tripExpensesId?: string | null,
+      updatedAt?: string | null,
     } | null >,
     nextToken?: string | null,
   } | null,
@@ -1006,15 +1620,13 @@ export type GetExpenseShareQuery = {
       paidBy: string,
       paidByAndAmounts?: string | null,
       createdAt?: string | null,
-      updatedAt: string,
-      tripExpensesId?: string | null,
+      updatedAt?: string | null,
     } | null,
     payeeName: string,
     amount: number,
     currency: string,
     createdAt: string,
     updatedAt: string,
-    expenseSharedWithId?: string | null,
   } | null,
 };
 
@@ -1036,9 +1648,338 @@ export type ListExpenseSharesQuery = {
       currency: string,
       createdAt: string,
       updatedAt: string,
-      expenseSharedWithId?: string | null,
     } | null >,
     nextToken?: string | null,
+  } | null,
+};
+
+export type GetUserByUsernameQueryVariables = {
+  username: string,
+  sortDirection?: ModelSortDirection | null,
+  filter?: ModelUserFilterInput | null,
+  limit?: number | null,
+  nextToken?: string | null,
+};
+
+export type GetUserByUsernameQuery = {
+  getUserByUsername?:  {
+    __typename: "ModelUserConnection",
+    items:  Array< {
+      __typename: "User",
+      id: string,
+      username: string,
+      email: string,
+      fullName: string,
+      avatarUrl?: string | null,
+      premiumStatus: PremiumStatus,
+      friends?: Array< string | null > | null,
+      trips?: Array< string | null > | null,
+      createdAt?: string | null,
+      updatedAt?: string | null,
+    } | null >,
+    nextToken?: string | null,
+  } | null,
+};
+
+export type GetTripsByCreatorQueryVariables = {
+  createdBy: string,
+  sortDirection?: ModelSortDirection | null,
+  filter?: ModelTripFilterInput | null,
+  limit?: number | null,
+  nextToken?: string | null,
+};
+
+export type GetTripsByCreatorQuery = {
+  getTripsByCreator?:  {
+    __typename: "ModelTripConnection",
+    items:  Array< {
+      __typename: "Trip",
+      id: string,
+      name: string,
+      currency: string,
+      createdBy: string,
+      debts?: string | null,
+      totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
+      createdAt?: string | null,
+      updatedAt?: string | null,
+    } | null >,
+    nextToken?: string | null,
+  } | null,
+};
+
+export type GetMembersByUsernameQueryVariables = {
+  username: string,
+  sortDirection?: ModelSortDirection | null,
+  filter?: ModelMemberFilterInput | null,
+  limit?: number | null,
+  nextToken?: string | null,
+};
+
+export type GetMembersByUsernameQuery = {
+  getMembersByUsername?:  {
+    __typename: "ModelMemberConnection",
+    items:  Array< {
+      __typename: "Member",
+      id: string,
+      username: string,
+      fullName: string,
+      tripId: string,
+      amtLeft?: number | null,
+      owesTotalMap?: string | null,
+      addMemberType?: AddMemberType | null,
+      budget?: number | null,
+      receiptsCount?: number | null,
+      createdAt?: string | null,
+      updatedAt?: string | null,
+    } | null >,
+    nextToken?: string | null,
+  } | null,
+};
+
+export type GetMembersByTripQueryVariables = {
+  tripId: string,
+  sortDirection?: ModelSortDirection | null,
+  filter?: ModelMemberFilterInput | null,
+  limit?: number | null,
+  nextToken?: string | null,
+};
+
+export type GetMembersByTripQuery = {
+  getMembersByTrip?:  {
+    __typename: "ModelMemberConnection",
+    items:  Array< {
+      __typename: "Member",
+      id: string,
+      username: string,
+      fullName: string,
+      tripId: string,
+      amtLeft?: number | null,
+      owesTotalMap?: string | null,
+      addMemberType?: AddMemberType | null,
+      budget?: number | null,
+      receiptsCount?: number | null,
+      createdAt?: string | null,
+      updatedAt?: string | null,
+    } | null >,
+    nextToken?: string | null,
+  } | null,
+};
+
+export type GetExpensesByTripQueryVariables = {
+  tripId: string,
+  sortDirection?: ModelSortDirection | null,
+  filter?: ModelExpenseFilterInput | null,
+  limit?: number | null,
+  nextToken?: string | null,
+};
+
+export type GetExpensesByTripQuery = {
+  getExpensesByTrip?:  {
+    __typename: "ModelExpenseConnection",
+    items:  Array< {
+      __typename: "Expense",
+      id: string,
+      tripId: string,
+      activityName: string,
+      amount: number,
+      currency: string,
+      paidBy: string,
+      paidByAndAmounts?: string | null,
+      createdAt?: string | null,
+      updatedAt?: string | null,
+    } | null >,
+    nextToken?: string | null,
+  } | null,
+};
+
+export type GetSharesByExpenseQueryVariables = {
+  expenseId: string,
+  sortDirection?: ModelSortDirection | null,
+  filter?: ModelExpenseShareFilterInput | null,
+  limit?: number | null,
+  nextToken?: string | null,
+};
+
+export type GetSharesByExpenseQuery = {
+  getSharesByExpense?:  {
+    __typename: "ModelExpenseShareConnection",
+    items:  Array< {
+      __typename: "ExpenseShare",
+      id: string,
+      expenseId: string,
+      payeeName: string,
+      amount: number,
+      currency: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null >,
+    nextToken?: string | null,
+  } | null,
+};
+
+export type OnCreateUserSubscriptionVariables = {
+  filter?: ModelSubscriptionUserFilterInput | null,
+};
+
+export type OnCreateUserSubscription = {
+  onCreateUser?:  {
+    __typename: "User",
+    id: string,
+    username: string,
+    email: string,
+    fullName: string,
+    avatarUrl?: string | null,
+    premiumStatus: PremiumStatus,
+    friends?: Array< string | null > | null,
+    incomingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    outgoingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    trips?: Array< string | null > | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
+};
+
+export type OnUpdateUserSubscriptionVariables = {
+  filter?: ModelSubscriptionUserFilterInput | null,
+};
+
+export type OnUpdateUserSubscription = {
+  onUpdateUser?:  {
+    __typename: "User",
+    id: string,
+    username: string,
+    email: string,
+    fullName: string,
+    avatarUrl?: string | null,
+    premiumStatus: PremiumStatus,
+    friends?: Array< string | null > | null,
+    incomingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    outgoingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    trips?: Array< string | null > | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
+};
+
+export type OnDeleteUserSubscriptionVariables = {
+  filter?: ModelSubscriptionUserFilterInput | null,
+};
+
+export type OnDeleteUserSubscription = {
+  onDeleteUser?:  {
+    __typename: "User",
+    id: string,
+    username: string,
+    email: string,
+    fullName: string,
+    avatarUrl?: string | null,
+    premiumStatus: PremiumStatus,
+    friends?: Array< string | null > | null,
+    incomingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    outgoingFriendRequests?:  Array< {
+      __typename: "FriendRequest",
+      id: string,
+      username: string,
+      status: RequestStatus,
+      timestamp: string,
+      createdAt: string,
+      updatedAt: string,
+    } | null > | null,
+    trips?: Array< string | null > | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
+  } | null,
+};
+
+export type OnCreateFriendRequestSubscriptionVariables = {
+  filter?: ModelSubscriptionFriendRequestFilterInput | null,
+};
+
+export type OnCreateFriendRequestSubscription = {
+  onCreateFriendRequest?:  {
+    __typename: "FriendRequest",
+    id: string,
+    username: string,
+    status: RequestStatus,
+    timestamp: string,
+    createdAt: string,
+    updatedAt: string,
+  } | null,
+};
+
+export type OnUpdateFriendRequestSubscriptionVariables = {
+  filter?: ModelSubscriptionFriendRequestFilterInput | null,
+};
+
+export type OnUpdateFriendRequestSubscription = {
+  onUpdateFriendRequest?:  {
+    __typename: "FriendRequest",
+    id: string,
+    username: string,
+    status: RequestStatus,
+    timestamp: string,
+    createdAt: string,
+    updatedAt: string,
+  } | null,
+};
+
+export type OnDeleteFriendRequestSubscriptionVariables = {
+  filter?: ModelSubscriptionFriendRequestFilterInput | null,
+};
+
+export type OnDeleteFriendRequestSubscription = {
+  onDeleteFriendRequest?:  {
+    __typename: "FriendRequest",
+    id: string,
+    username: string,
+    status: RequestStatus,
+    timestamp: string,
+    createdAt: string,
+    updatedAt: string,
   } | null,
 };
 
@@ -1052,6 +1993,7 @@ export type OnCreateTripSubscription = {
     id: string,
     name: string,
     currency: string,
+    createdBy: string,
     members?:  {
       __typename: "ModelMemberConnection",
       nextToken?: string | null,
@@ -1062,6 +2004,10 @@ export type OnCreateTripSubscription = {
     } | null,
     debts?: string | null,
     totalAmtLeft?: number | null,
+    totalBudget?: number | null,
+    startDate?: string | null,
+    endDate?: string | null,
+    isTripPremium: boolean,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -1077,6 +2023,7 @@ export type OnUpdateTripSubscription = {
     id: string,
     name: string,
     currency: string,
+    createdBy: string,
     members?:  {
       __typename: "ModelMemberConnection",
       nextToken?: string | null,
@@ -1087,6 +2034,10 @@ export type OnUpdateTripSubscription = {
     } | null,
     debts?: string | null,
     totalAmtLeft?: number | null,
+    totalBudget?: number | null,
+    startDate?: string | null,
+    endDate?: string | null,
+    isTripPremium: boolean,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -1102,6 +2053,7 @@ export type OnDeleteTripSubscription = {
     id: string,
     name: string,
     currency: string,
+    createdBy: string,
     members?:  {
       __typename: "ModelMemberConnection",
       nextToken?: string | null,
@@ -1112,6 +2064,10 @@ export type OnDeleteTripSubscription = {
     } | null,
     debts?: string | null,
     totalAmtLeft?: number | null,
+    totalBudget?: number | null,
+    startDate?: string | null,
+    endDate?: string | null,
+    isTripPremium: boolean,
     createdAt?: string | null,
     updatedAt?: string | null,
   } | null,
@@ -1133,16 +2089,23 @@ export type OnCreateMemberSubscription = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
     amtLeft?: number | null,
     owesTotalMap?: string | null,
-    createdAt: string,
-    updatedAt: string,
-    tripMembersId?: string | null,
+    addMemberType?: AddMemberType | null,
+    budget?: number | null,
+    receiptsCount?: number | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -1162,16 +2125,23 @@ export type OnUpdateMemberSubscription = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
     amtLeft?: number | null,
     owesTotalMap?: string | null,
-    createdAt: string,
-    updatedAt: string,
-    tripMembersId?: string | null,
+    addMemberType?: AddMemberType | null,
+    budget?: number | null,
+    receiptsCount?: number | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -1191,16 +2161,23 @@ export type OnDeleteMemberSubscription = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
     amtLeft?: number | null,
     owesTotalMap?: string | null,
-    createdAt: string,
-    updatedAt: string,
-    tripMembersId?: string | null,
+    addMemberType?: AddMemberType | null,
+    budget?: number | null,
+    receiptsCount?: number | null,
+    createdAt?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -1218,8 +2195,13 @@ export type OnCreateExpenseSubscription = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
@@ -1233,8 +2215,7 @@ export type OnCreateExpenseSubscription = {
     } | null,
     paidByAndAmounts?: string | null,
     createdAt?: string | null,
-    updatedAt: string,
-    tripExpensesId?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -1252,8 +2233,13 @@ export type OnUpdateExpenseSubscription = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
@@ -1267,8 +2253,7 @@ export type OnUpdateExpenseSubscription = {
     } | null,
     paidByAndAmounts?: string | null,
     createdAt?: string | null,
-    updatedAt: string,
-    tripExpensesId?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -1286,8 +2271,13 @@ export type OnDeleteExpenseSubscription = {
       id: string,
       name: string,
       currency: string,
+      createdBy: string,
       debts?: string | null,
       totalAmtLeft?: number | null,
+      totalBudget?: number | null,
+      startDate?: string | null,
+      endDate?: string | null,
+      isTripPremium: boolean,
       createdAt?: string | null,
       updatedAt?: string | null,
     } | null,
@@ -1301,8 +2291,7 @@ export type OnDeleteExpenseSubscription = {
     } | null,
     paidByAndAmounts?: string | null,
     createdAt?: string | null,
-    updatedAt: string,
-    tripExpensesId?: string | null,
+    updatedAt?: string | null,
   } | null,
 };
 
@@ -1325,15 +2314,13 @@ export type OnCreateExpenseShareSubscription = {
       paidBy: string,
       paidByAndAmounts?: string | null,
       createdAt?: string | null,
-      updatedAt: string,
-      tripExpensesId?: string | null,
+      updatedAt?: string | null,
     } | null,
     payeeName: string,
     amount: number,
     currency: string,
     createdAt: string,
     updatedAt: string,
-    expenseSharedWithId?: string | null,
   } | null,
 };
 
@@ -1356,15 +2343,13 @@ export type OnUpdateExpenseShareSubscription = {
       paidBy: string,
       paidByAndAmounts?: string | null,
       createdAt?: string | null,
-      updatedAt: string,
-      tripExpensesId?: string | null,
+      updatedAt?: string | null,
     } | null,
     payeeName: string,
     amount: number,
     currency: string,
     createdAt: string,
     updatedAt: string,
-    expenseSharedWithId?: string | null,
   } | null,
 };
 
@@ -1387,14 +2372,12 @@ export type OnDeleteExpenseShareSubscription = {
       paidBy: string,
       paidByAndAmounts?: string | null,
       createdAt?: string | null,
-      updatedAt: string,
-      tripExpensesId?: string | null,
+      updatedAt?: string | null,
     } | null,
     payeeName: string,
     amount: number,
     currency: string,
     createdAt: string,
     updatedAt: string,
-    expenseSharedWithId?: string | null,
   } | null,
 };

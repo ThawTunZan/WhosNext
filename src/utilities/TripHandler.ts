@@ -1,5 +1,5 @@
 import { addMemberToTrip, leaveTripIfEligible, removeMemberFromTrip, deleteTripAndRelatedData, claimMockUser } from '@/src/utilities/TripUtilities';
-import { AddMemberType, FirestoreExpense, FirestoreTrip, Member } from '@/src/types/DataTypes';
+import { AddMemberType, FirestoreExpense, TripsTableDDB, Member } from '@/src/types/DataTypes';
 
 import { collection, doc, getDocs, getFirestore, updateDoc } from 'firebase/firestore';
 import { Alert } from 'react-native';
@@ -8,7 +8,7 @@ export class TripHandler {
   static async addMember(
     tripId: string,
     memberName: string,
-    trip: FirestoreTrip,
+    trip: TripsTableDDB,
     options: {
       budget: number;
       addMemberType: AddMemberType;
@@ -29,7 +29,7 @@ export class TripHandler {
     memberNameToRemove: string,
     memberData: any,
     expenses: any,
-    trip: FirestoreTrip,
+    trip: TripsTableDDB,
   ): Promise<{ success: boolean; error?: any }> {
     try {
         if (await TripHandler.canBeRemoved(memberNameToRemove, expenses, trip)) {
@@ -89,14 +89,11 @@ export class TripHandler {
     }
   }
 
-  static getTripById(tripId: string, trips: (FirestoreTrip & { id: string })[]): (FirestoreTrip & { id: string }) | undefined {
-    return trips.find(trip => trip.id === tripId);
-  }
 
   static canBeRemoved(
     memberName: string,
     expenses: any[],
-    trip: FirestoreTrip
+    trip: TripsTableDDB
   ): boolean {
     const isPartOfTrip = (
       expenses.some(expense =>
@@ -113,7 +110,7 @@ export class TripHandler {
  * Function is called when new user join in and claims a mock member
  * To update in the backend the expenses, activities and other stuff the mockmember participated in 
  */
-static async updateFirebaseAfterClaiming(mockUserId: string, currentUserName: string, tripId: string, expenses: FirestoreExpense[], tripData: FirestoreTrip) {
+static async updateFirebaseAfterClaiming(mockUserId: string, currentUserName: string, tripId: string, expenses: FirestoreExpense[], tripData: TripsTableDDB) {
 	const db = getFirestore();
 
 	// 1. Update Expenses

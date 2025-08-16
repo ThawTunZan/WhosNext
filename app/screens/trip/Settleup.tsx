@@ -15,12 +15,11 @@ import {
     calculateSimplifiedDebtsPerCurrency,
     ParsedDebt,         
 } from '@/src/components/Trip/SettleUp/utilities/SettleUpUtilities'; 
-import { Member, Debt, Payment, FirestoreTrip } from '@/src/types/DataTypes';
+import { Member, Debt, Payment, TripsTableDDB } from '@/src/types/DataTypes';
 import RecordPaymentModal from '@/src/components/Trip/Payment/components/RecordPaymentModal';
 import { firebaseRecordPayment, firebaseDeletePayment } from '@/src/firebase/FirebaseServices';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 import { useTripPaymentsContext } from '@/src/context/TripPaymentsContext';
-import ActivityCard from '@/src/components/Trip/Activity/components/ActivityCard';
 
 // Props type specific to this component
 type SettleUpProps = {
@@ -49,8 +48,7 @@ export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps)
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [expandedPaymentIds, setExpandedPaymentIds] = useState<Set<string>>(new Set());
   const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
-  const trip = trips.find(t => t.id === tripId) as FirestoreTrip | undefined;
-  const members = trip.members;
+  const trip = trips.find(t => t.id === tripId) as TripsTableDDB | undefined;
   const debts = trip.debts;
 
   // Transform debts object form the database to Debt[] for RecordPaymentModal
