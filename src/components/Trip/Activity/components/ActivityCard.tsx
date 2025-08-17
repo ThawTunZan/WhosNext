@@ -1,6 +1,6 @@
 // src/components/ActivityCard.tsx
 import React from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Card, Text, Button, IconButton, Divider, Caption } from 'react-native-paper';
 import { ActivityCardProps } from '@/src/types/DataTypes'; // Adjust path if using activities.ts
 import { formatCurrency } from '@/src/utilities/CurrencyUtilities';

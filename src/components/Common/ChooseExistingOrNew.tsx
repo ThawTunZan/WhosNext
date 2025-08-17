@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Modal, Portal, Text, Button, RadioButton, Surface, Avatar, useTheme, ActivityIndicator } from 'react-native-paper';
-import { AddMemberType, Member } from '@/src/types/DataTypes';
+import { AddMemberType, MemberDDB } from '@/src/types/DataTypes';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 
 type ChooseExistingOrNewProps = {
   visible: boolean;
   onDismiss: () => void;
-  mockMembers: Record<string, Member>;
+  mockMembers: Record<string, MemberDDB>;
   onSelectMockMember: (memberId: string) => void;
   onJoinAsNew: () => void;
 };

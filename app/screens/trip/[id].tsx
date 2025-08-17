@@ -5,7 +5,6 @@ import { View, KeyboardAvoidingView, Platform, StyleSheet, Text } from "react-na
 import { useLocalSearchParams } from "expo-router";
 import { Snackbar, Portal, Button, ActivityIndicator } from "react-native-paper";
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
-import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { TripPaymentsProvider, useTripPaymentsContext } from '@/src/context/TripPaymentsContext';
 import { useUser } from "@clerk/clerk-expo";
 import TripHeader from "@/src/components/TripHeader";
@@ -22,8 +21,7 @@ import ChooseExistingOrNew from "@/src/components/Common/ChooseExistingOrNew";
 import { TripHandler } from "@/src/utilities/TripHandler";
 import { AddMemberType } from "@/src/types/DataTypes";
 import TripLeaderboard from "@/app/screens/trip/TripLeaderboard";
-import { TripExpensesProvider } from '@/src/context/TripExpensesContext';
-import type { TripsTableDDB, Member, Debt } from '@/src/types/DataTypes';
+import type { TripsTableDDB, MemberDDB, Debt } from '@/src/types/DataTypes';
 import { SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
 import { useHandleDeleteActivity } from '@/src/components/Trip/Activity/utilities/ActivityUtilities';
 import { claimMockUser, updatePersonalBudget } from "@/src/utilities/TripUtilities";
@@ -33,11 +31,9 @@ export default function TripPageWrapper() {
   const tripId = Array.isArray(routeIdParam) ? routeIdParam[0] : routeIdParam;
 
   return (
-    <TripExpensesProvider tripId={tripId}>
       <TripPaymentsProvider tripId={tripId}>
         <TripPage tripId={tripId} />
       </TripPaymentsProvider>
-    </TripExpensesProvider>
   );
 }
 
@@ -50,11 +46,9 @@ function TripPage({ tripId }) {
   >("overview");
 
   // Get trip from UserTripsContext
-  const { trips, loading: tripsLoading, tripMembersMap, error: tripsError } = useUserTripsContext();
-  const trip = trips.find(t => t.id === tripId);
-  
-  // Get expenses from TripExpensesContext
-  const { expenses, loading: expensesLoading, error: expensesError } = useTripExpensesContext();
+  const { trips, loading: tripsLoading, tripMembersMap, error: tripsError, expensesByTripId } = useUserTripsContext();
+  const trip = trips.find(t => t.id === tripId) as TripsTableDDB | undefined;
+
   const { payments, loading: paymentsLoading, error: paymentsError } = useTripPaymentsContext();
 
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -62,14 +56,11 @@ function TripPage({ tripId }) {
   const [budgetDialogVisible, setBudgetDialogVisible] = useState(false);
   const [newBudgetInput, setNewBudgetInput] = useState<string>("");
 
-  // Compose loading and error states
-  const loading = tripsLoading || expensesLoading || paymentsLoading;
+  const loading = tripsLoading || paymentsLoading;
   const [showChooseModal, setShowChooseModal] = useState(false);
 
-  // When passing members, cast as Record<string, Member> and cast currency and addMemberType fields, and fix owesTotalMap
-  const safeMembers: Record<string, Member> = Object.fromEntries(
-    Object.entries(tripMembersMap[tripId] || {}).map(([k, v]) => [k, toMember(v)])
-  );
+  // member id, MemberDDB
+  const safeMembers = (tripMembersMap[tripId] ?? {}) as Record<string, MemberDDB>;
 
 
 
@@ -105,28 +96,14 @@ function TripPage({ tripId }) {
     }
   }, [newBudgetInput, tripId, currentUsername]);
 
-  // Helper to convert Firestore member to Member type
-  function toMember(v: any): Member {
-    return {
-      username: v.username,
-      budget: typeof v.budget === 'number' ? v.budget : 0,
-      amtLeft: typeof v.amtLeft === 'number' ? v.amtLeft : 0,
-      currency: v.currency,
-      addMemberType: Object.values(AddMemberType).includes(v.addMemberType) ? v.addMemberType as AddMemberType : AddMemberType.INVITE_LINK,
-      claimCode: v.claimCode,
-      owesTotalMap: v.owesTotalMap,
-      receiptsCount: typeof v.receiptsCount === 'number' ? v.receiptsCount : 0,
-    };
-  }
-
   // When accessing claimCode, use optional chaining and type guard
   const handleSelectMockMember = async (memberId: string) => {
     try {
-      const member = safeMembers[memberId];
+      const member: any = safeMembers[memberId];
       if (!member?.claimCode) {
         throw new Error('No claim code found for this member');
       }
-      await TripHandler.handleClaimMockUser(tripId, memberId, member.claimCode, currentUsername, expenses, trip);
+      await TripHandler.handleClaimMockUser(tripId, memberId, member.claimCode, currentUsername, expensesByTripId[tripId], trip);
       setShowChooseModal(false);
       setSnackbarMessage('Successfully claimed mock profile');
       setSnackbarVisible(true);
@@ -143,6 +120,7 @@ function TripPage({ tripId }) {
         tripId,
         user.username || user.fullName || user.primaryEmailAddress?.emailAddress || 'Unknown User',
         trip,
+        safeMembers,
         {
           budget: 0,
           addMemberType: AddMemberType.INVITE_LINK,
@@ -222,10 +200,9 @@ function TripPage({ tripId }) {
                   ...trip,
                   members: safeMembers,
                   currency: trip.currency,
-                  premiumStatus: trip.premiumStatus ?? 'free',
                   debts:  trip.debts,
                 }}
-                expenses={expenses}
+                expenses={expensesByTripId[tripId]}
                 payments={payments}
               />
             )}
@@ -237,14 +214,14 @@ function TripPage({ tripId }) {
                 value={newBudgetInput}
                 onChangeValue={setNewBudgetInput}
                 onSubmit={submitBudgetChange}
-                currency={safeMembers[currentUsername]?.currency || 'USD'}
+                currency={trip.currency || 'USD'}
               />
             </Portal>
 
             <ChooseExistingOrNew
               visible={showChooseModal}
               onDismiss={() => setShowChooseModal(false)}
-              mockMembers={safeMembers as Record<string, Member>}
+              mockMembers={safeMembers as Record<string, MemberDDB>}
               onSelectMockMember={handleSelectMockMember}
               onJoinAsNew={handleJoinAsNew}
             />

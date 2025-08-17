@@ -218,6 +218,7 @@ export const getMember = /* GraphQL */ `query GetMember($id: ID!) {
     addMemberType
     budget
     receiptsCount
+    currency
     createdAt
     updatedAt
     __typename
@@ -240,6 +241,7 @@ export const listMembers = /* GraphQL */ `query ListMembers(
       addMemberType
       budget
       receiptsCount
+      currency
       createdAt
       updatedAt
       __typename
@@ -411,6 +413,7 @@ export const getMembersByUsername = /* GraphQL */ `query GetMembersByUsername(
       addMemberType
       budget
       receiptsCount
+      currency
       createdAt
       updatedAt
       __typename
@@ -447,6 +450,7 @@ export const getMembersByTrip = /* GraphQL */ `query GetMembersByTrip(
       addMemberType
       budget
       receiptsCount
+      currency
       createdAt
       updatedAt
       __typename

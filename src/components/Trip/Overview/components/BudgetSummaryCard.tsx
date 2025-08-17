@@ -3,11 +3,11 @@ import { View, StyleSheet } from 'react-native';
 import { Card, Text, ProgressBar, useTheme, ActivityIndicator } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Member } from '@/src/types/DataTypes';
+import { MemberDDB } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
 type BudgetSummaryCardProps = {
-  members: { [username: string]: { addMemberType: string; amtLeft: number; budget: number; currency: string; owesTotalMap: { [currency: string]: number; }; receiptsCount: number; username: string; }; };
+  members: { [userId: string]: MemberDDB };
   totalBudget: number;
   totalAmtLeft: number;
   tripCurrency: string;
@@ -23,18 +23,18 @@ export default function BudgetSummaryCard({
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
 
-  const [convertedBudgets, setConvertedBudgets] = useState<{ [username: string]: { amtLeft: number, budget: number } }>({});
+  const [convertedBudgets, setConvertedBudgets] = useState<{ [userId: string]: { username: string, amtLeft: number, budget: number } }>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     async function convertAll() {
       setLoading(true);
-      const result: { [username: string]: { amtLeft: number, budget: number } } = {};
-      for (const [username, m] of Object.entries(members)) {
+      const result: { [userId: string]: { username: string, amtLeft: number, budget: number } } = {};
+      for (const [userId, m] of Object.entries(members)) {
         const amtLeft = await convertCurrency(m.amtLeft, m.currency, tripCurrency);
         const budget = await convertCurrency(m.budget, m.currency, tripCurrency);
-        result[username] = { amtLeft, budget };
+        result[userId] = { username: m.username, amtLeft, budget };
       }
       if (!cancelled) setConvertedBudgets(result);
       setLoading(false);
@@ -70,13 +70,13 @@ export default function BudgetSummaryCard({
           <Text variant="titleMedium" style={[styles.memberTitle, { color: theme.colors.text }]}>Individual Budgets</Text>
           {loading ? (
             <Text>Loading currency conversions...</Text>
-          ) : Object.entries(members).map(([username, m]) => {
-            const converted = convertedBudgets[username] || { amtLeft: 0, budget: 0 };
+          ) : Object.entries(members).map(([userId, m]) => {
+            const converted = convertedBudgets[userId] || { amtLeft: 0, budget: 0 };
             const progress = converted.budget > 0 ? converted.amtLeft / converted.budget : 0;
-            const memberName = username;
+            const memberName = m.username;
             const showOriginal = m.currency !== tripCurrency;
             return (
-              <View key={username} style={styles.memberBar}>
+              <View key={userId} style={styles.memberBar}>
                 <View style={styles.memberHeader}>
                   <Text style={[styles.memberName, { color: theme.colors.text }]}>{memberName}</Text>
                   <Text style={[styles.memberAmount, { color: theme.colors.subtext }]}> {currencySymbol}{converted.amtLeft.toFixed(2)} / {currencySymbol}{converted.budget.toFixed(2)}

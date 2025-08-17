@@ -176,7 +176,7 @@ export default function CreateTripScreen() {
       });
     
       const createdTrip = tripResponse.data.createTrip;
-      console.log("Trip created:", createdTrip);
+      console.log("[Create-Trip.tsx] Trip created:");
     
       // Step 2: Create initial Member (current user)
       const memberInput = {
@@ -186,6 +186,7 @@ export default function CreateTripScreen() {
         tripId: createdTrip.id,
         amtLeft: parsedBudget,
         budget: parsedBudget,
+        currency: createdTrip.currency,
         owesTotalMap: JSON.stringify({
           USD: 0, EUR: 0, GBP: 0, JPY: 0, CNY: 0, SGD: 0
         }),
@@ -196,13 +197,13 @@ export default function CreateTripScreen() {
         variables: { input: memberInput }
       });
     
-      console.log("[create-trip.tsx] Member created:", memberResponse.data.createMember);
+      console.log("[create-trip.tsx] Member created:");
       await fetchTrips();
     
       // Done — navigate to home
       router.push('/');
     } catch (err) {
-      console.error("Trip creation error:", err);
+      console.error("[create-trip] Trip creation error:", err);
       alert("Failed to create trip. Please try again.");
     }
   };

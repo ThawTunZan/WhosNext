@@ -78,6 +78,7 @@ type Member @model {
   addMemberType: AddMemberType
   budget: Float
   receiptsCount: Int
+  currency: String!
   createdAt: AWSDateTime
   updatedAt: AWSDateTime
 }
@@ -108,7 +109,8 @@ enum RequestStatus {
 }
 
 enum AddMemberType {
+  mock,
+  invite_link
+  qr_code
   friends
-  public
-  private
 }

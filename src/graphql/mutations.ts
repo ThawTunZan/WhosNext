@@ -367,6 +367,7 @@ export const createMember = /* GraphQL */ `mutation CreateMember(
     addMemberType
     budget
     receiptsCount
+    currency
     createdAt
     updatedAt
     __typename
@@ -405,6 +406,7 @@ export const updateMember = /* GraphQL */ `mutation UpdateMember(
     addMemberType
     budget
     receiptsCount
+    currency
     createdAt
     updatedAt
     __typename
@@ -443,6 +445,7 @@ export const deleteMember = /* GraphQL */ `mutation DeleteMember(
     addMemberType
     budget
     receiptsCount
+    currency
     createdAt
     updatedAt
     __typename

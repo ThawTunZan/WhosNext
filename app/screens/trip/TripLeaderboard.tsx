@@ -4,67 +4,47 @@ import { Text, Button, Avatar, Card, Badge, useTheme, Surface } from 'react-nati
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { useRouter } from 'expo-router';
-import { TripData, Payment, Expense, TripsTableDDB } from '@/src/types/DataTypes';
+import { ExpenseDDB, Payment, TripsTableDDB, MemberDDB } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
 interface TripLeaderboardProps {
-  trip: TripsTableDDB;
-  expenses: Expense[];
+  trip: TripsTableDDB & {members?: Record<string, MemberDDB>};
+  expenses: ExpenseDDB[];
   payments: Payment[];
 }
 
-export default function TripLeaderboard({ trip, expenses, payments }: TripLeaderboardProps) {
+export default function TripLeaderboard({ trip, expenses }: TripLeaderboardProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const router = useRouter();
 
   const [rotationType, setRotationType] = useState<'Recency' | 'AmountLeft' | 'PaymentNum'>('Recency')
   const [excludedMembers, setExcludedMembers] = useState<string[]>([])
-  // Members as array with id
-  const members = useMemo(() => (
-    trip.members
-      ? Object.entries(trip.members).map(([username, m]) => ({ ...m, username }))
-      : []
-  ), [trip.members]);
-
   const [leaderboardTotals, setLeaderboardTotals] = useState<{ [username: string]: number }>({});
   const [loadingTotals, setLoadingTotals] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    async function calcTotals() {
-      setLoadingTotals(true);
-      const totals: { [username: string]: number } = {};
-      for (const member of members) {
-        let total = 0;
-        for (const e of expenses) {
-          for (const pba of e.paidByAndAmounts || []) {
-            if (pba.memberName === member.username) {
-              const cur = (pba as any).currency || e.currency || trip.currency || 'USD';
-              const amt = parseFloat(pba.amount || '0');
-              const converted = await convertCurrency(amt, cur, trip.currency || 'USD');
-              total += converted;
-            }
-          }
-        }
-        totals[member.username] = total;
-      }
-      if (!cancelled) setLeaderboardTotals(totals);
-      setLoadingTotals(false);
-    }
-    calcTotals();
-    return () => { cancelled = true; };
-  }, [members, expenses, trip.currency]);
-
   // each person's amount left converted to the trip's currency
   const [amtLeftInTripCurrency, setAmtLeftInTripCurrency] = useState<{ [username: string]: number }>({});
+
+
+  // Members as array with id
+  const members = useMemo(
+    () =>
+      trip.members
+        ? Object.entries(trip.members).map(([id, m]) => ({ ...m, id, username: m.username }))
+        : [],
+    [trip.members]
+  );
+
+  
   useEffect(() => {
     let cancelled = false;
     async function calcAmtLeft() {
       const result: { [username: string]: number } = {};
       for (const member of members) {
+        // MemberDDB has no currency; assume amtLeft is already in the trip currency. TODO
+        // If stored member.amtLeft in a different currency, replace the source code with that currency.
         const converted = await convertCurrency(
-          member.amtLeft,
-          member.currency || trip.currency || 'USD',
+          Number(member.amtLeft) || 0,
+          trip.currency || 'USD',
           trip.currency || 'USD'
         );
         result[member.username] = converted;
@@ -72,107 +52,154 @@ export default function TripLeaderboard({ trip, expenses, payments }: TripLeader
       if (!cancelled) setAmtLeftInTripCurrency(result);
     }
     calcAmtLeft();
-    return () => { cancelled = true; };
-  }, [members, trip.currency]);
+    return () => {
+      cancelled = true;
+    };
+  }, [members, expenses, trip.currency]);
 
-  // Payment rotation: choose logic based on rotationType
-  const paymentRotation = useMemo(() => {
+  
+
+   // ---- Payment rotation logic ----
+   const paymentRotation = useMemo(() => {
     if (rotationType === 'AmountLeft') {
-      // Sort by amtLeft in trip currency
-      return [...members].sort((a, b) =>
-        (amtLeftInTripCurrency[b.username] || 0) - (amtLeftInTripCurrency[a.username] || 0)
+      // Sort by amtLeft in trip currency (desc: who has most left should pay next)
+      return [...members].sort(
+        (a, b) => (amtLeftInTripCurrency[b.username] || 0) - (amtLeftInTripCurrency[a.username] || 0)
       );
     } else if (rotationType === 'Recency') {
-      // Sort members by how recently they paid (least recent on the left, most recent on the right)
-      // For each member, find the most recent expense they paid for
+      // Sort members by how recently they paid (least recent first)
       const memberLastPaid: Record<string, number> = {};
-      members.forEach(m => { memberLastPaid[m.username] = 0; });
-      expenses.forEach(e => {
-        const payerId = e.paidByAndAmounts?.[0]?.memberName;
-        const paidAt = (e.createdAt instanceof Date)
-          ? e.createdAt.getTime()
-          : (e.createdAt?.toDate?.() ? e.createdAt.toDate().getTime() : 0);
-        if (payerId && paidAt && paidAt > (memberLastPaid[payerId] || 0)) {
-          memberLastPaid[payerId] = paidAt;
+      members.forEach((m) => {
+        memberLastPaid[m.username] = 0;
+      });
+
+      expenses.forEach((e) => {
+        const payer = e.paidBy;
+        const paidAt = e.createdAt ? new Date(e.createdAt as string).getTime() : 0;
+        if (payer && paidAt && paidAt > (memberLastPaid[payer] || 0)) {
+          memberLastPaid[payer] = paidAt;
         }
       });
-      // Sort by last paid time ascending (least recent first)
+
       return [...members].sort((a, b) => (memberLastPaid[a.username] || 0) - (memberLastPaid[b.username] || 0));
     } else if (rotationType === 'PaymentNum') {
-      // Count number of expenses paid by each member
+      // Count number of expenses paid by each member; tie-breaker by recency (least recent first)
       const expenseCounts: Record<string, number> = {};
       const memberLastPaid: Record<string, number> = {};
-      members.forEach(m => { 
+      members.forEach((m) => {
         expenseCounts[m.username] = 0;
         memberLastPaid[m.username] = 0;
       });
-      expenses.forEach(e => {
-        const payerId = e.paidByAndAmounts?.[0]?.memberName;
-        const paidAt = (e.createdAt instanceof Date)
-          ? e.createdAt.getTime()
-          : (e.createdAt?.toDate?.() ? e.createdAt.toDate().getTime() : 0);
-        if (payerId) {
-          expenseCounts[payerId] += 1;
-          if (paidAt && paidAt > (memberLastPaid[payerId] || 0)) {
-            memberLastPaid[payerId] = paidAt;
+
+      expenses.forEach((e) => {
+        const payer = e.paidBy;
+        const paidAt = e.createdAt ? new Date(e.createdAt as string).getTime() : 0;
+        if (payer) {
+          expenseCounts[payer] += 1;
+          if (paidAt && paidAt > (memberLastPaid[payer] || 0)) {
+            memberLastPaid[payer] = paidAt;
           }
         }
       });
-      // Sort by num of payments ascending, then by last paid time ascending (least recent first)
+
       return [...members].sort((a, b) => {
         if (expenseCounts[a.username] !== expenseCounts[b.username]) {
           return expenseCounts[a.username] - expenseCounts[b.username];
         }
-        // Tie-breaker: least recent payer first
         return (memberLastPaid[a.username] || 0) - (memberLastPaid[b.username] || 0);
       });
     }
     return members;
-  }, [rotationType, members, expenses]);
-
+  }, [rotationType, members, expenses, amtLeftInTripCurrency]);
   // Find next payer
   const nextPayer = paymentRotation[0] || members[0];
 
-  // Recent payments: sort by paymentDate descending, take 3
-  // Leaderboard: sort by amtLeft ascending (or streak if available)
-  const leaderboard = [...members]
-    .map(member => {
-      const totalPaid = expenses
-        .flatMap(e => e.paidByAndAmounts)
-        .filter(pba => pba.memberName === member.username)
-        .reduce((sum, pba) => sum + parseFloat(pba.amount || '0'), 0);
-      return { ...member, totalPaid };
-    })
-    .sort((a, b) => b.totalPaid - a.totalPaid); // Sort descending by totalPaid
+
+  // ---- Leaderboard: total paid (in trip currency), descending ----
+  const leaderboard = useMemo(() => {
+    return [...members]
+      .map((member) => {
+        const totalPaid = expenses
+          .filter((e) => e.paidBy === member.username)
+          .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+        return { ...member, totalPaid };
+      })
+      .sort((a, b) => b.totalPaid - a.totalPaid);
+  }, [members, expenses]);
+
+  // Top totalPaid for badges
+  const topPaid = useMemo(() => {
+    if (leaderboard.length === 0) return 0;
+    return Math.max(
+      ...leaderboard.map((m) =>
+        expenses
+          .filter((e) => e.paidBy === m.username)
+          .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+      )
+    );
+  }, [leaderboard, expenses]);
+
+  // First expense payer (oldest by createdAt)
+  const firstExpensePayer = useMemo(() => {
+    if (expenses.length === 0) return null;
+    const earliest = expenses.reduce(
+      (earliest, e) => {
+        const ts = e.createdAt ? new Date(e.createdAt as string).getTime() : 0;
+        if (ts && (earliest.time === 0 || ts < earliest.time)) {
+          return { memberName: e.paidBy ?? null, time: ts };
+        }
+        return earliest;
+      },
+      { memberName: null as string | null, time: 0 }
+    );
+    return earliest.memberName;
+  }, [expenses]);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ padding: 20 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      contentContainerStyle={{ padding: 20 }}
+    >
       {/* Next to Pay Section */}
-      <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]}> 
+      <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]}>
         <Text style={styles.sectionTitle}>Next to Pay</Text>
         <View style={styles.nextPayerRow}>
-          <Avatar.Text label={nextPayer.username?.[0] || '?'} size={56} style={{ marginRight: 16, backgroundColor: theme.colors.primary }} />
+          <Avatar.Text
+            label={nextPayer?.username?.[0] || '?'}
+            size={56}
+            style={{ marginRight: 16, backgroundColor: theme.colors.primary }}
+          />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.nextPayerName, { color: theme.colors.text }]}>{nextPayer.username || "Unknown"}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-              {/* Streak and badges can be added here if available */}
-            </View>
+            <Text style={[styles.nextPayerName, { color: theme.colors.text }]}>
+              {nextPayer?.username || 'Unknown'}
+            </Text>
           </View>
         </View>
       </Surface>
 
       {/* Payment Rotation Section */}
-      <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]}> 
+      <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]}>
         <Text style={styles.sectionTitle}>Payment Rotation</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-          {paymentRotation.map((member, idx) => (
-            <View key={member.username} style={[styles.rotationItem]}>
-              <Avatar.Text label={member.username?.[0] || '?'} size={40} style={{ backgroundColor: theme.colors.primary }} />
-              <Text style={{ color: theme.colors.text, marginTop: 4 }}>{member.username || "Unknown"}</Text>
+          {paymentRotation.map((member) => (
+            <View key={member.username} style={styles.rotationItem}>
+              <Avatar.Text
+                label={member.username?.[0] || '?'}
+                size={40}
+                style={{ backgroundColor: theme.colors.primary }}
+              />
+              <Text style={{ color: theme.colors.text, marginTop: 4 }}>
+                {member.username || 'Unknown'}
+              </Text>
             </View>
           ))}
         </ScrollView>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginBottom: 4 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginTop: 12, marginBottom: 4 }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        >
           <Button
             mode={rotationType === 'Recency' ? 'contained' : 'outlined'}
             onPress={() => setRotationType('Recency')}
@@ -201,70 +228,107 @@ export default function TripLeaderboard({ trip, expenses, payments }: TripLeader
       </Surface>
 
       {/* Leaderboard Section */}
-      <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]}> 
+      <Surface style={[styles.section, { backgroundColor: theme.colors.surface }]}>
         <Text style={styles.sectionTitle}>Leaderboard</Text>
         {loadingTotals ? (
           <Text>Loading totals...</Text>
-        ) : leaderboard.map((member, idx) => {
-          // Calculate total paid by this member
-          const totalPaid = leaderboardTotals[member.username] || 0;
-          const numPaid = expenses.filter(e => e.paidByAndAmounts?.[0]?.memberName === member.username).length;
+        ) : (
+          leaderboard.map((member, idx) => {
+            const totalPaid = leaderboardTotals[member.username] || 0;
+            const numPaid = expenses.filter((e) => e.paidBy === member.username).length;
 
-          // Badges
-          const badges: React.ReactNode[] = [];
-          if (idx === 0) badges.push(<Badge key="gold" style={{ backgroundColor: '#FFD700', color: '#333', marginLeft: 6 }}>🥇</Badge>);
-          if (idx === 1) badges.push(<Badge key="silver" style={{ backgroundColor: '#C0C0C0', color: '#333', marginLeft: 6 }}>🥈</Badge>);
-          if (idx === 2) badges.push(<Badge key="bronze" style={{ backgroundColor: '#CD7F32', color: '#fff', marginLeft: 6 }}>🥉</Badge>);
+            const badges: React.ReactNode[] = [];
+            if (idx === 0)
+              badges.push(
+                <Badge key="gold" style={{ backgroundColor: '#FFD700', color: '#333', marginLeft: 6 }}>
+                  🥇
+                </Badge>
+              );
+            if (idx === 1)
+              badges.push(
+                <Badge key="silver" style={{ backgroundColor: '#C0C0C0', color: '#333', marginLeft: 6 }}>
+                  🥈
+                </Badge>
+              );
+            if (idx === 2)
+              badges.push(
+                <Badge key="bronze" style={{ backgroundColor: '#CD7F32', color: '#fff', marginLeft: 6 }}>
+                  🥉
+                </Badge>
+              );
 
-          // Big Spender badge for top payer
-          const topPaid = Math.max(...leaderboard.map(m => expenses.flatMap(e => e.paidByAndAmounts).filter(pba => pba.memberName === m.username).reduce((sum, pba) => sum + parseFloat(pba.amount || '0'), 0)));
-          if (totalPaid === topPaid && topPaid > 0) badges.push(<Badge key="spender" style={{ backgroundColor: '#FFB300', color: '#fff', marginLeft: 6 }}>🤑 Sugar Daddy</Badge>);
+            if (totalPaid === topPaid && topPaid > 0)
+              badges.push(
+                <Badge key="spender" style={{ backgroundColor: '#FFB300', color: '#fff', marginLeft: 6 }}>
+                  🤑 Sugar Daddy
+                </Badge>
+              );
 
-          // First Expense badge
-          const firstExpensePayer = expenses.length > 0 ? expenses[0].paidByAndAmounts?.[0]?.memberName : null;
-          if (member.username === firstExpensePayer) badges.push(<Badge key="first" style={{ backgroundColor: '#4F46E5', color: '#fff', marginLeft: 6 }}>☠️ First Victim</Badge>);
+            if (member.username === firstExpensePayer)
+              badges.push(
+                <Badge key="first" style={{ backgroundColor: '#4F46E5', color: '#fff', marginLeft: 6 }}>
+                  ☠️ First Victim
+                </Badge>
+              );
 
-          // Ghost badge: never paid
-          if (totalPaid === 0) badges.push(<Badge key="ghost" style={{ backgroundColor: '#B0BEC5', color: '#333', marginLeft: 6 }}>👻 Ghost</Badge>);
+            if (totalPaid === 0)
+              badges.push(
+                <Badge key="ghost" style={{ backgroundColor: '#B0BEC5', color: '#333', marginLeft: 6 }}>
+                  👻 Ghost
+                </Badge>
+              );
 
-          // Rainmaker badge: paid more than $1000
-          if (totalPaid > 1000) badges.push(<Badge key="rainmaker" style={{ backgroundColor: '#00B8D4', color: '#fff', marginLeft: 6 }}>💸 Rainmaker</Badge>);
+            if (numPaid >= 3)
+              badges.push(
+                <Badge key="flyer" style={{ backgroundColor: '#8BC34A', color: '#fff', marginLeft: 6 }}>
+                  💸 Frequent Payer
+                </Badge>
+              );
 
-          // Frequent Flyer: paid for 3+ expenses
-          if (numPaid >= 3) badges.push(<Badge key="flyer" style={{ backgroundColor: '#8BC34A', color: '#fff', marginLeft: 6 }}>💸 Frequent Payer</Badge>);
+            // Last minute: most recent payer overall
+            const mostRecent = expenses.reduce(
+              (latest, e) => {
+                const t = e.createdAt ? new Date(e.createdAt as string).getTime() : 0;
+                return t > latest.paidAt ? { memberId: e.paidBy ?? null, paidAt: t } : latest;
+              },
+              { memberId: null as string | null, paidAt: 0 }
+            );
+            if (member.username === mostRecent.memberId)
+              badges.push(
+                <Badge key="lastminute" style={{ backgroundColor: '#FF7043', color: '#fff', marginLeft: 6 }}>
+                  ⏰ Last Minute Payback
+                </Badge>
+              );
 
-          // Last Minute: most recent payer
-          const mostRecentExpense = expenses.length > 0 ? expenses.reduce((latest, e) => {
-            const paidAt = (e.createdAt instanceof Date)
-              ? e.createdAt.getTime()
-              : (e.createdAt?.toDate?.() ? e.createdAt.toDate().getTime() : 0);
-            return paidAt > latest.paidAt ? { memberId: e.paidByAndAmounts?.[0]?.memberName, paidAt } : latest;
-          }, { memberId: null, paidAt: 0 }) : { memberId: null, paidAt: 0 };
-          if (member.username === mostRecentExpense.memberId) badges.push(<Badge key="lastminute" style={{ backgroundColor: '#FF7043', color: '#fff', marginLeft: 6 }}>⏰ Last Minute Payback</Badge>);
-
-          return (
-            <View key={member.username} style={styles.leaderboardRow}>
-              <Text style={styles.leaderboardRank}>{idx + 1}.</Text>
-              <Avatar.Text label={member.username?.[0] || '?'} size={36} style={{ backgroundColor: theme.colors.primary, marginRight: 12 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.leaderboardName, { color: theme.colors.text }]}>{member.username || "Unknown"}</Text>
-                {badges.length > 0 && (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
-                    {badges}
-                  </View>
-                )}
+            return (
+              <View key={member.username} style={styles.leaderboardRow}>
+                <Text style={styles.leaderboardRank}>{idx + 1}.</Text>
+                <Avatar.Text
+                  label={member.username?.[0] || '?'}
+                  size={36}
+                  style={{ backgroundColor: theme.colors.primary, marginRight: 12 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.leaderboardName, { color: theme.colors.text }]}>
+                    {member.username || 'Unknown'}
+                  </Text>
+                  {badges.length > 0 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>{badges}</View>}
+                </View>
+                <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                  <Text style={{ color: theme.colors.text, fontSize: 13 }}>
+                    Paid: {trip.currency || 'USD'} {totalPaid.toFixed(2)}
+                  </Text>
+                </View>
               </View>
-              <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                <Text style={{ color: theme.colors.text, fontSize: 13 }}>Paid: {trip.currency || 'USD'} {totalPaid.toFixed(2)}</Text>
-              </View>
-              {/* Add badges if available */}
-            </View>
-          );
-        })}
+            );
+          })
+        )}
       </Surface>
 
       {/* Get Trip Summary Button */}
-      <Button mode="outlined" style={styles.backButton}>Get Trip Summary</Button>
+      <Button mode="outlined" style={styles.backButton}>
+        Get Trip Summary
+      </Button>
     </ScrollView>
   );
 }
@@ -289,37 +353,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  payNowButton: {
-    marginLeft: 12,
-    borderRadius: 20,
-  },
-  streakBadge: {
-    backgroundColor: '#FFD700',
-    color: '#333',
-    marginRight: 8,
-  },
-  badge: {
-    backgroundColor: '#E0E7FF',
-    color: '#333',
-    marginRight: 8,
-  },
   rotationItem: {
     alignItems: 'center',
     marginRight: 24,
     position: 'relative',
-  },
-  rotationNext: {
-    borderColor: '#4F46E5',
-    borderWidth: 2,
-    borderRadius: 24,
-    padding: 4,
-  },
-  nextBadge: {
-    position: 'absolute',
-    top: -10,
-    right: -10,
-    backgroundColor: '#4F46E5',
-    color: '#fff',
   },
   leaderboardRow: {
     flexDirection: 'row',
@@ -338,15 +375,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginRight: 8,
   },
-  paymentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
   backButton: {
     marginTop: 10,
     borderRadius: 20,
     alignSelf: 'center',
     width: 180,
   },
-}); 
+});

@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, useTheme, Text } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Member, AddMemberType, TripsTableDDB } from '@/src/types/DataTypes';
+import { MemberDDB, AddMemberType, TripsTableDDB } from '@/src/types/DataTypes';
 import BudgetSummaryCard from '@/src/components/Trip/Overview/components/BudgetSummaryCard';
 import PersonalBudgetCard from '@/src/components/Trip/Overview/components/PersonalBudgetCard';
 import MemberList from '@/src/components/Common/MemberList';
@@ -11,7 +11,6 @@ import NextPayerCard from '@/src/components/Common/NextPayerCard';
 import { UpgradeTripButton } from '@/src/components';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 import { TripHandler } from '@/src/utilities/TripHandler';
-import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 //import { showRewardedAd } from '@/CommonComponents/AdMob';
@@ -31,31 +30,35 @@ export default function OverviewTab({
 }: OverviewTabProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const { trips, tripMembersMap } = useUserTripsContext();
-  const { expenses } = useTripExpensesContext();
+  const { trips, tripMembersMap, expensesByTripId } = useUserTripsContext();
   const { user } = useUser();
   const router = useRouter();
-  const currTripMembers = tripMembersMap[tripId]
+  const currTripMembers = tripMembersMap[tripId] ?? {};
+  const expenses = expensesByTripId[tripId] ?? [];
 
-  const currentUsername = user?.username;
-  const curr_member = currTripMembers[tripId]?.find(m => m.username === currentUsername);
 
-  // Memoize trip and members
+  const currentUsername = user?.username ?? null;
+
+  const curr_member = useMemo(() => {
+    if (!currentUsername) return undefined;
+    const values = Object.values(currTripMembers || {});
+    return values.find((m: any) => m?.username === currentUsername);
+  }, [currTripMembers, currentUsername]);
+
   const trip = useMemo(() => trips.find(trip => trip.id === tripId), [tripId, trips]);
+  console.log(trip)
 
   const [isDeletingTrip, setIsDeletingTrip] = useState(false);
 
-  // Helper for showing snackbar
   const showSnackbar = (message: string) => {
     setSnackbarMessage(message);
     setSnackbarVisible(true);
   };
 
-  // Handler functions using TripHandler
   const handleAddMember = async (memberName: string, budget: number, currency: string, addMemberType: AddMemberType) => {
     if (!trip) return;
     
-    const result = await TripHandler.addMember(tripId, memberName, trip, {
+    const result = await TripHandler.addMember(tripId, memberName, trip, currTripMembers,{
       budget,
       addMemberType,
       currency,
@@ -64,25 +67,27 @@ export default function OverviewTab({
     if (result.success) {
       showSnackbar(`${memberName} ${addMemberType === "mock" ? 'added as a mock member!' : 'added to the trip!'}`);
     } else {
+      console.error('[OverviewTab] Error adding member:', result.error);
       showSnackbar(`Error adding member: ${result.error?.message || 'Unknown error'}`);
     }
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!trip?.members?.[memberId]) {
+    // Validate against the DICTIONARY for this trip (not trip.members)
+    if (!currTripMembers?.[memberId]) {
       setSnackbarMessage("Cannot remove member: Data missing.");
       setSnackbarVisible(true);
       return;
     }
 
-    const canRemove = TripHandler.canBeRemoved(memberId, expenses, trip);
+  const canRemove = TripHandler.canBeRemoved(memberId, expenses, trip);
     if (!canRemove) {
       setSnackbarMessage("Cannot remove member: They are still part of an expense, activity, receipt, or debt.");
       setSnackbarVisible(true);
       return;
     }
 
-    const result = await TripHandler.removeMember(tripId, memberId, curr_member, expenses, trip);
+  const result = await TripHandler.removeMember(tripId, memberId, curr_member, expenses, trip);
     if (result.success) {
       setSnackbarMessage(`${memberId} removed.`);
       setSnackbarVisible(true);
@@ -92,10 +97,12 @@ export default function OverviewTab({
     }
   };
 
+
   const handleLeaveTrip = async () => {
-    if (!trip?.members?.[currentUsername]) return;
-    
-    
+    // Check membership by username within the DICTIONARY
+    const isMember = Object.values(currTripMembers || {}).some((m: any) => m?.username === currentUsername);
+    if (!isMember || !currentUsername) return;
+
     const result = await TripHandler.leaveTrip(tripId, currentUsername, curr_member);
     if (result.success) {
       setSnackbarMessage("You left the trip.");

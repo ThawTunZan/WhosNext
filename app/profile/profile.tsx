@@ -14,7 +14,7 @@ import { useClerk, useUser } from "@clerk/clerk-expo"
 import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from '@/src/context/ThemeContext'
 import { lightTheme, darkTheme } from '@/src/theme/theme'
-import { upsertClerkUserToDynamoDB } from "@/src/services/syncUserProfile"
+import { syncUserProfileToDynamoDB } from "@/src/services/syncUserProfile"
 import { useProfileActions } from "@/src/utilities/profileAction"
 import { useUserTripsContext } from "@/src/context/UserTripsContext"
 
@@ -47,9 +47,8 @@ export default function ProfileScreen() {
   const [uploading, setUploading] = useState(false)
   const { isDarkMode } = useTheme()
   const theme = isDarkMode ? darkTheme : lightTheme
-  const { trips } = useUserTripsContext()
+  const { trips, user:userData } = useUserTripsContext()
   const [friendCount, setFriendCount] = useState<number>(0);
-  const { userData } = useUserTripsContext();
 
 
   if (!isLoaded || !isSignedIn) {
@@ -61,20 +60,22 @@ export default function ProfileScreen() {
       if (user && userData?.friends) {
         // Convert Clerk user to the format expected by UserProfileService
         const UserFromDynamo = {
+          id: user.id,
           username: user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'user',
           fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
-          primaryEmailAddress: {
-            emailAddress: user.primaryEmailAddress?.emailAddress || ''
-          },
+          email: user.primaryEmailAddress?.emailAddress || '',
           profileImageUrl: user.imageUrl || '',
           friends: userData?.friends || [],
           incomingFriendRequests: userData?.incomingFriendRequests || [],
           outgoingFriendRequests: userData?.outgoingFriendRequests || [],
           trips: userData?.trips || [],
-          premiumStatus: userData?.premiumStatus || 'free'
+          premiumStatus: userData?.premiumStatus || 'free',
+          createdAt: userData?.createdAt || new Date().toISOString(),
+          updatedAt: userData?.updatedAt || new Date().toISOString(),
+          currency: userData?.currency || "USD",
         };
-        
-        upsertClerkUserToDynamoDB(UserFromDynamo).catch(console.error);
+
+        syncUserProfileToDynamoDB(UserFromDynamo).catch(console.error);
         setFriendCount(userData.friends.length);
       }
     }, [user, userData])

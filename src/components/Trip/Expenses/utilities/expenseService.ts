@@ -13,9 +13,9 @@ import {
 import { listDebts } from '@/src/graphql/queries';
 import {
   Expense,
-  Member,
   Debt,
   TripsTableDDB,
+  MemberDDB,
 } from '@/src/types/DataTypes';
 import { NotificationService, NOTIFICATION_TYPES } from '@/src/services/notification';
 import { v4 as uuidv4 } from 'uuid';
@@ -26,9 +26,7 @@ export const updateExpense = async (
   expenseId: string,
   tripId: string,
   updatedExpenseData: Expense,
-  members: Record<string, Member>,
   originalExpense: Expense,
-  tripCurrency: string
 ): Promise<void> => {
   const oldPaidBy = originalExpense.paidBy;
   const oldSharedWith = originalExpense.sharedWith;
@@ -147,8 +145,6 @@ export async function updateOrCreateDebts(
 export const addExpenseAndCalculateDebts = async (
   tripId: string,
   expenseData: Expense,
-  members: Record<string, Member>,
-  tripData: TripsTableDDB
 ): Promise<void> => {
   try {
     // 1. Create the expense entry

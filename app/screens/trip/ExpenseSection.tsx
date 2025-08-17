@@ -7,37 +7,50 @@ import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { sectionStyles } from '@/src/styles/section_comp_styles';
 import { ExpenseHandler } from '@/src/utilities/ExpenseHandler';
 import ExpenseList from '@/src/components/Common/ItemList/ExpenseList';
-import AddExpenseModal from '@/src/components/Trip/Expenses/components/AddExpenseModal'; 
-import { ExpensesSectionProps, Expense, ErrorType } from '@/src/types/DataTypes'; 
+import AddExpenseModal from '@/src/components/Trip/Expenses/components/AddExpenseModal';
+import { ExpensesSectionProps, Expense, ErrorType, ExpenseDDB, } from '@/src/types/DataTypes';
 import { SearchBar } from '@/src/components/Common/SearchBar';
 import { BaseSection } from '@/src/components/Common/BaseSection';
-import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
+
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const {expenses, loading: isLoading, error} = useTripExpensesContext();
-  const {trips, tripMembersMap} = useUserTripsContext()
-  const trip = trips.find(t => t.id === tripId)
 
-  const members = tripMembersMap[tripId]
+  const { expensesByTripId, trips, tripMembersMap, loading: isLoading, error } =
+    useUserTripsContext();
+
+  const membersById = tripMembersMap?.[tripId] ?? {};
+  const tripExpenses = expensesByTripId?.[tripId] ?? [];
 
   const [addExpenseModalVisible, setAddExpenseModalVisible] = useState(false);
-  const [initialExpenseData, setInitialExpenseData] = useState<Partial<Expense> | null>(null);
+  const [initialExpenseData, setInitialExpenseData] =
+    useState<Partial<Expense> | null>(null);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+
+  if (!tripId || !expensesByTripId || !trips || !tripMembersMap) {
+    console.warn('[ExpensesSection] Skipping render: missing context');
+    return null; // or a <Loading /> component
+  }
+
+  const trip = trips.find((t) => t.id === tripId);
+  if (!trip) {
+    console.warn(`[ExpensesSection] Trip with id ${tripId} not found`);
+    return null;
+  }
 
   // Open modal function - can be called from parent
   const openAddExpenseModal = useCallback(
     (initialData: Partial<Expense> | null = null, isEditing = false) => {
       setInitialExpenseData(initialData);
       setEditingExpenseId(
-        isEditing && initialData && typeof initialData.id === "string"
+        isEditing && initialData && typeof initialData.id === 'string'
           ? initialData.id
           : null
       );
@@ -55,30 +68,33 @@ const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
   // Handle expense submission using ExpenseHandler
   const handleAddOrUpdateExpenseSubmit = useCallback(
     async (expenseData: Expense, editingExpenseId: string | null) => {
-      if (!tripId) throw new Error("Trip ID is missing");
-      if (!members) throw new Error("Trip members not available");
+      if (!tripId) throw new Error('Trip ID is missing');
 
       try {
         if (editingExpenseId) {
-          const expense = expenses.find(e => e.id === editingExpenseId);
+          const expense = tripExpenses.find((e) => e.id === editingExpenseId);
           const result = await ExpenseHandler.updateExpense(
             editingExpenseId,
             tripId,
             expenseData,
-            members,
+            membersById,         // pass dictionary
             expense,
             trip.currency
           );
           if (result.success) {
-            setSnackbarMessage("Expense updated successfully!");
+            setSnackbarMessage('Expense updated successfully!');
           } else {
             throw result.error;
           }
         } else {
-          const result = await ExpenseHandler.addExpense(tripId, expenseData, members, trip);
+          const result = await ExpenseHandler.addExpense(
+            tripId,
+            expenseData,
+          );
           if (result.success) {
-            setSnackbarMessage("Expense added successfully!");
+            setSnackbarMessage('Expense added successfully!');
           } else {
+            console.log('[ExpenseSection line 82');
             throw result.error;
           }
         }
@@ -86,10 +102,14 @@ const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
         closeAddExpenseModal();
       } catch (err: any) {
         if (err.message === ErrorType.MAX_EXPENSES_FREE_USER) {
-          setSnackbarMessage("Max expenses per day per trip reached. Please upgrade to premium to add more expenses or wait for the next day.");
+          setSnackbarMessage(
+            'Max expenses per day per trip reached. Please upgrade to premium to add more expenses or wait for the next day.'
+          );
           setSnackbarVisible(true);
         } else if (err.message === ErrorType.MAX_EXPENSES_PREMIUM_USER) {
-          setSnackbarMessage("Upgrade one of your users to premium to add more expenses or wait for the next day.");
+          setSnackbarMessage(
+            'Upgrade one of your users to premium to add more expenses or wait for the next day.'
+          );
           setSnackbarVisible(true);
         } else {
           console.error(err);
@@ -99,63 +119,75 @@ const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
         }
       }
     },
-    [tripId, trip, closeAddExpenseModal, members, expenses]
+    [tripId, trip, closeAddExpenseModal, membersById, tripExpenses]
   );
 
   // Handle edit expense (moved from TripHandler)
   const handleEditExpense = useCallback(
-    (expenseToEdit: Expense) => openAddExpenseModal(expenseToEdit, true),
+    (expenseToEdit: ExpenseDDB) => openAddExpenseModal(expenseToEdit, true),
     [openAddExpenseModal]
   );
-  
+
   const toggleExpand = useCallback((id: string) => {
-    setExpandedId(prev => (prev === id ? null : id));
+    setExpandedId((prev) => (prev === id ? null : id));
   }, []);
 
-  const handleEditExpenseLocal = useCallback(async (expense: Expense) => {
-    console.log(`Edit requested for expense: ${expense.id}`);
-    try {
-      await handleEditExpense(expense);
-    }
-    catch (err) {
-      console.error("Failed to edit expense:", err);
-      setSnackbarMessage(`Error: ${err instanceof Error ? err.message : 'Could not edit expense'}`);
-      setSnackbarVisible(true);
-    }
-  }, [handleEditExpense]);
-
+  const handleEditExpenseLocal = useCallback(
+    async (expense: ExpenseDDB) => {
+      console.log(`Edit requested for expense: ${expense.id}`);
+      try {
+        await handleEditExpense(expense);
+      } catch (err) {
+        console.error('Failed to edit expense:', err);
+        setSnackbarMessage(
+          `Error: ${err instanceof Error ? err.message : 'Could not edit expense'}`
+        );
+        setSnackbarVisible(true);
+      }
+    },
+    [handleEditExpense]
+  );
 
   const handleDeleteExpense = async (id: string) => {
-    // To add confirmation dialog here
+    /*
+    TODO
     try {
-      const expenseToDelete = expenses.find(e => e.id === id);
+      const expenseToDelete = tripExpenses.find((e) => e.id === id);
       if (!expenseToDelete) {
         setSnackbarMessage('Expense not found.');
         setSnackbarVisible(true);
         return;
       }
-      const result = await ExpenseHandler.deleteExpense(tripId, id, expenseToDelete, trip);
+      const result = await ExpenseHandler.deleteExpense(
+        tripId,
+        id,
+        expenseToDelete,
+        trip
+      );
       if (result.success) {
         setSnackbarMessage('Expense deleted.');
         setSnackbarVisible(true);
 
-        if(expandedId === id) {
+        if (expandedId === id) {
           setExpandedId(null);
         }
       } else {
         throw result.error;
       }
     } catch (err) {
-      console.error("Failed to delete expense:", err);
-      setSnackbarMessage(`Error: ${err instanceof Error ? err.message : 'Could not delete expense'}`);
+      console.error('Failed to delete expense:', err);
+      setSnackbarMessage(
+        `Error: ${err instanceof Error ? err.message : 'Could not delete expense'}`
+      );
       setSnackbarVisible(true);
     }
+      */
   };
 
-  // Handle pull-to-refresh 
+  // Handle pull-to-refresh
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsRefreshing(false);
     setSnackbarMessage('Expenses up to date.');
     setSnackbarVisible(true);
@@ -175,13 +207,13 @@ const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
     <BaseSection
       title="Expenses"
       icon="🧾"
-      loading={isLoading && expenses.length === 0}
+      loading={isLoading && tripExpenses.length === 0}
       error={error}
     >
       {renderHeader()}
-      
+
       <ExpenseList
-        expenses={expenses}
+        expenses={tripExpenses}
         searchQuery={searchQuery}
         expandedId={expandedId}
         isRefreshing={isRefreshing}
@@ -205,7 +237,6 @@ const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
         visible={addExpenseModalVisible}
         onDismiss={closeAddExpenseModal}
         onSubmit={handleAddOrUpdateExpenseSubmit}
-        members={members}
         tripId={tripId}
         initialData={initialExpenseData}
         editingExpenseId={editingExpenseId}

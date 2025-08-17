@@ -1,6 +1,6 @@
 
 import { UserSyncService } from "./syncUserProfileAdapter"
-import { UserFromDynamo } from "@/src/types/DataTypes"
+import { UserDDB } from "@/src/types/DataTypes"
 
 /** The shape we'll keep in DynamoDB */
 export interface UserProfile {
@@ -14,7 +14,7 @@ export interface UserProfile {
  * Mirror a Clerk user object into DynamoDB.
  * Creates or merges the user with the latest Clerk fields.
  */
-export async function syncUserProfileToDynamoDB(user: UserFromDynamo) {
+export async function syncUserProfileToDynamoDB(user: UserDDB) {
   if (!user || !user.username) {
     console.warn("syncUserProfileToDynamoDB: user or user.username is undefined, skipping sync.");
     console.log("User data received:", user);
@@ -25,12 +25,10 @@ export async function syncUserProfileToDynamoDB(user: UserFromDynamo) {
     const clerkUser = {
       id: user.username,
       username: user.username,
-      primaryEmailAddress: {
-        emailAddress: user.primaryEmailAddress?.emailAddress || ''
-      },
+      primaryEmailAddress: user.email,
       firstName: user.fullName?.split(' ')[0] || '',
       lastName: user.fullName?.split(' ').slice(1).join(' ') || '',
-      imageUrl: user.profileImageUrl || ''
+      imageUrl: user.avatarUrl || ''
     };
 
     await UserSyncService.applyUserSync(clerkUser);

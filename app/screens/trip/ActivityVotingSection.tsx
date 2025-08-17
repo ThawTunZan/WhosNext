@@ -1,5 +1,5 @@
 // src/screens/TripDetails/components/ActivityVotingSection.tsx
-import React, { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Button, Snackbar } from 'react-native-paper'
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
@@ -36,11 +36,11 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
     const theme = isDarkMode ? darkTheme : lightTheme;
 
     const { activities, isLoading, error } = useProposedActivities(tripId);
-    const { trips } = useUserTripsContext();
+    const { trips, tripMembersMap } = useUserTripsContext();
 
     // 3. Memoization for trip and members
     const trip = useMemo(() => trips.find(t => t.id === tripId), [trips, tripId]);
-    const members = useMemo(() => trip?.members || {}, [trip]);
+    const members = useMemo(() => tripMembersMap?.[tripId] ?? {}, [tripMembersMap, tripId]);
 
     const [snackbarVisible, setSnackbarVisible] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -111,21 +111,21 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
         }
         try {
             await castVote(tripId, activityId, currentUserName, voteType);
-            console.log(`Vote ${voteType} submitted for ${activityId}`);
+            console.log(`[ActivityVotingSection] Vote ${voteType} submitted for ${activityId}`);
         } catch (err) {
-            console.error(`Failed to cast vote ${voteType} on ${activityId}:`, err);
+            console.error(`[ActivityVotingSection] Failed to cast vote ${voteType} on ${activityId}:`, err);
             setSnackbarMessage(`Error voting: ${err instanceof Error ? err.message : 'Unknown error'}`);
             setSnackbarVisible(true);
         }
     }, [tripId]);
 
     const handleVoteUp = useCallback((id: string) => {
-        console.log(`Voted UP on activity: ${id}`);
+        console.log(`[ActivityVotingSection] Voted UP on activity: ${id}`);
         handleVote(id, 'up')
     }, [handleVote]);
 
     const handleVoteDown = useCallback((id: string) => {
-        console.log(`Voted DOWN on activity: ${id}`);
+        console.log(`[ActivityVotingSection] Voted DOWN on activity: ${id}`);
         handleVote(id, 'down')
     }, [handleVote]);
 
@@ -143,7 +143,6 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
     );
 
     const handleProposeNewActivity = () => {
-        console.log("Opening propose activity modal");
         setProposeModalVisible(true)
     };
 
@@ -156,7 +155,7 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
     }, [tripId]);
 
     const handleProposeSubmit = useCallback(async (activityData: NewProposedActivityData) => {
-        console.log("Submitting proposed activity:", activityData);
+        console.log("[ActivityVotingSection] Submitting proposed activity:");
         try {
           if (editingActivity) {
             await updateProposedActivity(tripId, editingActivity.id, activityData)
@@ -169,7 +168,7 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
           setEditingActivity(null)
           setProposeModalVisible(false)
         } catch (err) {
-          console.error("Failed to propose activity:", err);
+          console.error("[ActivityVotingSection] Failed to propose activity:", err);
           setSnackbarMessage(`Error proposing: ${err instanceof Error ? err.message : 'Unknown error'}`);
           setSnackbarVisible(true);
           throw err;
@@ -178,9 +177,9 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
 
     const handleExpenseSubmit = useCallback(async (expenseData: any) => {
         try {
-            const result = await ExpenseHandler.addExpense(tripId, expenseData, members, trip);
+            const result = await ExpenseHandler.addExpense(tripId, expenseData);
             if (result.success) {
-                console.log("Expense submitted:", expenseData);
+                console.log("[ActivityVotingSection] Expense submitted:");
                 setSnackbarMessage("Expense added successfully!");
                 setSnackbarVisible(true);
                 setExpenseModalVisible(false);
@@ -189,7 +188,7 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
                 throw result.error;
             }
         } catch (err) {
-            console.error("Failed to add expense:", err);
+            console.error("[ActivityVotingSection] Failed to add expense:", err);
             setSnackbarMessage(`Error adding expense: ${err instanceof Error ? err.message : 'Unknown error'}`);
             setSnackbarVisible(true);
         }
@@ -269,22 +268,16 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
           visible={expenseModalVisible}
           onDismiss={handleCloseExpenseModal}
           onSubmit={handleExpenseSubmit}
-          members={members}
           tripId={tripId}
           initialData={activityForExpense ? {
             activityName: activityForExpense.name,
-            paidByAndAmounts: [
-              {
-                memberName: currentUserName,
-                amount: activityForExpense.estCost ? String(activityForExpense.estCost) : "0",
-              }
-            ],
+            paidBy: activityForExpense.suggestedByName,
+            amount: activityForExpense.estCost,
             createdAt: activityForExpense.createdAt,
           } : undefined}
-          trip={trip}
           onWatchAd={() => {
             // TODO: Implement ad watching functionality
-            console.log('Watch ad functionality not implemented yet');
+            console.log('[ActivityVotingSection] Watch ad functionality not implemented yet');
           }}
         />
 

@@ -4,7 +4,7 @@ import { View, StyleSheet, Share, Platform, ActivityIndicator } from "react-nati
 import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip, List, Divider } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState, useEffect, useCallback } from "react";
-import { AddMemberType, Member } from '@/src/types/DataTypes';
+import { AddMemberType } from '@/src/types/DataTypes';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import SelectFriendsModal from '@/src/components/Common/SelectFriendsModal';
@@ -22,20 +22,6 @@ type MemberListProps = {
   onClaimMockUser?: (memberId: string, claimCode: string) => Promise<void>;
   tripId: string;
 };
-
-type membersType = {
-  [username: string]: {
-      addMemberType: string;
-      amtLeft: number;
-      budget: number;
-      currency: string;
-      owesTotalMap: {
-          [currency: string]: number;
-      };
-      receiptsCount: number;
-      username: string;
-  };
-}
 
 export default function MemberList({ 
   onAddMember, 
@@ -62,15 +48,13 @@ export default function MemberList({
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
-  const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
+  const { trips, loading: tripsLoading, error: tripsError, tripMembersMap } = useUserTripsContext();
   const trip = trips.find(t => t.id === tripId);
-  const members: membersType = (trip && trip.members) ? trip.members : {};
-
-  // Only render valid members
-  const validMembers: [string, Member][] = Object.entries(members).filter(
-    ([username, member]) => member && (member.username || username) && typeof member.budget === 'number'
-  ) as [string, Member][];
-  //console.log("VALID MEMBERS ARE ", validMembers)
+  const members = tripMembersMap[tripId] || {};
+  const entries =
+  Array.isArray(members)
+    ? members.map(m => [m.id?? m.username, m] as const)
+    : Object.entries(members ?? {});
 
   const getInviteUrl = useCallback((inviteId: string, mockUserId: string) => {
     // For development
@@ -150,87 +134,98 @@ export default function MemberList({
 
   const memberCount = Object.keys(members).length;
 
-  const MemberCard = ({ username, member, profileName }: { username: string; member: {addMemberType: string; amtLeft: number; budget: number; currency: string; owesTotalMap: { [currency: string]: number; }; receiptsCount: number; username: string; }; profileName: string }) => (
-    <Surface style={styles.memberCard} elevation={1}>
-      <View style={[styles.memberContent, { overflow: 'hidden' }]}>
-        <View style={styles.avatarContainer}>
-          <Avatar.Text
-            size={40}
-            label={profileName ? profileName.substring(0, 2).toUpperCase() : ""}
-            style={[
-              { backgroundColor: member.addMemberType === AddMemberType.MOCK ? 
-                theme.colors.placeholder : 
-                paperTheme.colors.primary 
-              }
-            ]}
-          />
-        </View>
-        
-        <View style={styles.memberInfo}>
-          {profileName === undefined
-            ? <ActivityIndicator size="small" color={theme.colors.text} />
-            : (
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text variant="titleMedium" style={[styles.memberName, { color: theme.colors.text }]}>
-                  {profileName}
-                </Text>
-                {user && username === user.username && (
-                  <Text
-                    variant="labelMedium"
-                    style={{ color: theme.colors.primary, marginLeft: 8, fontWeight: 'bold' }}
-                  >
-                    (You)
-                  </Text>
-                )}
-              </View>
-            )
-          }
-          <Text variant="labelMedium" style={{ color: theme.colors.subtext }}>
-            Budget: ${member.budget.toFixed(2)}
-          </Text>
-        </View>
+  const MemberCard = ({
+  memberKey,
+  member,
+  profileName,
+}: {
+  memberKey: string;
+  member: {
+    addMemberType: string;
+    amtLeft: number;
+    budget: number;
+    currency: string;
+    owesTotalMap: { [c: string]: number };
+    receiptsCount: number;
+    username: string;
+    fullName?: string;
+  };
+  profileName: string;
+}) => (
+  <Surface style={styles.memberCard} elevation={1}>
+    <View style={[styles.memberContent, { overflow: 'hidden' }]}>
+      <View style={styles.avatarContainer}>
+        <Avatar.Text
+          size={40}
+          label={(profileName || '').substring(0, 2).toUpperCase()}
+          style={[{
+            backgroundColor:
+              member.addMemberType === AddMemberType.MOCK
+                ? theme.colors.placeholder
+                : paperTheme.colors.primary,
+          }]}
+        />
+      </View>
 
-        <View style={styles.rightContent}>
-          {member.addMemberType === AddMemberType.MOCK  && (
-            <Chip 
-              style={styles.unverifiedBadge}
-              textStyle={{ fontSize: 10 }}
-              compact
-            >
-              UNVERIFIED
-            </Chip>
-          )}
-
-          <View style={styles.actionButtons}>
-            {member.addMemberType === AddMemberType.MOCK && (
-              <IconButton
-                icon="link-variant"
-                size={20}
-                onPress={() => {
-                  setSelectedMemberId(username);
-                  setShowClaimModal(true);
-                }}
-                mode="contained-tonal"
-                containerColor={paperTheme.colors.primary}
-                iconColor="white"
-              />
-            )}
-            {/* Only show remove button if the member is not the current user */}
-            {user && username !== user.username && (
-              <IconButton
-                icon="account-remove"
-                size={20}
-                onPress={() => onRemoveMember(username)}
-                mode="contained-tonal"
-                containerColor={theme.colors.error}
-                iconColor="white"
-              />
+      <View style={styles.memberInfo}>
+        {!profileName ? (
+          <ActivityIndicator size="small" color={theme.colors.text} />
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text variant="titleMedium" style={[styles.memberName, { color: theme.colors.text }]}>
+              {profileName}
+            </Text>
+            {user && member.username === user.username && (
+              <Text variant="labelMedium" style={{ color: theme.colors.primary, marginLeft: 8, fontWeight: 'bold' }}>
+                (You)
+              </Text>
             )}
           </View>
+        )}
+
+        <Text variant="labelMedium" style={{ color: theme.colors.subtext }}>
+          Budget: ${member.budget.toFixed(2)}
+        </Text>
+      </View>
+
+      <View style={styles.rightContent}>
+        {member.addMemberType === AddMemberType.MOCK && (
+          <Chip style={styles.unverifiedBadge} textStyle={{ fontSize: 10 }} compact>
+            UNVERIFIED
+          </Chip>
+        )}
+
+        <View style={styles.actionButtons}>
+          {member.addMemberType === AddMemberType.MOCK && (
+            <IconButton
+              icon="link-variant"
+              size={20}
+              onPress={() => {
+                setSelectedMemberId(memberKey); // this is your map key for the mock profile
+                setShowClaimModal(true);
+              }}
+              mode="contained-tonal"
+              containerColor={paperTheme.colors.primary}
+              iconColor="white"
+            />
+          )}
+
+          {user && member.username !== user.username && (
+            <IconButton
+              icon="account-remove"
+              size={20}
+              onPress={() => onRemoveMember(memberKey)} // actions use the key
+              mode="contained-tonal"
+              containerColor={theme.colors.error}
+              iconColor="white"
+            />
+          )}
         </View>
       </View>
-    </Surface>
-  );
+    </View>
+  </Surface>
+);
+
 
   return (
     <View style={styles.container}>
@@ -254,12 +249,12 @@ export default function MemberList({
           </View>
 
           <View style={styles.memberGrid}>
-            {validMembers.map(([username, member]) => (
+            {entries.map(([memberKey, member]) => (
               <MemberCard
-                key={username}
-                username={username}
+                key={memberKey}
+                memberKey={memberKey}
                 member={member}
-                profileName={username}
+                profileName={member.fullName||member.username}
               />
             ))}
           </View>

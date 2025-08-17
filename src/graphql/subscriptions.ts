@@ -334,6 +334,7 @@ export const onCreateMember = /* GraphQL */ `subscription OnCreateMember($filter
     addMemberType
     budget
     receiptsCount
+    currency
     createdAt
     updatedAt
     __typename
@@ -369,6 +370,7 @@ export const onUpdateMember = /* GraphQL */ `subscription OnUpdateMember($filter
     addMemberType
     budget
     receiptsCount
+    currency
     createdAt
     updatedAt
     __typename
@@ -404,6 +406,7 @@ export const onDeleteMember = /* GraphQL */ `subscription OnDeleteMember($filter
     addMemberType
     budget
     receiptsCount
+    currency
     createdAt
     updatedAt
     __typename

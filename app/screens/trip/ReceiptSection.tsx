@@ -22,7 +22,6 @@ import { Timestamp, getDoc, doc } from "firebase/firestore";
 import { BaseSection } from '@/src/components/Common/BaseSection';
 import { CommonModal } from '@/src/components/Common/CommonModal';
 import { CommonCard } from '@/src/components/Common/CommonCard';
-import { useTripExpensesContext } from '@/src/context/TripExpensesContext';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 import {
   getLocalReceipts,
@@ -47,9 +46,8 @@ export default function ReceiptSection({ tripId }: Props) {
   const theme = isDarkMode ? darkTheme : lightTheme;
 
   const { isLoaded, isSignedIn, user } = useUser();
-  const { expenses } = useTripExpensesContext();
-  const { trips } = useUserTripsContext();
-
+  const { trips, expensesByTrip } = useUserTripsContext();
+  const expenses = expensesByTrip[tripId]
   // Derive tripInfo from context
   const tripInfo = useMemo(() => {
     return trips.find((t: any) => t.id === tripId) || null;

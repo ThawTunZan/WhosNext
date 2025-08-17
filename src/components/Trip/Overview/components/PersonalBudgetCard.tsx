@@ -3,22 +3,11 @@ import { StyleSheet, View } from 'react-native';
 import { Card, Text, IconButton, useTheme, ProgressBar } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Member } from '@/src/types/DataTypes';
+import { MemberDDB } from '@/src/types/DataTypes';
 
 type PersonalBudgetCardProps = {
-  member:  {
-        addMemberType: string;
-        amtLeft: number;
-        budget: number;
-        currency: string;
-        owesTotalMap: {
-            [currency: string]: number;
-        };
-        receiptsCount: number;
-        username: string;
-    };
-  onEditBudget: () => void;
-};
+  member: MemberDDB;
+  onEditBudget: () => void;};
 
 export default function PersonalBudgetCard({ member, onEditBudget }: PersonalBudgetCardProps) {
   const { isDarkMode } = useCustomTheme();

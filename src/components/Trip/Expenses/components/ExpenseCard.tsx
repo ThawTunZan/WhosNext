@@ -3,16 +3,16 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Card, Text, IconButton, List, Avatar, Divider } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { Expense, SharedWith } from '@/src/types/DataTypes';
+import { ExpenseDDB, SharedWith } from '@/src/types/DataTypes';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 
 interface ExpenseCardProps {
-  expense: Expense;
+  expense: ExpenseDDB;
   isExpanded: boolean;
   onToggleExpand: (id: string) => void;
   onDelete: (id: string) => void;
-  onEdit: (expense: Expense) => void;
+  onEdit: (expense: ExpenseDDB) => void;
 }
 
 export default function ExpenseCard({ 
@@ -25,12 +25,9 @@ export default function ExpenseCard({
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
 
-  const paidByNames = expense.paidByAndAmounts.map(p => p.memberName || 'Someone').join(',  ');
+  const paidByName = expense.paidBy
 
-  const totalShared = expense.paidByAndAmounts.reduce(
-    (sum, object) => sum + (typeof object.amount === 'number' ? object.amount : parseFloat(object.amount) || 0),
-    0
-  );
+  const totalShared = expense.amount
   
   const formatDate = (dateValue: Date | Timestamp | string | null | undefined) => {
     if (!dateValue) return '';
@@ -70,18 +67,6 @@ export default function ExpenseCard({
       .sort((a, b) => b.amount - a.amount);
   };
 
-  const getPayerNames = (paidByAndAmounts: {
-    memberName: string;
-    amount: string;
-    currency?: string;
-    }[]) => {
-      return paidByAndAmounts.map(each => ({
-        name: each.memberName || 'unknown',
-        amount: parseFloat(each.amount) || 0,
-        currency: each.currency || 'USD',
-      }))
-  }
-
   const renderExpandedContent = () => (
     <Card.Content style={styles.expandedContent}>
       <Divider style={styles.divider} />
@@ -90,15 +75,15 @@ export default function ExpenseCard({
         <View style={styles.detailRow}>
           <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Paid by</Text>
         </View>
-        {getPayerNames(expense.paidByAndAmounts).map((payer, index) => (
-          <View key={index} style={styles.splitRow}>
-            <Text style={[styles.payeeName, { color: theme.colors.text }]}>{payer.name}</Text>
+
+          <View style={styles.splitRow}>
+            <Text style={[styles.payeeName, { color: theme.colors.text }]}>{paidByName}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={[styles.payeeAmount, { color: theme.colors.text }]}> {payer.currency} </Text>
-              <Text style={[styles.payeeAmount, { color: theme.colors.text }]}>${payer.amount.toFixed(2)}</Text>
+              <Text style={[styles.payeeAmount, { color: theme.colors.text }]}> {expense.currency} </Text>
+              <Text style={[styles.payeeAmount, { color: theme.colors.text }]}>${expense.amount.toFixed(2)}</Text>
             </View>
           </View>
-        ))}
+        
         <View style={styles.detailRow}>
           <Text style={[styles.detailLabel, { color: theme.colors.subtext }]}>Date</Text>
           <Text style={[styles.detailValue, { color: theme.colors.text }]}>{formattedDate}</Text>
@@ -153,7 +138,7 @@ export default function ExpenseCard({
       >
         <Card.Title
           title={expense.activityName}
-          subtitle={`Paid by ${paidByNames}`}
+          subtitle={`Paid by ${paidByName}`}
           left={(props) => (
             <Avatar.Icon
               {...props}

@@ -7,6 +7,27 @@ export type Friend = {
   timestamp: any,
 }
 
+// One row inside the "sharedWith" list attribute
+export type SharedWithDDB = {
+  payeeName: string;
+  amount: number;
+  currency: string;
+};
+
+// Expense item as it lives in DynamoDB/AppSync
+export type ExpenseDDB = {
+  id: string;               
+  tripId: string;         
+  activityName: string;     
+  amount: number;           
+  currency: string;        
+  paidBy: string;            
+  sharedWith?: SharedWithDDB[];
+  createdAt: string;         
+  updatedAt: string;         
+};
+
+
 export type MemberDDB = {
   id: string;
   username: string;
@@ -19,9 +40,11 @@ export type MemberDDB = {
   receiptsCount?: number;
   createdAt: string;
   updatedAt: string;
+  currency: string;
 };
 
-// Firestore Trip Document Type
+// ------------------- Trips -------------------
+
 export type TripsTableDDB = {
   id: string;
   name: string;
@@ -35,39 +58,49 @@ export type TripsTableDDB = {
   updatedAt: string;
   startDate?: string;
   endDate?: string;  
+};
 
-  /*
-  activitiesCount: number;
-  createdBy: string;
+// ------------------- Debts -------------------
+
+export type DebtDDB = {
+  id: string;
+  tripId: string;
   currency: string;
-  debts: {
-    [currency: string]: {
-      [pair: string]: number;
-    };
-  };
-  destination: string;
-  endDate: any; // Timestamp or string
-  expensesCount: number;
-  isTripPremium: boolean;
-  members: {
-    [username: string]: {
-      addMemberType: string;
-      amtLeft: number;
-      budget: number;
-      currency: string;
-      owesTotalMap: {
-        [currency: string]: number;
-      };
-      receiptsCount: number;
-      username: string;
-    };
-  };
-  startDate: any; // Timestamp or string
-  totalAmtLeft: number;
-  totalBudget: number;
-  premiumStatus: string;
-  dailyExpenseLimit?: { [date: string]: number };
-  */
+  debtor: string;   // username/id
+  creditor: string; // username/id
+  amount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// ------------------- Users -------------------
+
+export enum PremiumStatus {
+  PREMIUM = 'premium',
+  FREE = 'free',
+  TRIAL = 'trial'
+}
+
+export type FriendRequestDDB = {
+  id: string;
+  username: string; // who sent or received
+  status: "pending" | "accepted" | "rejected";
+  timestamp: string;
+};
+
+export type UserDDB = {
+  id: string;
+  username: string;
+  email: string;
+  fullName: string;
+  avatarUrl?: string;
+  premiumStatus: PremiumStatus;
+  friends?: string[]; // usernames
+  incomingFriendRequests?: string[]; // IDs of FriendRequest
+  outgoingFriendRequests?: string[]; // IDs of FriendRequest
+  trips?: string[]; // Trip IDs
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type FirestoreExpense = {
@@ -85,32 +118,7 @@ export type FirestoreExpense = {
     payeeName: string;
   }[];
 };
-
-export type UserFromDynamo = {
-  id: string;
-  username: string;
-  fullName: string;
-  primaryEmailAddress: string;
-  //avatarUrl?: string;
-  premiumStatus: "free" | "premium" | "trial";
-  friends: string[];
-  incomingFriendRequests?: { senderUsername: string, timestamp: string }[]
-  outgoingFriendRequests?: { receiverUsername: string, timestamp: string }[]
-  trips: string[];
-  createdAt: string;
-  updatedAt: string;
-/*
-    username?: string
-    fullName?: string
-    primaryEmailAddress?: { emailAddress: string }
-    profileImageUrl?: string
-    friends?: string[]
-    incomingFriendRequests?: { senderUsername: string, status: string, timestamp: string }[]
-    outgoingFriendRequests?: { receiverUsername: string, status: string, timestamp: string }[]
-    trips: string[],
-    premiumStatus: string,
-    */
-}
+// -----------------------------------------------------------------------
 
 export enum ErrorType {
   MAX_EXPENSES_FREE_USER = 'maxExpensesFreeUser',
@@ -121,13 +129,6 @@ export enum ErrorType {
   MAX_NUM_OF_RECEIPTS_PREMIUM_USER = 'maxNumOfReceiptsPremiumUser',
   MAX_MB_OF_RECEIPT_STORAGE_FREE_USER = 'maxMBOfReceiptStorageFreeUser',
   MAX_MB_OF_RECEIPT_STORAGE_PREMIUM_USER = 'maxMBOfReceiptStoragePremiumUser',
-}
-
-
-export enum PremiumStatus {
-  PREMIUM = 'premium',
-  FREE = 'free',
-  TRIAL = 'trial'
 }
 
 interface IUserLimits {
@@ -166,29 +167,15 @@ export const PREMIUM_USER_LIMITS: IUserLimits = {
   maxMBOfReceiptStoragePerTrip: 300,
 };
 
-export type MemberInfo = { name: string }; // Basic info for components needing just name
 
 export enum AddMemberType {
-  FRIENDS = "friends",
-  INVITE_LINK = "invite link",
-  QR_CODE = "qr code",
-  MOCK = "mock"
+  MOCK = 'mock',
+  INVITE_LINK = 'invite_link',
+  QR_CODE = 'qr_code',
+  FRIENDS = 'friends',
 }
 
 export type OwesTotalMap = Record<string, number>;
-
-// Individual member data
-export type Member = {
-  username: string;
-  budget: number;
-  amtLeft: number;
-  currency: string;
-  claimCode?: string;
-  addMemberType: AddMemberType;
-  owesTotalMap: OwesTotalMap;
-  receiptsCount: number;
-}; 
-  
 export type Expenses = {[id:string]: {expense: Expense}}
   
   // Type for how an expense is shared among payees
@@ -228,7 +215,6 @@ export interface AddExpenseModalProps {
   visible: boolean;
   onDismiss: () => void;
   onSubmit: (expenseData: Expense, editingExpenseId?: string) => Promise<void>;
-  members: Record<string, Member>;
   tripId: string;
   initialData?: Partial<Expense>;
   editingExpenseId?: string;
@@ -308,7 +294,7 @@ export type Payment = {
 
 export interface TripData {
   destination: string;
-  members?: Record<string, Member>; // Use detailed Member
+  members?: Record<string, MemberDDB>; // Use detailed Member
   totalBudget?: number;
   totalAmtLeft?: number;
   debts?: Debt[];

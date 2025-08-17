@@ -1,18 +1,18 @@
 import React, { memo } from 'react';
-import { Expense } from '@/src/types/DataTypes';
+import { ExpenseDDB } from '@/src/types/DataTypes';
 import ExpenseCard from '@/src/components/Trip/Expenses/components/ExpenseCard';
 import GenericList from '@/src/components/Common/ItemList/GenericList';
 import { groupByDate } from '@/src/components/Common/DateButton';
 
 interface ExpenseListProps {
-  expenses: Expense[];
+  expenses: ExpenseDDB[];
   searchQuery: string;
   expandedId: string | null;
   isRefreshing: boolean;
   onRefresh: () => void;
   onToggleExpand: (id: string) => void;
   onDeleteExpense: (id: string) => void;
-  onEditExpense: (expense: Expense) => void;
+  onEditExpense: (expense: ExpenseDDB) => void;
   styles: any;
 }
 
@@ -27,7 +27,7 @@ const ExpenseList = memo(({
   onEditExpense,
   styles,
 }: ExpenseListProps) => {
-  const renderExpenseItem = ({ item }: { item: Expense }) => (
+  const renderExpenseItem = ({ item }: { item: ExpenseDDB }) => (
     <ExpenseCard
       expense={item}
       isExpanded={item.id === expandedId}
@@ -37,7 +37,7 @@ const ExpenseList = memo(({
     />
   );
 
-  const searchFields = (expense: Expense) => [
+  const searchFields = (expense: ExpenseDDB) => [
     expense.activityName,
     expense.paidBy || ''
   ];

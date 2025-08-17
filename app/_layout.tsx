@@ -123,7 +123,7 @@ function AuthGateAndStack() {
   const path = usePathname();
   const { isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
-  const {userData} = useUserTripsContext();
+  const {user: tripsUser} = useUserTripsContext();
   
   const theme = useMemo(() => isDarkMode ? darkTheme : lightTheme, [isDarkMode]);
   const paperTheme = useMemo(() => ({
@@ -143,18 +143,18 @@ function AuthGateAndStack() {
         fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
         primaryEmailAddress: user.primaryEmailAddress?.emailAddress || '',
         profileImageUrl: user.imageUrl || '',
-        friends: userData?.friends || [],
-        incomingFriendRequests: userData?.incomingFriendRequests || [],
-        outgoingFriendRequests: userData?.outgoingFriendRequests || [],
-        trips: userData?.trips || [],
-        premiumStatus: userData?.premiumStatus || 'free',
+        friends: tripsUser?.friends || [],
+        incomingFriendRequests: tripsUser?.incomingFriendRequests || [],
+        outgoingFriendRequests: tripsUser?.outgoingFriendRequests || [],
+        trips: tripsUser?.trips || [],
+        premiumStatus: tripsUser?.premiumStatus || 'free',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
       
       syncUserProfileToDynamoDB(UserFromDynamo).catch(console.error);
     }
-  }, [isLoaded, isSignedIn, user, userData]);
+  }, [isLoaded, isSignedIn, user, tripsUser]);
 
   useFocusEffect(syncUser);
 

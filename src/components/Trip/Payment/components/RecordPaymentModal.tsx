@@ -5,7 +5,7 @@ import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
-import { Debt, Member, Payment } from '@/src/types/DataTypes';
+import { Debt, Payment } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import CurrencyModal from '@/src/components/Common/CurrencyModal';
@@ -122,9 +122,9 @@ export default function RecordPaymentModal({
   const theme = isDarkMode ? darkTheme : lightTheme;
 
   // Use context to get members for the current trip
-  const { trips } = useUserTripsContext();
+  const { trips, tripMembersMap } = useUserTripsContext();
   const trip = trips.find(t => t.id === tripId);
-  const members = trip?.members || {};
+  const members = tripMembersMap[tripId] || {};
 
   const [showPayerDropdown, setShowPayerDropdown] = useState(false);
   const [showPayeeDropdown, setShowPayeeDropdown] = useState(false);

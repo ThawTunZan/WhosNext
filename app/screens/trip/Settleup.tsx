@@ -15,7 +15,7 @@ import {
     calculateSimplifiedDebtsPerCurrency,
     ParsedDebt,         
 } from '@/src/components/Trip/SettleUp/utilities/SettleUpUtilities'; 
-import { Member, Debt, Payment, TripsTableDDB } from '@/src/types/DataTypes';
+import { Debt, Payment, TripsTableDDB } from '@/src/types/DataTypes';
 import RecordPaymentModal from '@/src/components/Trip/Payment/components/RecordPaymentModal';
 import { firebaseRecordPayment, firebaseDeletePayment } from '@/src/firebase/FirebaseServices';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';

@@ -1,25 +1,39 @@
 import { addMemberToTrip, leaveTripIfEligible, removeMemberFromTrip, deleteTripAndRelatedData, claimMockUser } from '@/src/utilities/TripUtilities';
-import { AddMemberType, FirestoreExpense, TripsTableDDB, Member } from '@/src/types/DataTypes';
-
-import { collection, doc, getDocs, getFirestore, updateDoc } from 'firebase/firestore';
-import { Alert } from 'react-native';
+import { AddMemberType, FirestoreExpense, MemberDDB, TripsTableDDB } from '@/src/types/DataTypes';
+import { generateClient } from 'aws-amplify/api';
+import {
+  getMembersByTrip,
+  getExpensesByTrip,
+  getExpense,
+  getTrip,
+} from '@/src/graphql/queries';
+import {
+  deleteMember,
+  updateExpense,
+  updateTrip,
+} from '@/src/graphql/mutations';
+import type * as APITypes from '@/src/API';
 
 export class TripHandler {
+  private static client = generateClient();
+  
   static async addMember(
     tripId: string,
     memberName: string,
     trip: TripsTableDDB,
+    memberByUserId: Record<string, MemberDDB>,
     options: {
       budget: number;
       addMemberType: AddMemberType;
       currency: string;
     }
   ): Promise<{ success: boolean; error?: any }> {
+
     try {
-      await addMemberToTrip(tripId, memberName, trip, options);
+      await addMemberToTrip(tripId, memberName, trip, memberByUserId, options);
       return { success: true };
     } catch (error) {
-      console.error('Error adding member:', error);
+      console.error('[TripHandlers] Error adding member:', error);
       return { success: false, error };
     }
   }
@@ -106,10 +120,126 @@ export class TripHandler {
     );
     return !isPartOfTrip;
   }
+
+  /*
+   * Function is called when a real user claims a mock member.
+   * Updates: delete mock Member row, update all Expenses (paidBy/sharedWith),
+   * and rewrite Trip.debts AWSJSON.
+   * TODO: proposed_activities once modeled in your schema
+   */
+  static async updateFirebaseAfterClaiming(
+    mockUsername: string,
+    currentUsername: string,
+    tripId: string,
+    _expenses: any[],             // no longer used; we fetch from AppSync
+    _tripData: any                // no longer used; we fetch from AppSync
+  ): Promise<void> {
+    const client = TripHandler.client;
+
+    // 0) Find & delete the mock member row for this trip
+    const membersResp = await client.graphql({
+      query: getMembersByTrip,
+      variables: { tripId, limit: 1000 },
+    }) as { data?: APITypes.GetMembersByTripQuery };
+
+    const mockMember = membersResp.data?.getMembersByTrip?.items?.find(m => m?.username === mockUsername);
+    if (mockMember?.id) {
+      await client.graphql({
+        query: deleteMember,
+        variables: { input: { id: mockMember.id } as APITypes.DeleteMemberInput },
+      });
+    }
+
+    // 1) Update all expenses in this trip (paidBy + sharedWith.payeeName)
+    let nextToken: string | null | undefined = null;
+    do {
+      const page = await client.graphql({
+        query: getExpensesByTrip,
+        variables: { tripId, limit: 200, nextToken },
+      }) as { data?: APITypes.GetExpensesByTripQuery };
+
+      nextToken = page.data?.getExpensesByTrip?.nextToken ?? null;
+      const baseItems = page.data?.getExpensesByTrip?.items ?? [];
+
+      for (const base of baseItems) {
+        if (!base?.id) continue;
+
+        // Fetch full expense (ensures sharedWith array present)
+        const fullResp = await client.graphql({
+          query: getExpense,
+          variables: { id: base.id },
+        }) as { data?: APITypes.GetExpenseQuery };
+
+        const e = fullResp.data?.getExpense;
+        if (!e) continue;
+
+        let changed = false;
+        const input: APITypes.UpdateExpenseInput = { id: e.id! };
+
+        if (e.paidBy === mockUsername) {
+          input.paidBy = currentUsername;
+          changed = true;
+        }
+
+        if (Array.isArray(e.sharedWith)) {
+          const newShared = e.sharedWith.map(sw =>
+            sw?.payeeName === mockUsername ? { ...sw, payeeName: currentUsername } : sw
+          );
+          if (JSON.stringify(newShared) !== JSON.stringify(e.sharedWith)) {
+            input.sharedWith = newShared as any; // SharedWithInput[]
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          await client.graphql({ query: updateExpense, variables: { input } });
+        }
+      }
+    } while (nextToken);
+
+    // 2) Update Trip.debts (AWSJSON string) to replace mock username in keys
+    const tripResp = await client.graphql({
+      query: getTrip,
+      variables: { id: tripId },
+    }) as { data?: APITypes.GetTripQuery };
+
+    const trip = tripResp.data?.getTrip;
+    if (trip?.debts) {
+      const debtsObj = typeof trip.debts === 'string' ? JSON.parse(trip.debts) : trip.debts;
+      let updated = false;
+      const newDebts: Record<string, any> = {};
+
+      for (const [currency, currencyDebts] of Object.entries<any>(debtsObj ?? {})) {
+        const rewritten: Record<string, number> = {};
+        for (const [pair, amount] of Object.entries<number>(currencyDebts ?? {})) {
+          const newKey = pair.includes(mockUsername)
+            ? pair.replace(mockUsername, currentUsername)
+            : pair;
+          if (newKey !== pair) updated = true;
+          rewritten[newKey] = amount;
+        }
+        newDebts[currency] = rewritten;
+      }
+
+      if (updated) {
+        await client.graphql({
+          query: updateTrip,
+          variables: {
+            input: {
+              id: tripId,
+              debts: JSON.stringify(newDebts), // AWSJSON must be a string
+            } as APITypes.UpdateTripInput,
+          },
+        });
+      }
+    }
+
+    // 3) TODO: Update proposed_activities (once modeled in GraphQL)
+  }
   /*
  * Function is called when new user join in and claims a mock member
  * To update in the backend the expenses, activities and other stuff the mockmember participated in 
- */
+ 
 static async updateFirebaseAfterClaiming(mockUserId: string, currentUserName: string, tripId: string, expenses: FirestoreExpense[], tripData: TripsTableDDB) {
 	const db = getFirestore();
 
@@ -182,6 +312,7 @@ static async updateFirebaseAfterClaiming(mockUserId: string, currentUserName: st
 		}
 	}
 }
+  */
 
 
 } 

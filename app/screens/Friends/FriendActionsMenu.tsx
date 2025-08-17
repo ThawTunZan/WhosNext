@@ -29,7 +29,7 @@ export const FriendActionsMenu: React.FC<FriendActionsMenuProps> = ({
           onPress={() => {
             setMenuVisible(false);
             // TODO: Implement view profile
-            console.log('View profile:', selectedFriendUsername);
+            console.log('[FriendActionsMenu] View profile:');
           }}
           title="View Profile"
           leadingIcon="account"
@@ -38,7 +38,7 @@ export const FriendActionsMenu: React.FC<FriendActionsMenuProps> = ({
           onPress={() => {
             setMenuVisible(false);
             // TODO: Implement block user
-            console.log('Block user:', selectedFriendUsername);
+            console.log('[FriendActionsMenu] Block user:', selectedFriendUsername);
           }}
           title="Block User"
           leadingIcon="block-helper"
