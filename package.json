@@ -9,7 +9,6 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@aws-amplify/react-native": "^1.1.10",
     "@aws-sdk/client-dynamodb": "^3.868.0",
     "@aws-sdk/lib-dynamodb": "^3.868.0",
     "@clerk/clerk-expo": "^2.11.6",
@@ -58,10 +57,12 @@
     "react-native-web": "^0.20.0",
     "stream-browserify": "^3.0.0",
     "use-debounce": "^10.0.5",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "react-native-get-random-values": "~1.11.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@babel/plugin-transform-class-static-block": "^7.28.3",
     "@types/react": "~19.0.10",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.3",

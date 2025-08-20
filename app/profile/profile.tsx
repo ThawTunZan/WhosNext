@@ -17,6 +17,7 @@ import { lightTheme, darkTheme } from '@/src/theme/theme'
 import { syncUserProfileToDynamoDB } from "@/src/services/syncUserProfile"
 import { useProfileActions } from "@/src/utilities/profileAction"
 import { useUserTripsContext } from "@/src/context/UserTripsContext"
+import { PremiumStatus } from "@/src/types/DataTypes"
 
 
 const SECTIONS = [
@@ -68,11 +69,9 @@ export default function ProfileScreen() {
           friends: userData?.friends || [],
           incomingFriendRequests: userData?.incomingFriendRequests || [],
           outgoingFriendRequests: userData?.outgoingFriendRequests || [],
-          trips: userData?.trips || [],
-          premiumStatus: userData?.premiumStatus || 'free',
+          premiumStatus: userData?.premiumStatus || PremiumStatus.FREE,
           createdAt: userData?.createdAt || new Date().toISOString(),
           updatedAt: userData?.updatedAt || new Date().toISOString(),
-          currency: userData?.currency || "USD",
         };
 
         syncUserProfileToDynamoDB(UserFromDynamo).catch(console.error);

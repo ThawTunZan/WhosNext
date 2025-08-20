@@ -16,7 +16,7 @@ export type SharedWithDDB = {
 
 // Expense item as it lives in DynamoDB/AppSync
 export type ExpenseDDB = {
-  id: string;               
+  expenseId: string;               
   tripId: string;         
   activityName: string;     
   amount: number;           
@@ -29,14 +29,13 @@ export type ExpenseDDB = {
 
 
 export type MemberDDB = {
-  id: string;
+  userId: string;
   username: string;
-  fullName: string;
   tripId: string;
   amtLeft: number;
   budget: number;
   owesTotalMap: Record<string, number>;
-  addMemberType?: string; // assuming it's optional
+  addMemberType?: string;
   receiptsCount?: number;
   createdAt: string;
   updatedAt: string;
@@ -46,18 +45,19 @@ export type MemberDDB = {
 // ------------------- Trips -------------------
 
 export type TripsTableDDB = {
-  id: string;
-  name: string;
+  tripId: string;
+  destinationName: string;
   currency: string;
   createdBy: string;
-  debts: Record<string, any>;
+  debts: string[];
   isTripPremium: boolean;
   totalAmtLeft: number;
   totalBudget: number;
   createdAt: string; // ISO string from AWSDateTime
   updatedAt: string;
   startDate?: string;
-  endDate?: string;  
+  endDate?: string;
+  members: string[];
 };
 
 // ------------------- Debts -------------------
@@ -81,13 +81,6 @@ export enum PremiumStatus {
   TRIAL = 'trial'
 }
 
-export type FriendRequestDDB = {
-  id: string;
-  username: string; // who sent or received
-  status: "pending" | "accepted" | "rejected";
-  timestamp: string;
-};
-
 export type UserDDB = {
   id: string;
   username: string;
@@ -98,7 +91,6 @@ export type UserDDB = {
   friends?: string[]; // usernames
   incomingFriendRequests?: string[]; // IDs of FriendRequest
   outgoingFriendRequests?: string[]; // IDs of FriendRequest
-  trips?: string[]; // Trip IDs
   createdAt: string;
   updatedAt: string;
 };

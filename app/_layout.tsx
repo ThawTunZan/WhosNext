@@ -15,9 +15,7 @@ import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { UserTripsProvider, useUserTripsContext } from "@/src/context/UserTripsContext";
 import { useAuth } from '@clerk/clerk-expo';
-import {Amplify} from 'aws-amplify';
-import awsconfig from '../src/aws-exports';
-import { migrateExistingTrips } from '@/src/utilities/TripMigrationUtilities';
+import { PremiumStatus, UserDDB } from "@/src/types/DataTypes";
 
 let amplifyConfigured = false;
 let migrationRun = false;
@@ -89,18 +87,6 @@ const LoadingScreen = React.memo(({ theme }: { theme: any }) => (
 ));
 
 export default function RootLayout() {
-  useEffect(() => {
-    if (!amplifyConfigured) {
-      Amplify.configure(awsconfig);
-      amplifyConfigured = true;
-      
-      // Run migration for existing trips only once
-      if (!migrationRun) {
-        migrationRun = true;
-        migrateExistingTrips().catch(console.error);
-      }
-    }
-  }, []);
   return (
     <SafeAreaProvider>
       <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
@@ -135,28 +121,30 @@ function AuthGateAndStack() {
   }), [isDarkMode, theme.colors]);
 
   const syncUser = useCallback(() => {
-    if (isLoaded && isSignedIn && user) {
-      // Convert Clerk user to the format expected by UserProfileService
-      const UserFromDynamo = {
-        id: user.username,
-        username: user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'user',
-        fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
-        primaryEmailAddress: user.primaryEmailAddress?.emailAddress || '',
-        profileImageUrl: user.imageUrl || '',
-        friends: tripsUser?.friends || [],
-        incomingFriendRequests: tripsUser?.incomingFriendRequests || [],
-        outgoingFriendRequests: tripsUser?.outgoingFriendRequests || [],
-        trips: tripsUser?.trips || [],
-        premiumStatus: tripsUser?.premiumStatus || 'free',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      syncUserProfileToDynamoDB(UserFromDynamo).catch(console.error);
-    }
-  }, [isLoaded, isSignedIn, user, tripsUser]);
+  if (!isLoaded || !isSignedIn || !user) return;
 
-  useFocusEffect(syncUser);
+  // Build a UserDDB object keyed by Clerk's stable user.id
+  const userForSync: UserDDB = {
+    id: user.id, // ✅ use stable Clerk ID
+    username:
+      user.username ||
+      user.primaryEmailAddress?.emailAddress?.split("@")[0] ||
+      "user",
+    email: user.primaryEmailAddress?.emailAddress || "",
+    fullName: `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+    avatarUrl: user.imageUrl || "",
+    premiumStatus: tripsUser?.premiumStatus || PremiumStatus.FREE,
+    friends: tripsUser?.friends || [],
+    incomingFriendRequests: tripsUser?.incomingFriendRequests || [],
+    outgoingFriendRequests: tripsUser?.outgoingFriendRequests || [],
+    trips: tripsUser?.trips || [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Sync to DynamoDB (create-if-missing, update-if-changed)
+  syncUserProfileToDynamoDB(userForSync).catch(console.error);
+}, [isLoaded, isSignedIn, user, tripsUser]);
 
   // Show loading screen while Clerk is initializing
   if (!isLoaded) {

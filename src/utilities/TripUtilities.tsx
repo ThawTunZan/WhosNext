@@ -1,156 +1,72 @@
 // src/utilities/TripUtilities.ts
+import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
-import { generateClient } from 'aws-amplify/api';
-import type * as APITypes from '@/src/API';
-
-import {
-  getUserByUsername,
-  getTrip,
-  getMembersByTrip,
-  getExpensesByTrip,
-  getExpense,
-} from '@/src/graphql/queries';
-
-import {
-  createMember,
-  updateMember,
-  updateTrip,
-  deleteMember,
-  deleteExpense,
-  deleteTrip,
-  updateExpense,
-} from '@/src/graphql/mutations';
-
 import {
   MemberDDB,
   AddMemberType as LocalAddMemberType,
   TripsTableDDB,
+  ExpenseDDB,
 } from '@/src/types/DataTypes';
-
 import { convertCurrency } from '@/src/services/CurrencyService';
 
-/* -------------------------------------------------------------------------- */
-/*                               Amplify client                               */
-/* -------------------------------------------------------------------------- */
-const client = generateClient();
-const GET_EXPENSES_BY_TRIP_WITH_SHARED = /* GraphQL */ `
-  query GetExpensesByTripWithShared(
-    $tripId: ID!
-    $sortDirection: ModelSortDirection
-    $filter: ModelExpenseFilterInput
-    $limit: Int
-    $nextToken: String
-  ) {
-    getExpensesByTrip(
-      tripId: $tripId
-      sortDirection: $sortDirection
-      filter: $filter
-      limit: $limit
-      nextToken: $nextToken
-    ) {
-      items {
-        id
-        tripId
-        activityName
-        amount
-        currency
-        paidBy
-        sharedWith {
-          payeeName
-          amount
-          currency
-        }
-        createdAt
-        updatedAt
-        __typename
-      }
-      nextToken
-      __typename
-    }
-  }
-`;
+// ✅ All data access goes through DynamoDBService now
+import {
+  // reads
+  getTripById,
+  getMembersByTrip,
+  getExpensesByTrip,
+  // creates
+  addMemberToTrip as ddbAddMemberToTrip,
+  addExpenseToTrip as ddbAddExpenseToTrip,
+  addActivityToTrip as ddbAddActivityToTrip,
+  // updates
+  updateExpense as ddbUpdateExpense,
+  updateTripMetaData as ddbUpdateTripMetaData,
+  updateActivity as ddbUpdateActivity,
+  ddbUpdateMember,     
+  //updateMember as ddbUpdateMember,           // make sure you added this
+  // deletes (implement in service if you use these flows)
+  //deleteMember as ddbDeleteMember,           // PK=TRIP#<tripId>, SK=MEMBER#<userId>
+  //deleteExpense as ddbDeleteExpense,         // PK=TRIP#<tripId>, SK=EXPENSE#<expenseId>
+  //deleteTrip as ddbDeleteTrip,               // PK=TRIP#<tripId>, SK=META
+} from '@/src/aws-services/DynamoDBService';
 
 /* -------------------------------------------------------------------------- */
 /*                               Helper utilities                             */
 /* -------------------------------------------------------------------------- */
-
-function toApiAddMemberType(t: LocalAddMemberType): APITypes.AddMemberType {
-  // Your local enum uses string values: 'mock' | 'invite_link' | 'qr_code' | 'friends'
-  // API enum (codegen) is typically the SAME string union type.
-  // This cast is safe as long as the literals match.
-  return t as unknown as APITypes.AddMemberType;
-}
-
-async function fetchTrip(tripId: string) {
-  const resp = await client.graphql({
-    query: getTrip,
-    variables: { id: tripId },
-  }) as { data?: APITypes.GetTripQuery };
-  return resp.data?.getTrip ?? null;
-}
-
-async function fetchMembersByTrip(tripId: string) {
-  const all: NonNullable<APITypes.GetMembersByTripQuery['getMembersByTrip']>['items'] = [];
-  let nextToken: string | null | undefined = null;
-  do {
-    const page = await client.graphql({
-      query: getMembersByTrip,
-      variables: { tripId, limit: 200, nextToken },
-    }) as { data?: APITypes.GetMembersByTripQuery };
-    nextToken = page.data?.getMembersByTrip?.nextToken ?? null;
-    const items = page.data?.getMembersByTrip?.items?.filter(Boolean) ?? [];
-    all.push(...items);
-  } while (nextToken);
-  return all;
-}
-
-type SharedWithRow = { payeeName: string; amount: number; currency: string };
-type ExpenseWithShared = {
-  id: string;
-  tripId: string;
-  activityName: string;
-  amount: number;
-  currency: string;
-  paidBy: string;
-  sharedWith?: SharedWithRow[] | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
-};
-
-type GetExpensesByTripWithSharedQuery = {
-  getExpensesByTrip?: {
-    items?: (ExpenseWithShared | null)[];
-    nextToken?: string | null;
-  } | null;
-};
-
-async function fetchExpensesByTrip(tripId: string) {
-  const all: ExpenseWithShared[] = [];
-  let nextToken: string | null | undefined = null;
-
-  do {
-    const res = await client.graphql({
-      query: GET_EXPENSES_BY_TRIP_WITH_SHARED,
-      variables: { tripId, limit: 200, nextToken },
-    }) as { data?: GetExpensesByTripWithSharedQuery };
-
-    nextToken = res.data?.getExpensesByTrip?.nextToken ?? null;
-    const items = (res.data?.getExpensesByTrip?.items ?? []).filter(Boolean) as ExpenseWithShared[];
-    all.push(...items);
-  } while (nextToken);
-
-  return all;
-}
-
 function parseAwsJson<T = any>(v: unknown): T | null {
   if (!v) return null;
   if (typeof v === 'string') {
     try { return JSON.parse(v) as T; } catch { return null; }
   }
-  // Some codegens type AWSJSON as any (already object)
   return v as T;
 }
 
+// -----------------------------
+// Fetch helpers (no Amplify)
+// -----------------------------
+async function fetchTrip(tripId: string) {
+  return await getTripById(tripId);
+}
+
+async function fetchMembersByTrip(tripId: string) {
+  const res = await getMembersByTrip(tripId, { limit: 200 });
+  return res.items ?? [];
+}
+
+async function fetchExpensesByTrip(tripId: string) {
+  // pull all (paged) – caller can optimize with sinceISO if needed
+  const all: ExpenseDDB[] = [];
+  let next: string | undefined = undefined;
+
+  do {
+    const page = await getExpensesByTrip(tripId, { limit: 200, nextToken: next });
+    all.push(...(page.items ?? []));
+    next = page.nextToken;
+  } while (next);
+
+  return all;
+}
 /* -------------------------------------------------------------------------- */
 /*                          Public: updatePersonalBudget                       */
 /* -------------------------------------------------------------------------- */
@@ -158,77 +74,73 @@ function parseAwsJson<T = any>(v: unknown): T | null {
  * Update a member's personal budget and adjust their amtLeft by the same delta (in trip totals).
  * - Updates Member (budget, amtLeft, currency)
  * - Updates Trip (totalBudget, totalAmtLeft)
+ *
  */
 export async function updatePersonalBudget(
   tripId: string,
-  username: string,
+  userId: string,
   newBudget: number,
   newCurrency: string
 ): Promise<void> {
-  if (!tripId || !username) {
-    throw new Error('Trip ID and username are required.');
+  if (!tripId || !userId) {
+    throw new Error('Trip ID and user ID are required.');
   }
 
   const trip = await fetchTrip(tripId);
   if (!trip) throw new Error('Trip not found.');
 
   const members = await fetchMembersByTrip(tripId);
-  const member = members.find(m => m?.username === username);
-  if (!member || !member.id) {
-    throw new Error('User not a member of this trip.');
-  }
+  const member = members.find(m => m?.userId === userId);
+  if (!member) throw new Error('User not a member of this trip.');
 
   const oldBudget = member.budget ?? 0;
   const oldAmtLeft = member.amtLeft ?? 0;
   const spent = oldBudget - oldAmtLeft;
 
-  // Convert budgets for totals (in trip currency)
-  const newBudgetInTripCurrency = await convertCurrency(newBudget, newCurrency, trip.currency!);
-  const oldBudgetInTripCurrency = await convertCurrency(oldBudget, member.currency!, trip.currency!);
+  // Convert budgets for totals (into trip currency)
+  const newBudgetInTripCurrency = await convertCurrency(newBudget, newCurrency, trip.currency);
+  const oldBudgetInTripCurrency = await convertCurrency(oldBudget, member.currency, trip.currency);
   const diff = oldBudgetInTripCurrency - newBudgetInTripCurrency; // positive if old > new
 
-  // New amtLeft in NEW currency (keep what was spent)
-  const spentInNewCurrency = await convertCurrency(spent, member.currency!, newCurrency);
+  // Keep the "spent" constant across currency change
+  const spentInNewCurrency = await convertCurrency(spent, member.currency, newCurrency);
   const updatedAmtLeft = newBudget - spentInNewCurrency;
 
-  // 1) Update the member
-  const memberInput: APITypes.UpdateMemberInput = {
-    id: member.id,
+  // 1) Update member table
+  await ddbUpdateMember(tripId, userId, {
     budget: newBudget,
     amtLeft: updatedAmtLeft,
     currency: newCurrency,
-  };
-  await client.graphql({ query: updateMember, variables: { input: memberInput } });
-
+    updatedAt: new Date().toISOString(),
+  });
   // 2) Update the trip totals
-  const tripInput: APITypes.UpdateTripInput = {
-    id: tripId,
-    totalBudget: (trip.totalBudget ?? 0) - diff,
-    totalAmtLeft: (trip.totalAmtLeft ?? 0) - diff,
-  };
-  await client.graphql({ query: updateTrip, variables: { input: tripInput } });
+  await ddbUpdateTripMetaData(tripId, {
+    totalBudget: Math.max(0, (trip.totalBudget ?? 0) - diff),
+    totalAmtLeft: Math.max(0, (trip.totalAmtLeft ?? 0) - diff),
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 /* -------------------------------------------------------------------------- */
 /*                          Public: addMemberToTrip                            */
 /* -------------------------------------------------------------------------- */
 /**
- * Adds a member to a trip (AppSync only):
- * - If REAL (not MOCK): verifies the user exists in Users table; throws if not found.
+ * Adds a member to a trip (DynamoDB):
+ * - If REAL (not MOCK): up to you to verify user existence before calling this.
  * - Creates a Member row.
- * - Adjusts Trip totals.
+ * - Adjusts Trip totals in trip currency.
  */
 export const addMemberToTrip = async (
   tripId: string,
-  memberName: string,
+  memberName: string, // still username for UI; stored alongside userId if you have it
   tripData: TripsTableDDB,
   membersByUsername: Record<string, MemberDDB>,
   options: {
     budget?: number;
     addMemberType?: LocalAddMemberType;
     currency?: string;
+    userId?: string; // optional stable id if available
     skipIfExists?: boolean;
-    sendNotifications?: boolean; // optional; implement as you like
   } = {}
 ): Promise<void> => {
   if (!tripId || !memberName) {
@@ -239,53 +151,31 @@ export const addMemberToTrip = async (
     budget = 0,
     addMemberType = LocalAddMemberType.MOCK,
     currency = 'USD',
+    userId = `mock#${uuidv4()}`,
     skipIfExists = false,
   } = options;
 
-  // Already in trip?
   if (membersByUsername?.[memberName]) {
     if (skipIfExists) return;
     throw new Error('Member already exists in this trip.');
   }
 
-  // If REAL user, verify user exists
-  if (addMemberType !== LocalAddMemberType.MOCK) {
-    const userResp = await client.graphql({
-      query: getUserByUsername,
-      variables: { username: memberName, limit: 1 },
-    }) as { data?: APITypes.GetUserByUsernameQuery };
-    const userExists = (userResp.data?.getUserByUsername?.items ?? []).some(Boolean);
-    if (!userExists) {
-      throw new Error(`User "${memberName}" does not exist.`);
-    }
-  }
-
-  // Create member
-  const input: APITypes.CreateMemberInput = {
-    id: uuidv4(),
-    username: memberName,
-    fullName: memberName, // If you resolve full name, do it before and place here
+  // Create the member row
+  await ddbAddMemberToTrip({
     tripId,
-    budget,
-    amtLeft: budget,
+    userId,
+    username: memberName,
     currency,
-    owesTotalMap: JSON.stringify({ USD: 0, EUR: 0, GBP: 0, JPY: 0, CNY: 0, SGD: 0 }) as any, // AWSJSON → string
-    receiptsCount: 0,
-    addMemberType: toApiAddMemberType(addMemberType),
-  };
+    budget,
+  });
 
-  await client.graphql({ query: createMember, variables: { input } });
-
-  // Update trip totals in trip currency
+  // Adjust trip totals (convert member budget to trip currency)
   const budgetInTripCurrency = await convertCurrency(budget, currency, tripData.currency);
-  const tripInput: APITypes.UpdateTripInput = {
-    id: tripId,
+  await ddbUpdateTripMetaData(tripId, {
     totalBudget: (tripData.totalBudget ?? 0) + budgetInTripCurrency,
     totalAmtLeft: (tripData.totalAmtLeft ?? 0) + budgetInTripCurrency,
-  };
-  await client.graphql({ query: updateTrip, variables: { input: tripInput } });
-
-  // TODO: send notifications if desired (no Firestore)
+    updatedAt: new Date().toISOString(),
+  });
 };
 
 /* -------------------------------------------------------------------------- */
@@ -293,8 +183,8 @@ export const addMemberToTrip = async (
 /* -------------------------------------------------------------------------- */
 /**
  * Minimal validation step: ensure a mock Member with `mockUsername` exists in this trip.
- * The actual rewrite (expenses + debts + delete mock) is handled by your TripHandler.updateFirebaseAfterClaiming().
- * We keep the signature compatible; `claimCode` is ignored here (not in schema).
+ * The actual rewrite (expenses + debts + delete mock) is handled by your caller (TripHandler).
+ * `claimCode` is ignored here because it isn’t part of the DDB schema.
  */
 export const claimMockUser = async (
   tripId: string,
@@ -308,7 +198,6 @@ export const claimMockUser = async (
   if (mock.addMemberType !== 'mock') {
     throw new Error('This member is not marked as a mock user.');
   }
-  // No-op: TripHandler.updateFirebaseAfterClaiming() will do the heavy lifting.
 };
 
 /* -------------------------------------------------------------------------- */
@@ -321,42 +210,50 @@ export const claimMockUser = async (
 export const leaveTripIfEligible = async (
   tripId: string,
   username: string,
-  member: MemberDDB, // fields used: budget, amtLeft, currency
+  member: MemberDDB, // uses: budget, amtLeft, currency, id(userId)
 ): Promise<void> => {
   if (!tripId || !username || !member) {
     throw new Error('Missing trip or user data.');
   }
 
-  // Check debts from Trip.debts (AWSJSON)
   const trip = await fetchTrip(tripId);
   if (!trip) throw new Error('Trip not found.');
 
-  const debtsObj = parseAwsJson<Record<string, Record<string, number>>>(trip.debts) || {};
-  const hasDebts = Object.values(debtsObj).some(currencyDebts =>
-    Object.keys(currencyDebts || {}).some(pair => pair.includes(username))
-  );
+  // 1) Debts check
+  const hasDebts = (trip.debts ?? []).some((d) => {
+    const [creditor, debtor] = d.split("#");
+    return creditor === username || debtor === username;
+  });
+
   if (hasDebts) throw new Error('You still have outstanding debts.');
 
-  // Check expenses involvement
+  // 2) Expense involvement check
   const expenses = await fetchExpensesByTrip(tripId);
   const involvedInExpenses = expenses.some(e =>
     e?.paidBy === username ||
-    (Array.isArray(e?.sharedWith) && e!.sharedWith!.some(sw => sw?.payeeName === username))
+    (Array.isArray(e?.sharedWith) && e.sharedWith!.some(sw => sw?.payeeName === username))
   );
   if (involvedInExpenses) throw new Error('You are still involved in one or more expenses.');
 
-  // TODO: proposed activities once modeled in your schema
+  // 3) Remove member + adjust totals
+  // Convert member values to trip currency before subtracting
+  const convertedBudget = await convertCurrency(member.budget ?? 0, member.currency, trip.currency);
+  const convertedAmtLeft = await convertCurrency(member.amtLeft ?? 0, member.currency, trip.currency);
 
-  // If eligible, remove
-  await removeMemberFromTrip(tripId, username, member);
+  // Delete the member row
+  //await ddbDeleteMember(tripId, member.id);
+
+  // Update trip totals
+  await ddbUpdateTripMetaData(tripId, {
+    totalBudget: Math.max(0, (trip.totalBudget ?? 0) - convertedBudget),
+    totalAmtLeft: Math.max(0, (trip.totalAmtLeft ?? 0) - convertedAmtLeft),
+    updatedAt: new Date().toISOString(),
+  });
 };
 
 /* -------------------------------------------------------------------------- */
 /*                        Public: removeMemberFromTrip                         */
 /* -------------------------------------------------------------------------- */
-/**
- * Deletes the Member row and adjusts Trip totals (subtract member budget/amtLeft converted to trip currency).
- */
 export const removeMemberFromTrip = async (
   tripId: string,
   memberNameToRemove: string,
@@ -369,44 +266,27 @@ export const removeMemberFromTrip = async (
   const trip = await fetchTrip(tripId);
   if (!trip) throw new Error('Trip not found.');
 
-  const members = await fetchMembersByTrip(tripId);
-  const target = members.find(m => m?.username === memberNameToRemove);
-  if (!target || !target.id) throw new Error('Member not found.');
+  // delete by userId (memberToRemoveData.id)
+  //await ddbDeleteMember(tripId, memberToRemoveData.id);
 
-  // Convert to trip currency
-  const convertedBudget = await convertCurrency(
-    memberToRemoveData.budget ?? 0,
-    memberToRemoveData.currency,
-    trip.currency!
-  );
-  const convertedAmtLeft = await convertCurrency(
-    memberToRemoveData.amtLeft ?? 0,
-    memberToRemoveData.currency,
-    trip.currency!
-  );
+  // Convert to trip currency and adjust totals
+  const convertedBudget = await convertCurrency(memberToRemoveData.budget ?? 0, memberToRemoveData.currency, trip.currency);
+  const convertedAmtLeft = await convertCurrency(memberToRemoveData.amtLeft ?? 0, memberToRemoveData.currency, trip.currency);
 
-  // 1) Delete Member
-  const delInput: APITypes.DeleteMemberInput = { id: target.id };
-  await client.graphql({ query: deleteMember, variables: { input: delInput } });
-
-  // 2) Adjust Trip totals
-  const tripInput: APITypes.UpdateTripInput = {
-    id: tripId,
+  await ddbUpdateTripMetaData(tripId, {
     totalBudget: Math.max(0, (trip.totalBudget ?? 0) - convertedBudget),
     totalAmtLeft: Math.max(0, (trip.totalAmtLeft ?? 0) - convertedAmtLeft),
-  };
-  await client.graphql({ query: updateTrip, variables: { input: tripInput } });
-
-  // Optional: notifications – implement if desired (no Firestore)
+    updatedAt: new Date().toISOString(),
+  });
 };
 
 /* -------------------------------------------------------------------------- */
 /*                       Public: deleteTripAndRelatedData                      */
 /* -------------------------------------------------------------------------- */
 /**
- * Deletes: all Expenses, all Members, then the Trip.
- * (Receipts/other collections are not in your GraphQL schema; add if/when modeled.)
+ * Deletes all Expenses, all Members, then the Trip META.
  */
+/*
 export const deleteTripAndRelatedData = async (tripId: string): Promise<void> => {
   if (!tripId) throw new Error('Trip ID is required.');
 
@@ -414,65 +294,86 @@ export const deleteTripAndRelatedData = async (tripId: string): Promise<void> =>
   const expenses = await fetchExpensesByTrip(tripId);
   for (const e of expenses) {
     if (!e?.id) continue;
-    const del: APITypes.DeleteExpenseInput = { id: e.id };
-    await client.graphql({ query: deleteExpense, variables: { input: del } });
+    await ddbDeleteExpense(tripId, e.id);
   }
 
   // 2) Delete members
   const members = await fetchMembersByTrip(tripId);
   for (const m of members) {
-    if (!m?.id) continue;
-    const del: APITypes.DeleteMemberInput = { id: m.id };
-    await client.graphql({ query: deleteMember, variables: { input: del } });
+    await ddbDeleteMember(tripId, m.id);
   }
 
-  // 3) Delete the trip
-  const delTrip: APITypes.DeleteTripInput = { id: tripId };
-  await client.graphql({ query: deleteTrip, variables: { input: delTrip } });
+  // 3) Delete the trip META
+  await ddbDeleteTrip(tripId);
 };
+*/
 
 /* -------------------------------------------------------------------------- */
-/*                    Extra: helper to rewrite expenses (optional)            */
+/*                Public: add expense / activity convenience wrappers         */
 /* -------------------------------------------------------------------------- */
-/**
- * Utility you can call if you need to rewrite all expenses for a user rename (used by claims).
- * Not used directly above because you already implemented this in TripHandler.
- */
-export async function rewriteAllExpensesForUser(
+export async function addExpense(
   tripId: string,
-  fromUsername: string,
-  toUsername: string
-): Promise<void> {
-  const bases = await fetchExpensesByTrip(tripId);
-  for (const base of bases) {
-    if (!base?.id) continue;
-    const full = await client.graphql({
-      query: getExpense,
-      variables: { id: base.id },
-    }) as { data?: APITypes.GetExpenseQuery };
-    const e = full.data?.getExpense;
-    if (!e) continue;
+  data: Omit<ExpenseDDB, 'id' | 'tripId' | 'createdAt' | 'updatedAt'>
+) {
+  const expenseId = uuidv4();
+  const now = new Date().toISOString();
 
-    let changed = false;
-    const input: APITypes.UpdateExpenseInput = { id: e.id! };
+  return await ddbAddExpenseToTrip(tripId, expenseId, {
+    ...data,
+    expenseId,
+    tripId,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
 
-    if (e.paidBy === fromUsername) {
-      input.paidBy = toUsername;
-      changed = true;
-    }
+export async function addActivity(
+  tripId: string,
+  data: Record<string, any> // define your ActivityDDB type when you finalize schema
+) {
+  const activityId = uuidv4();
+  const now = new Date().toISOString();
 
-    if (Array.isArray(e.sharedWith)) {
-      const newShared = e.sharedWith.map(sw =>
-        sw?.payeeName === fromUsername ? { ...sw, payeeName: toUsername } : sw
-      );
-      if (JSON.stringify(newShared) !== JSON.stringify(e.sharedWith)) {
-        input.sharedWith = newShared as any; // SharedWithInput[]
-        changed = true;
-      }
-    }
+  return await ddbAddActivityToTrip(tripId, activityId, {
+    ...data,
+    activityId,
+    tripId,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
 
-    if (changed) {
-      await client.graphql({ query: updateExpense, variables: { input } });
-    }
-  }
+/* -------------------------------------------------------------------------- */
+/*              Public: update expense / trip meta / activity wrappers        */
+/* -------------------------------------------------------------------------- */
+export async function updateExpense(
+  tripId: string,
+  expenseId: string,
+  patch: Partial<ExpenseDDB>
+) {
+  return await ddbUpdateExpense(tripId, expenseId, {
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function updateTripMetaData(
+  tripId: string,
+  patch: Partial<TripsTableDDB>
+) {
+  return await ddbUpdateTripMetaData(tripId, {
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function updateActivity(
+  tripId: string,
+  activityId: string,
+  patch: Record<string, any>
+) {
+  return await ddbUpdateActivity(tripId, activityId, {
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  });
 }

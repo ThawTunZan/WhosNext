@@ -1,134 +1,225 @@
-// DynamoDBService.ts
-// Centralized, SDK v3-based queries for your single-table design.
-// No React/Amplify imports here.
+// src/context/UserTripsContext.tsx
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+  PropsWithChildren,
+} from "react";
+import { useUser } from "@clerk/clerk-expo";
 
 import {
-  DynamoDBClient,
-} from "@aws-sdk/client-dynamodb";
+  getUserMemberships,
+  getTripById,
+  getMembersByTrip,
+  getExpensesByTrip,
+} from "@/src/aws-services/DynamoDBService";
+
 import {
-  DynamoDBDocumentClient,
-  GetCommand,
-  QueryCommand,
-} from "@aws-sdk/lib-dynamodb";
+  MemberDDB,
+  ExpenseDDB,
+  TripsTableDDB,
+  UserDDB,
+  PremiumStatus,
+} from "@/src/types/DataTypes";
 
-// ---- Config ----
-const REGION = process.env.EXPO_PUBLIC_AWS_REGION || process.env.AWS_REGION || "us-east-1";
-const TABLE_NAME = process.env.EXPO_PUBLIC_DDB_TABLE || process.env.DDB_TABLE || "AppTable";
-const GSI1 = process.env.EXPO_PUBLIC_DDB_GSI1 || "GSI1"; // USER#{userId} -> TRIP#...#JOINED#ts
-const GSI2 = process.env.EXPO_PUBLIC_DDB_GSI2 || "GSI2"; // MEMBER#{memberId} -> TRIP#...#ts#expenseId
+// ---------- Shapes kept in context ----------
+type MembersByTrip = Record<string, Record<string, MemberDDB>>;
+type ExpensesByTrip = Record<string, ExpenseDDB[]>;
 
-// ---- Client ----
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
+type UserTripsCtx = {
+  user: UserDDB | null; 
+  trips: TripsTableDDB[];
+  tripMembersMap: MembersByTrip;
+  expensesByTripId: ExpensesByTrip;
+  loading: boolean;
+  error: any;
+  fetchTrips: () => void;
+};
 
-// ---- Helpers for pagination tokens ----
-function encodeToken(key: any | undefined): string | undefined {
-  if (!key) return undefined;
-  return Buffer.from(JSON.stringify(key)).toString("base64");
-}
-function decodeToken(token?: string): any | undefined {
-  if (!token) return undefined;
-  try { return JSON.parse(Buffer.from(token, "base64").toString("utf8")); }
-  catch { return undefined; }
-}
+// ---------- Defaults ----------
+const defaultUserTripsCtx: UserTripsCtx = {
+  user: null,
+  trips: [],
+  tripMembersMap: {},
+  expensesByTripId: {},
+  loading: true,
+  error: null,
+  fetchTrips: () => {},
+};
 
-// ====== Public API (used by your Context) ======
+const UserTripsContext = createContext<UserTripsCtx>(defaultUserTripsCtx);
 
-/**
- * Memberships for a user (which trips they are in)
- * Schema: membership items live at PK=TRIP#{tripId}, SK=MEMBER#{userId}
- * and are duplicated into GSI1: GSI1PK=USER#{userId}, GSI1SK=TRIP#{tripId}#JOINED#{ts}
- */
-export async function getUserMemberships(userId: string, opts?: { limit?: number; nextToken?: string }) {
-  const out = await ddb.send(new QueryCommand({
-    TableName: TABLE_NAME,
-    IndexName: GSI1,
-    KeyConditionExpression: "GSI1PK = :u AND begins_with(GSI1SK, :trip)",
-    ExpressionAttributeValues: {
-      ":u": `USER#${userId}`,
-      ":trip": "TRIP#"
-    },
-    Limit: opts?.limit ?? 50,
-    ExclusiveStartKey: decodeToken(opts?.nextToken),
-  }));
-  return {
-    items: out.Items ?? [],
-    nextToken: encodeToken(out.LastEvaluatedKey),
-  };
-}
+// ---------- Provider ----------
+export const UserTripsProvider = ({ children }: PropsWithChildren) => {
+  const { isLoaded, isSignedIn, user } = useUser();
 
-/**
- * Trip META document
- */
-export async function getTripById(tripId: string) {
-  const out = await ddb.send(new GetCommand({
-    TableName: TABLE_NAME,
-    Key: { PK: `TRIP#${tripId}`, SK: "META" },
-  }));
-  return out.Item || null;
-}
+  const [userData, setUserData] = useState<UserDDB | null>(null);
+  const [trips, setTrips] = useState<TripsTableDDB[]>([]);
+  const [tripMembersMap, setTripMembersMap] = useState<MembersByTrip>({});
+  const [expensesByTripId, setExpensesByTripId] = useState<ExpensesByTrip>({});
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<any>(null);
 
-/**
- * Members of a trip
- */
-export async function getMembersByTrip(tripId: string, opts?: { limit?: number; nextToken?: string }) {
-  const out = await ddb.send(new QueryCommand({
-    TableName: TABLE_NAME,
-    KeyConditionExpression: "PK = :p AND begins_with(SK, :m)",
-    ExpressionAttributeValues: { ":p": `TRIP#${tripId}`, ":m": "MEMBER#" },
-    Limit: opts?.limit ?? 200,
-    ExclusiveStartKey: decodeToken(opts?.nextToken),
-  }));
-  return {
-    items: out.Items ?? [],
-    nextToken: encodeToken(out.LastEvaluatedKey),
-  };
-}
+  const fetchTrips = useCallback(async () => {
+    if (!user?.id) return;
 
-/**
- * Expenses of a trip (paged, newest-first optional)
- * If sinceISO is provided, we range on SK BETWEEN `EXPENSE#${sinceISO}` and 'EXPENSE#\uFFFF'
- */
-export async function getExpensesByTrip(
-  tripId: string,
-  opts?: {
-    limit?: number;
-    nextToken?: string;
-    sinceISO?: string;           // for realtime refetch
-    scanNewToOld?: boolean;      // default: newest first (true)
-  }
-) {
-  const since = opts?.sinceISO;
-  const useBetween = !!since;
+    setLoading(true);
+    setError(null);
 
-  const q = useBetween
-    ? {
-        KeyConditionExpression: "PK = :p AND SK BETWEEN :s AND :e",
-        ExpressionAttributeValues: {
-          ":p": `TRIP#${tripId}`,
-          ":s": `EXPENSE#${since}`,
-          ":e": "EXPENSE#\uFFFF",
-        },
+    try {
+      const userId = user.id;
+
+      const memberships = await getUserMemberships(userId);
+      const tripIds: string[] = (memberships.items || [])
+        .map((it: any) => {
+          if (it.tripId) return it.tripId;
+          if (typeof it.GSI1SK === "string" && it.GSI1SK.startsWith("TRIP#")) {
+            const parts = it.GSI1SK.split("#");
+            return parts[1];
+          }
+          return undefined;
+        })
+        .filter(Boolean);
+
+      if (tripIds.length === 0) {
+        setTrips([]);
+        setTripMembersMap({});
+        setExpensesByTripId({});
+        setUserData({
+          id: userId,
+          username: user.username || user.primaryEmailAddress?.emailAddress?.split("@")[0] || "user",
+          email: user.primaryEmailAddress?.emailAddress || "",
+          fullName: `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+          avatarUrl: user.imageUrl || "",
+          premiumStatus: PremiumStatus.FREE,
+          friends: [],
+          incomingFriendRequests: [],
+          outgoingFriendRequests: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+        setLoading(false);
+        return;
       }
-    : {
-        KeyConditionExpression: "PK = :p AND begins_with(SK, :exp)",
-        ExpressionAttributeValues: {
-          ":p": `TRIP#${tripId}`,
-          ":exp": "EXPENSE#",
-        },
-      };
 
-  const out = await ddb.send(new QueryCommand({
-    TableName: TABLE_NAME,
-    ...q,
-    Limit: opts?.limit ?? 50,
-    ScanIndexForward: opts?.scanNewToOld === false ? true : false, // default newest-first
-    ExclusiveStartKey: decodeToken(opts?.nextToken),
-  }));
+      const [tripDocs, membersEntries, expensesEntries] = await Promise.all([
+        Promise.all(tripIds.map((tripId) => getTripById(tripId))),
+        Promise.all(
+          tripIds.map(async (tripId) => {
+            const resp = await getMembersByTrip(tripId);
+            const items = resp.items || [];
+            const byId = items.reduce((acc, m) => {
+              acc[m.userId] = m;
+              return acc;
+            }, {} as Record<string, MemberDDB>);
+            return [tripId, byId] as const;
+          })
+        ),
+        Promise.all(
+          tripIds.map(async (tripId) => {
+            const resp = await getExpensesByTrip(tripId, {
+              limit: 1000,
+              scanNewToOld: true,
+            });
+            const items = resp.items || [];
+            return [tripId, items] as const;
+          })
+        ),
+      ]);
 
+      const allTrips = (tripDocs.filter(Boolean) as TripsTableDDB[]);
+      const membersByTripId = Object.fromEntries(membersEntries) as MembersByTrip;
+      const expensesByTrip = Object.fromEntries(expensesEntries) as ExpensesByTrip;
+
+      setTripMembersMap(membersByTripId);
+      setExpensesByTripId(expensesByTrip);
+      setTrips(allTrips);
+
+      setUserData((prev) => ({
+        id: userId,
+        username: user.username || user.primaryEmailAddress?.emailAddress?.split("@")[0] || "user",
+        email: user.primaryEmailAddress?.emailAddress || "",
+        fullName: `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+        avatarUrl: user.imageUrl || "",
+        premiumStatus: prev?.premiumStatus ?? PremiumStatus.FREE,
+        friends: prev?.friends ?? [],
+        incomingFriendRequests: prev?.incomingFriendRequests ?? [],
+        outgoingFriendRequests: prev?.outgoingFriendRequests ?? [],
+        trips: allTrips.map((t) => t.tripId),
+        createdAt: prev?.createdAt ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+    } catch (err) {
+      console.error("[UserTripsContext] Error fetching trips:", err);
+      setError(err);
+      setTrips([]);
+      setTripMembersMap({});
+      setExpensesByTripId({});
+      if (user?.id) {
+        setUserData({
+          id: user.id,
+          username: user.username || user.primaryEmailAddress?.emailAddress?.split("@")[0] || "user",
+          email: user.primaryEmailAddress?.emailAddress || "",
+          fullName: `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
+          avatarUrl: user.imageUrl || "",
+          premiumStatus: PremiumStatus.FREE,
+          friends: [],
+          incomingFriendRequests: [],
+          outgoingFriendRequests: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, user?.username, user?.primaryEmailAddress?.emailAddress, user?.firstName, user?.lastName, user?.imageUrl]);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+
+    if (!isLoaded || !isSignedIn || !user) {
+      setTrips([]);
+      setTripMembersMap({});
+      setExpensesByTripId({});
+      setUserData(null);
+      setLoading(false);
+      return;
+    }
+
+    fetchTrips();
+  }, [isLoaded, isSignedIn, user?.id, fetchTrips]);
+
+  const value: UserTripsCtx = useMemo(
+    () => ({
+      user: userData,
+      trips: trips ?? [],
+      tripMembersMap: tripMembersMap ?? {},
+      expensesByTripId: expensesByTripId ?? {},
+      loading,
+      error,
+      fetchTrips,
+    }),
+    [userData, trips, tripMembersMap, expensesByTripId, loading, error, fetchTrips]
+  );
+
+  return (
+    <UserTripsContext.Provider value={value}>
+      {children}
+    </UserTripsContext.Provider>
+  );
+};
+
+export const useUserTripsContext = () => {
+  const ctx = useContext(UserTripsContext);
   return {
-    items: out.Items ?? [],
-    nextToken: encodeToken(out.LastEvaluatedKey),
+    ...ctx,
+    trips: ctx.trips ?? [],
+    tripMembersMap: ctx.tripMembersMap ?? {},
+    expensesByTripId: ctx.expensesByTripId ?? {},
   };
-}
-
-export type DynamoPagination = { nextToken?: string };
+};

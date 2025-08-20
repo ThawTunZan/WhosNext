@@ -1,41 +1,54 @@
+// src/services/syncUserProfile.ts
+// Thin wrapper that your app calls with a UserDDB-like object,
+// converts it to a Clerk-like payload, and delegates to the adapter.
 
-import { UserSyncService } from "./syncUserProfileAdapter"
-import { UserDDB } from "@/src/types/DataTypes"
+import { UserSyncService } from "./syncUserProfileAdapter";
+import type { UserDDB } from "@/src/types/DataTypes";
 
-/** The shape we'll keep in DynamoDB */
+/** Optional local interface (for docs only) */
 export interface UserProfile {
-  username: string
-  avatarUrl: string
-  updatedAt: Date
-  premiumStatus: string
+  username: string;
+  avatarUrl: string;
+  updatedAt: Date;
+  premiumStatus: string;
 }
 
 /**
- * Mirror a Clerk user object into DynamoDB.
- * Creates or merges the user with the latest Clerk fields.
+ * Mirror a UserDDB object (from your app) into DynamoDB.
+ * - Requires user.id (treated as userId)
+ * - Uses username/email/fullName/avatarUrl if provided
  */
 export async function syncUserProfileToDynamoDB(user: UserDDB) {
-  if (!user || !user.username) {
-    console.warn("syncUserProfileToDynamoDB: user or user.username is undefined, skipping sync.");
+  if (!user || !user.id) {
+    console.warn(
+      "syncUserProfileToDynamoDB: user or user.id is undefined, skipping sync."
+    );
     console.log("User data received:", user);
     return;
   }
 
   try {
-    const clerkUser = {
-      id: user.username,
-      username: user.username,
-      primaryEmailAddress: user.email,
-      firstName: user.fullName?.split(' ')[0] || '',
-      lastName: user.fullName?.split(' ').slice(1).join(' ') || '',
-      imageUrl: user.avatarUrl || ''
-    };
+    // Build a minimal Clerk-like payload expected by the adapter.
+    const item = {
+    PK: `USER#${user.id}`,
+    SK: `PROFILE`,
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    fullName: user.fullName,
+    avatarUrl: user.avatarUrl || "",
+    premiumStatus: user.premiumStatus,
+    friends: user.friends || [],
+    incomingFriendRequests: user.incomingFriendRequests || [],
+    outgoingFriendRequests: user.outgoingFriendRequests || [],
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
 
-    await UserSyncService.applyUserSync(clerkUser);
-    console.log('User synced to DynamoDB successfully');
+    await UserSyncService.applyUserSync(item);
+    console.log("User synced to DynamoDB successfully");
   } catch (error) {
-    console.error('Error syncing user to DynamoDB:', error);
+    console.error("Error syncing user to DynamoDB:", error);
     throw error;
   }
 }
-

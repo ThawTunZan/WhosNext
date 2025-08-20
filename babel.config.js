@@ -8,6 +8,9 @@ module.exports = function(api) {
       // …and this runs NativeWind’s own Babel plugin
       'nativewind/babel',
     ],
+    plugins: [
+      "@babel/plugin-transform-class-static-block",  // 👈 ADD THIS
+    ],
     
     // if you’re using react-native-reanimated you can still add it here:
     //plugins: ['react-native-reanimated/plugin', 'expo-router/babel'],
