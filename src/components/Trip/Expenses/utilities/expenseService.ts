@@ -1,10 +1,7 @@
 // src/services/expenseService.ts
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from "uuid";
-import {
-  ExpenseDDB,
-  TripsTableDDB,
-} from "@/src/types/DataTypes";
+import {ExpenseDDB,} from "@/src/types/DataTypes";
 import {
   addExpenseToTrip,
   updateExpense as ddbUpdateExpense,
@@ -80,6 +77,7 @@ export const addExpenseAndCalculateDebts = async (
 
   const debtsMap: Record<string, Record<string, number>> = {};
 
+  // turn debts to map for easier insert
   for (const d of trip.debts ?? []) {
     const [creditor, debtor, amount, currency] = d.split("#");
     debtsMap[currency] = debtsMap[currency] || {};
@@ -137,6 +135,7 @@ export const updateExpense = async (
     debtsMap[currency][key] = (debtsMap[currency][key] || 0) + parseFloat(amount);
   }
 
+  // update debts as if the expense being updated is being deleted
   for (const { payeeName, amount, currency } of originalExpense.sharedWith ?? []) {
     const key = `${originalExpense.paidBy}#${payeeName}`;
     if (debtsMap[currency]?.[key]) {
@@ -145,6 +144,7 @@ export const updateExpense = async (
     }
   }
 
+  // update debts with the new expense data
   for (const { payeeName, amount, currency } of newExpenseData.sharedWith ?? []) {
     if (payeeName === newExpenseData.paidBy) continue;
     debtsMap[currency] = debtsMap[currency] || {};

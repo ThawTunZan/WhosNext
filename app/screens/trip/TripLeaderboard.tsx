@@ -1,37 +1,42 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { Text, Button, Avatar, Card, Badge, useTheme, Surface } from 'react-native-paper';
+import { View, ScrollView, StyleSheet } from 'react-native';
+import { Text, Button, Avatar, Badge, Surface } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { useRouter } from 'expo-router';
 import { ExpenseDDB, Payment, TripsTableDDB, MemberDDB } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
+import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 interface TripLeaderboardProps {
-  trip: TripsTableDDB & {members?: Record<string, MemberDDB>};
-  expenses: ExpenseDDB[];
-  payments: Payment[];
+  trip: TripsTableDDB;
+  tripId: string;
 }
 
-export default function TripLeaderboard({ trip, expenses }: TripLeaderboardProps) {
+export default function TripLeaderboard(props: TripLeaderboardProps) {
+  const { trip, tripId } = props;
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
 
+  
+
   const [rotationType, setRotationType] = useState<'Recency' | 'AmountLeft' | 'PaymentNum'>('Recency')
-  const [excludedMembers, setExcludedMembers] = useState<string[]>([])
+  //const [excludedMembers, setExcludedMembers] = useState<string[]>([])
   const [leaderboardTotals, setLeaderboardTotals] = useState<{ [username: string]: number }>({});
   const [loadingTotals, setLoadingTotals] = useState(false);
   // each person's amount left converted to the trip's currency
   const [amtLeftInTripCurrency, setAmtLeftInTripCurrency] = useState<{ [username: string]: number }>({});
+  const { tripMembersMap, expensesByTripId } = useUserTripsContext();
+
+  const expenses = expensesByTripId?.[tripId] ?? [];
+
+  const membersById = tripMembersMap?.[tripId] ?? {};
 
 
   // Members as array with id
-  const members = useMemo(
-    () =>
-      trip.members
-        ? Object.entries(trip.members).map(([id, m]) => ({ ...m, id, username: m.username }))
-        : [],
-    [trip.members]
+  const members = useMemo(() =>
+      membersById? 
+      Object.entries(membersById).map(([id, m]) => ({ ...m, id, username: m.username })) : [],
+    [membersById]
   );
 
   
@@ -40,11 +45,9 @@ export default function TripLeaderboard({ trip, expenses }: TripLeaderboardProps
     async function calcAmtLeft() {
       const result: { [username: string]: number } = {};
       for (const member of members) {
-        // MemberDDB has no currency; assume amtLeft is already in the trip currency. TODO
-        // If stored member.amtLeft in a different currency, replace the source code with that currency.
         const converted = await convertCurrency(
           Number(member.amtLeft) || 0,
-          trip.currency || 'USD',
+          member.currency || 'USD',
           trip.currency || 'USD'
         );
         result[member.username] = converted;

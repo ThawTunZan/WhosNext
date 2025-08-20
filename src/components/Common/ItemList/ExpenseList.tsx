@@ -30,7 +30,7 @@ const ExpenseList = memo(({
   const renderExpenseItem = ({ item }: { item: ExpenseDDB }) => (
     <ExpenseCard
       expense={item}
-      isExpanded={item.id === expandedId}
+      isExpanded={item.expenseId === expandedId}
       onToggleExpand={onToggleExpand}
       onDelete={onDeleteExpense}
       onEdit={onEditExpense}

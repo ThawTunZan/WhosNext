@@ -44,7 +44,7 @@ const AddExpenseModal = ({
   const paperTheme = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const { trips, tripMembersMap } = useUserTripsContext();
-  const trip = trips.find(t => t.id === tripId);
+  const trip = trips.find(t => t.tripId === tripId);
 
   const { isLoaded, isSignedIn, user } = useUser();
   if (!isLoaded) return null;

@@ -45,7 +45,7 @@ export default function OverviewTab({
     return values.find((m: any) => m?.username === currentUsername);
   }, [currTripMembers, currentUsername]);
 
-  const trip = useMemo(() => trips.find(trip => trip.id === tripId), [tripId, trips]);
+  const trip = useMemo(() => trips.find(trip => trip.tripId === tripId), [tripId, trips]);
   console.log(trip)
 
   const [isDeletingTrip, setIsDeletingTrip] = useState(false);

@@ -28,7 +28,7 @@ export default function SelectFriendsModal({ visible, onDismiss, onSelectFriend 
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [budget, setBudget] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const { userData } = useUserTripsContext();
+  const { user: userData } = useUserTripsContext();
 
   useEffect(() => {
     if (userData) {

@@ -33,7 +33,6 @@ import {
   isCloudTrip,
   Receipt as ReceiptType,
 } from '@/src/components/Trip/Receipt/utilities/ReceiptUtilities';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 
 // Types
@@ -46,11 +45,11 @@ export default function ReceiptSection({ tripId }: Props) {
   const theme = isDarkMode ? darkTheme : lightTheme;
 
   const { isLoaded, isSignedIn, user } = useUser();
-  const { trips, expensesByTrip } = useUserTripsContext();
-  const expenses = expensesByTrip[tripId]
+  const { trips, expensesByTripId } = useUserTripsContext();
+  const expenses = expensesByTripId[tripId]
   // Derive tripInfo from context
   const tripInfo = useMemo(() => {
-    return trips.find((t: any) => t.id === tripId) || null;
+    return trips.find((t: any) => t.tripId === tripId) || null;
   }, [trips, tripId]);
 
   const [receipts, setReceipts] = useState<ReceiptType[]>([]);
@@ -72,7 +71,7 @@ export default function ReceiptSection({ tripId }: Props) {
     async function fetchReceipts() {
       setLoading(true);
       try {
-        if (isCloudTrip(tripInfo.premiumStatus)) {
+        if (tripInfo.isTripPremium) {
           setReceipts(await getCloudReceipts(tripId));
         } else {
           setReceipts(await getLocalReceipts(tripId, currentUsername));
@@ -87,7 +86,7 @@ export default function ReceiptSection({ tripId }: Props) {
   // Filter out expenses that already have a receipt
   const availableExpenses = useMemo(() => {
     return (expenses || []).filter(
-    (e) => !receipts.some((r) => r.expenseId === e.id)
+    (e) => !receipts.some((r) => r.expenseId === e.expenseId)
     );
   }, [expenses, receipts]);
 
@@ -95,7 +94,7 @@ export default function ReceiptSection({ tripId }: Props) {
   useEffect(() => {
     if (
       selectedExpense !== "" &&
-      !availableExpenses.some((e) => e.id === selectedExpense)
+      !availableExpenses.some((e) => e.expenseId === selectedExpense)
     ) {
       setSelectedExpense("");
     }
@@ -140,7 +139,7 @@ export default function ReceiptSection({ tripId }: Props) {
       let createdAt = Timestamp.now();
       let createdByName = currentUsername;
       if (expenseId) {
-        const expense = expenses.find((e) => e.id === expenseId);
+        const expense = expenses.find((e) => e.expenseId === expenseId);
         expenseName = expense?.activityName ?? '';
         paidById = expense?.paidById ?? currentUsername;
       }
@@ -196,7 +195,7 @@ export default function ReceiptSection({ tripId }: Props) {
     setLoading(true);
     try {
       if (!tripInfo) return;
-      if (isCloudTrip(tripInfo.premiumStatus)) {
+      if (tripInfo.isTripPremium) {
         await deleteCloudReceipt(receipt.id, receipt.path);
         setReceipts(await getCloudReceipts(tripId));
       } else {
@@ -313,7 +312,7 @@ export default function ReceiptSection({ tripId }: Props) {
               >
                 <Text style={{ color: theme.colors.text }}>
                   {selectedExpense
-                    ? availableExpenses.find(e => e.id === selectedExpense)?.activityName || 'Unknown'
+                    ? availableExpenses.find(e => e.expenseId === selectedExpense)?.activityName || 'Unknown'
                     : 'Select an expense'}
                 </Text>
               </TouchableOpacity>
@@ -355,20 +354,20 @@ export default function ReceiptSection({ tripId }: Props) {
                   </TouchableOpacity>
                   {availableExpenses.map((expense, idx) => (
                     <TouchableOpacity
-                      key={expense.id}
+                      key={expense.expenseId}
                       onPress={() => {
-                        setSelectedExpense(expense.id);
+                        setSelectedExpense(expense.expenseId);
                         setDropdownOpen(false);
                       }}
                       style={{
                         paddingVertical: 12,
                         paddingHorizontal: 12,
-                        backgroundColor: selectedExpense === expense.id ? theme.colors.primary : theme.colors.background,
+                        backgroundColor: selectedExpense === expense.expenseId ? theme.colors.primary : theme.colors.background,
                         borderBottomWidth: idx === availableExpenses.length - 1 ? 0 : 1,
                         borderBottomColor: theme.colors.outline,
                       }}
                     >
-                      <Text style={{ color: selectedExpense === expense.id ? '#fff' : theme.colors.text, fontWeight: selectedExpense === expense.id ? 'bold' : 'normal' }}>
+                      <Text style={{ color: selectedExpense === expense.expenseId ? '#fff' : theme.colors.text, fontWeight: selectedExpense === expense.expenseId ? 'bold' : 'normal' }}>
                         {expense.activityName}
                       </Text>
                     </TouchableOpacity>
@@ -397,7 +396,7 @@ export default function ReceiptSection({ tripId }: Props) {
                   Alert.alert('Please choose an existing expense');
                   return;
                 }
-                if (!tripInfo || !isCloudTrip(tripInfo.premiumStatus)) {
+                if (!tripInfo || !tripInfo.isTripPremium) {
                   setUpsellVisible(true);
                   return;
                 }
@@ -409,10 +408,10 @@ export default function ReceiptSection({ tripId }: Props) {
                 }
                 await saveReceipt('cloud');
               }}
-              style={{ flex: 1, marginLeft: 8, padding: 12, borderRadius: 6, backgroundColor: (tripInfo && isCloudTrip(tripInfo.premiumStatus)) ? theme.colors.primary : theme.colors.outline, alignItems: 'center' }}
+              style={{ flex: 1, marginLeft: 8, padding: 12, borderRadius: 6, backgroundColor: (tripInfo && tripInfo.isTripPremium) ? theme.colors.primary : theme.colors.outline, alignItems: 'center' }}
               disabled={!pickedImageUri}
             >
-              <Text style={{ color: (tripInfo && isCloudTrip(tripInfo.premiumStatus)) ? '#fff' : theme.colors.text, fontWeight: 'bold' }}>Upload to Cloud</Text>
+              <Text style={{ color: (tripInfo && tripInfo.isTripPremium) ? '#fff' : theme.colors.text, fontWeight: 'bold' }}>Upload to Cloud</Text>
             </TouchableOpacity>
         </View>
         </>
@@ -430,10 +429,7 @@ export default function ReceiptSection({ tripId }: Props) {
         <Button
           mode="contained"
         onPress={() => {
-          if (
-            tripInfo && isCloudTrip(tripInfo.premiumStatus)
-          ) {
-            // Cloud: enforce per-user and per-trip limits
+          if (tripInfo && tripInfo.isTripPremium) {
             const userReceipts = receipts.filter(r => r.createdByName === currentUsername);
             if (userReceipts.length >= 5 || receipts.length >= 20) {
               setUpsellVisible(true);
@@ -444,7 +440,7 @@ export default function ReceiptSection({ tripId }: Props) {
         }}
         style={[sectionStyles.actionButton, { marginHorizontal: 16, marginTop: 8, marginBottom: 8 }]}
           icon="plus"
-        disabled={tripInfo && isCloudTrip(tripInfo.premiumStatus) && (receipts.filter(r => r.createdByName === currentUsername).length >= 5 || receipts.length >= 20)}
+        disabled={tripInfo && tripInfo.isTripPremium && (receipts.filter(r => r.createdByName === currentUsername).length >= 5 || receipts.length >= 20)}
         >
           Add Receipt
         </Button>

@@ -15,7 +15,7 @@ type RecordPaymentModalProps = {
   visible: boolean;
   onDismiss: () => void;
   onSubmit: (payment: Payment) => Promise<void>;
-  debts: Debt[];
+  debts: string[];
   currentUsername: string;
   tripId: string;
   defaultCurrency: string;
@@ -123,7 +123,7 @@ export default function RecordPaymentModal({
 
   // Use context to get members for the current trip
   const { trips, tripMembersMap } = useUserTripsContext();
-  const trip = trips.find(t => t.id === tripId);
+  const trip = trips.find(t => t.tripId === tripId);
   const members = tripMembersMap[tripId] || {};
 
   const [showPayerDropdown, setShowPayerDropdown] = useState(false);

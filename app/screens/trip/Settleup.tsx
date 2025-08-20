@@ -23,9 +23,7 @@ import { useTripPaymentsContext } from '@/src/context/TripPaymentsContext';
 
 // Props type specific to this component
 type SettleUpProps = {
-  debts?: Debt[];
   tripId: string;
-  tripCurrency: string;
 };
 
 // Define section type
@@ -34,10 +32,9 @@ type DebtSection = {
   fromName: string;
 };
 
-export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps) {
+export default function SettleUpSection({ tripId }: SettleUpProps) {
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
-  const paperTheme = useTheme();
   const { user } = useUser();
 
   const [value, setValue] = useState('all'); // 'all' | 'simplified' | 'currency'
@@ -48,26 +45,10 @@ export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps)
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [expandedPaymentIds, setExpandedPaymentIds] = useState<Set<string>>(new Set());
   const { trips, loading: tripsLoading, error: tripsError } = useUserTripsContext();
-  const trip = trips.find(t => t.id === tripId) as TripsTableDDB | undefined;
+  const trip = trips.find(t => t.tripId === tripId) as TripsTableDDB | undefined;
   const debts = trip.debts;
+  const tripCurrency = trip.currency;
 
-  // Transform debts object form the database to Debt[] for RecordPaymentModal
-  const debtsArray: Debt[] = React.useMemo(() => {
-    if (!debts) return [];
-    const arr: Debt[] = [];
-    Object.entries(debts).forEach(([currency, debtsByUsers]) => {
-      Object.entries(debtsByUsers as Record<string, number>).forEach(([userPair, amount]) => {
-        const [fromUserName, toUserName] = userPair.split('#');
-        arr.push({
-          fromUserName,
-          toUserName,
-          amount,
-          currency
-        });
-      });
-    });
-    return arr;
-  }, [debts]);
 
   // Toggle payment expansion
   const togglePaymentExpanded = useCallback((paymentId: string) => {
@@ -83,20 +64,17 @@ export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps)
   }, []);
 
   // Transform debts from DB format to array format
-  const transformDebts = useCallback((rawDebts: any): Debt[] => {
-    console.log('Raw debts:', rawDebts);
+  const transformDebts = useCallback((rawDebts: string[]): Debt[] => {
     if (!rawDebts) return [];
     
     const transformedDebts: Debt[] = [];
-    Object.entries(rawDebts).forEach(([currency, debtsByUsers]) => {
-      Object.entries(debtsByUsers as Record<string, number>).forEach(([userPair, amount]) => {
-        const [fromUserName, toUserName] = userPair.split('#');
-        transformedDebts.push({
-          fromUserName,
-          toUserName,
-          amount,
-          currency: currency
-        });
+    rawDebts.forEach(debt => {
+      const [fromUserName, toUserName, amount, currency] = debt.split('#');
+      transformedDebts.push({
+        fromUserName,
+        toUserName,
+        amount: parseFloat(amount),
+        currency
       });
     });
     return transformedDebts;
@@ -140,8 +118,6 @@ export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps)
             break;
         }
         setShownDebts(groupDebts(processedDebts));
-        //console.log('Processed debts:', processedDebts);
-        //console.log('Shown debts:', groupDebts(processedDebts));
       } catch (error) {
         console.error('Error calculating debts:', error);
         // If currency conversion fails, fall back to showing raw debts
@@ -420,7 +396,7 @@ export default function SettleUpSection({ tripId, tripCurrency }: SettleUpProps)
           visible={showPaymentModal}
           onDismiss={() => setShowPaymentModal(false)}
           onSubmit={handlePaymentSubmit}
-          debts={debtsArray} // <-- pass the array, not the raw object
+          debts={debts} // <-- pass the array, not the raw object
           currentUsername={user?.username || ''}
           tripId={tripId}
           defaultCurrency={tripCurrency}

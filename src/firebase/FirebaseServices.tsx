@@ -6,26 +6,19 @@ import {
   getDocs,
   query,
   where,
-  addDoc,
   updateDoc,
-  deleteDoc,
   arrayUnion,
   arrayRemove,
   serverTimestamp,
-  DocumentReference,
-  QuerySnapshot,
-  DocumentSnapshot,
   increment,
   writeBatch,
-  Timestamp,
-  FieldValue,
 } from 'firebase/firestore';
-import { Debt, Payment, UserFromDynamo } from '@/src/types/DataTypes';
+import { Payment, UserDDB } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 import { deletePayment } from '@/src/components/Trip/Payment/utilities/PaymentUtilities';
 
 
-export const getUserByUsername = async (username: string): Promise<UserFromDynamo | null> => {
+export const getUserByUsername = async (username: string): Promise<UserDDB | null> => {
   if (!username || typeof username !== 'string' || username.trim() === '') {
     console.error('getUserByUsername called with invalid username:', username);
     return null;
@@ -36,14 +29,16 @@ export const getUserByUsername = async (username: string): Promise<UserFromDynam
     if (!userSnap.exists()) return null;
     const data = userSnap.data() || {};
     return {
+      id: userSnap.id,
       username: data.username || '',
       fullName: data.fullName || '',
-      primaryEmailAddress: data.primaryEmailAddress || { emailAddress: data.email || '' },
-      profileImageUrl: data.profileImageUrl || '',
+      email: data.email || '',
+      avatarUrl: data.profileImageUrl || '',
       friends: data.friends || [],
       incomingFriendRequests: data.incomingFriendRequests || [],
       outgoingFriendRequests: data.outgoingFriendRequests || [],
-      trips: data.trips || [],
+      createdAt: data.createdAt || serverTimestamp(),
+      updatedAt: data.updatedAt || serverTimestamp(),
       premiumStatus: data.premiumStatus || 'free'
       // Add any other required fields with defaults
     };

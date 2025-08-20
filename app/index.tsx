@@ -77,7 +77,7 @@ export default function TripsScreen() {
     }
     const currencySymbol = (CURRENCY_INFO[item.currency]?.symbol) || '$';
     return (
-      <Pressable onPress={() => router.push(`/screens/trip/${item.id}`)}>
+      <Pressable onPress={() => router.push(`/screens/trip/${item.tripId}`)}>
         <Surface style={styles.cardContainer} elevation={2}>
           <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.cardHeader}>
@@ -128,7 +128,7 @@ export default function TripsScreen() {
     );
   }, [theme.colors, router]);
 
-  const keyExtractor = useCallback((item) => item.id, []);
+  const keyExtractor = useCallback((item) => item.tripId, []);
 
   const isLoading = !isLoaded || isTripsLoading;
 

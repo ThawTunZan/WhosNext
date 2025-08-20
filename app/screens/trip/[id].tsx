@@ -47,7 +47,7 @@ function TripPage({ tripId }) {
 
   // Get trip from UserTripsContext
   const { trips, loading: tripsLoading, tripMembersMap, error: tripsError, expensesByTripId } = useUserTripsContext();
-  const trip = trips.find(t => t.id === tripId) as TripsTableDDB | undefined;
+  const trip = trips.find(t => t.tripId === tripId) as TripsTableDDB | undefined;
 
   const { payments, loading: paymentsLoading, error: paymentsError } = useTripPaymentsContext();
 
@@ -60,7 +60,7 @@ function TripPage({ tripId }) {
   const [showChooseModal, setShowChooseModal] = useState(false);
 
   // member id, MemberDDB
-  const safeMembers = (tripMembersMap[tripId] ?? {}) as Record<string, MemberDDB>;
+  const safeMembers = tripMembersMap[tripId] ?? {};
 
 
 
@@ -154,7 +154,7 @@ function TripPage({ tripId }) {
         ) : (
           <>
             <TripHeader
-              destination={trip.name}
+              destination={trip.destinationName}
             />
 
             <TabBar
@@ -177,9 +177,7 @@ function TripPage({ tripId }) {
 
             {selectedTab === "settle" && (
               <SettleUpSection
-                debts={Array.isArray(trip.debts) ? trip.debts : []}
                 tripId={tripId!}
-                tripCurrency={trip.currency}
               />
             )}
 
@@ -196,14 +194,8 @@ function TripPage({ tripId }) {
 
             {selectedTab === "leaderboard" && (
               <TripLeaderboard
-                trip={{
-                  ...trip,
-                  members: safeMembers,
-                  currency: trip.currency,
-                  debts:  trip.debts,
-                }}
-                expenses={expensesByTripId[tripId]}
-                payments={payments}
+                trip={trip}
+                tripId={tripId}
               />
             )}
 

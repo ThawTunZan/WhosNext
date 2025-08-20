@@ -39,7 +39,7 @@ const ActivityVotingSection = ({ tripId, onDeleteActivity, }: ActivityVotingSect
     const { trips, tripMembersMap } = useUserTripsContext();
 
     // 3. Memoization for trip and members
-    const trip = useMemo(() => trips.find(t => t.id === tripId), [trips, tripId]);
+    const trip = useMemo(() => trips.find(t => t.tripId === tripId), [trips, tripId]);
     const members = useMemo(() => tripMembersMap?.[tripId] ?? {}, [tripMembersMap, tripId]);
 
     const [snackbarVisible, setSnackbarVisible] = useState(false);

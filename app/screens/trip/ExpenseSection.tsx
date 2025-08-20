@@ -14,9 +14,6 @@ import { BaseSection } from '@/src/components/Common/BaseSection';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 
 const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
-  const { isDarkMode } = useCustomTheme();
-  const theme = isDarkMode ? darkTheme : lightTheme;
-
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -36,16 +33,15 @@ const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
 
   if (!tripId || !expensesByTripId || !trips || !tripMembersMap) {
     console.warn('[ExpensesSection] Skipping render: missing context');
-    return null; // or a <Loading /> component
+    return null;
   }
 
-  const trip = trips.find((t) => t.id === tripId);
+  const trip = trips.find((t) => t.tripId === tripId);
   if (!trip) {
     console.warn(`[ExpensesSection] Trip with id ${tripId} not found`);
     return null;
   }
 
-  // Open modal function - can be called from parent
   const openAddExpenseModal = useCallback(
     (initialData: Partial<Expense> | null = null, isEditing = false) => {
       setInitialExpenseData(initialData);
@@ -65,14 +61,13 @@ const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
     setEditingExpenseId(null);
   }, []);
 
-  // Handle expense submission using ExpenseHandler
   const handleAddOrUpdateExpenseSubmit = useCallback(
     async (expenseData: Expense, editingExpenseId: string | null) => {
       if (!tripId) throw new Error('Trip ID is missing');
 
       try {
         if (editingExpenseId) {
-          const expense = tripExpenses.find((e) => e.id === editingExpenseId);
+          const expense = tripExpenses.find((e) => e.expenseId === editingExpenseId);
           const result = await ExpenseHandler.updateExpense(
             editingExpenseId,
             tripId,
@@ -122,7 +117,6 @@ const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
     [tripId, trip, closeAddExpenseModal, membersById, tripExpenses]
   );
 
-  // Handle edit expense (moved from TripHandler)
   const handleEditExpense = useCallback(
     (expenseToEdit: ExpenseDDB) => openAddExpenseModal(expenseToEdit, true),
     [openAddExpenseModal]
@@ -134,7 +128,7 @@ const ExpensesSection = ({ tripId }: ExpensesSectionProps) => {
 
   const handleEditExpenseLocal = useCallback(
     async (expense: ExpenseDDB) => {
-      console.log(`Edit requested for expense: ${expense.id}`);
+      console.log(`Edit requested for expense: ${expense.expenseId}`);
       try {
         await handleEditExpense(expense);
       } catch (err) {

@@ -25,7 +25,7 @@ import {
   acceptFriendRequest,
 } from '@/src/firebase/FirebaseServices';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
-import { UserFromDynamo } from '@/src/types/DataTypes';
+import { UserDDB } from '@/src/types/DataTypes';
 import { FriendCard } from './FriendCard';
 import { FriendRequestCard } from './FriendRequestCard';
 import { FriendActionsMenu } from './FriendActionsMenu';
@@ -93,7 +93,7 @@ export default function FriendsScreen() {
       if (!Array.isArray(friendsUsernames)) friendsUsernames = [];
       const friendsData: Friend[] = await Promise.all(
         friendsUsernames.map(async (friendUsername: string) => {
-          const friendData = await userData as UserFromDynamo;
+          const friendData = await userData as UserDDB;
           if (!friendData || typeof friendData !== 'object') return { username: '', name: '', timestamp: null };
           return {
             username: friendUsername,
@@ -120,7 +120,7 @@ export default function FriendsScreen() {
     try {
       setIsLoading(true);
       //TODO
-      const targetUser = await getUserByUsername(newFriendUsername.trim()) as UserFromDynamo;
+      const targetUser = await getUserByUsername(newFriendUsername.trim()) as UserDDB;
       
       if (!targetUser) {
         Alert.alert('Error', 'User not found');

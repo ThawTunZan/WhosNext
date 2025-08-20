@@ -137,7 +137,6 @@ function AuthGateAndStack() {
     friends: tripsUser?.friends || [],
     incomingFriendRequests: tripsUser?.incomingFriendRequests || [],
     outgoingFriendRequests: tripsUser?.outgoingFriendRequests || [],
-    trips: tripsUser?.trips || [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

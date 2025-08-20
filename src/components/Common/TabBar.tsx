@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';

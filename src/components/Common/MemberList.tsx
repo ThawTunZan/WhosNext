@@ -48,8 +48,7 @@ export default function MemberList({
   const { isDarkMode } = useCustomTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
   const paperTheme = useTheme();
-  const { trips, loading: tripsLoading, error: tripsError, tripMembersMap } = useUserTripsContext();
-  const trip = trips.find(t => t.id === tripId);
+  const { tripMembersMap } = useUserTripsContext();
   const members = tripMembersMap[tripId] || {};
   const entries =
   Array.isArray(members)
