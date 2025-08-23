@@ -3,8 +3,9 @@
 import { useClerk } from "@clerk/clerk-expo"
 import { useUser } from "@clerk/clerk-expo"
 import { useRouter } from "expo-router"
-import { upsertClerkUserToDynamoDB } from "@/src/services/syncUserProfile"
+import { upsertUserFromClerk } from "@/src/firebase/FirebaseUserService"
 import { useUserTripsContext } from "../context/UserTripsContext"
+import { PremiumStatus, UserDDB } from "../types/DataTypes"
 
 /**
  * A custom hook that centralizes all "profile screen" actions:
@@ -16,7 +17,7 @@ export function useProfileActions() {
   const router = useRouter()
   const { openUserProfile, signOut } = useClerk()
   const { user, isLoaded, isSignedIn } = useUser()
-  const {userData} = useUserTripsContext()
+  const { user: userData } = useUserTripsContext()
 
   /** Navigate to your custom Profile Settings screen */
   const onEditProfile = () => {
@@ -38,21 +39,22 @@ export function useProfileActions() {
   const syncProfile = () => {
     if (isLoaded && isSignedIn && user && userData) {
       // Convert Clerk user to the format expected by UserProfileService
-      const UserFromDynamo = {
+      const UserFromDynamo: UserDDB = {
+        id: user.id,
         username: user.username || user.primaryEmailAddress?.emailAddress?.split('@')[0] || 'user',
         fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
-        primaryEmailAddress: {
-          emailAddress: user.primaryEmailAddress?.emailAddress || ''
-        },
-        profileImageUrl: user.imageUrl || '',
+        email: user.primaryEmailAddress?.emailAddress || '',
+        avatarUrl: user.imageUrl || '',
         friends: userData?.friends || [],
         incomingFriendRequests: userData?.incomingFriendRequests || [],
         outgoingFriendRequests: userData?.outgoingFriendRequests || [],
-        trips: userData?.trips || [],
-        premiumStatus: userData?.premiumStatus || 'free'
+        premiumStatus: userData?.premiumStatus || PremiumStatus.FREE,
+        createdAt: user.createdAt.toString(),
+        updatedAt: user.updatedAt.toString(),
+        trips: userData.trips || [],
       };
       
-      upsertClerkUserToDynamoDB(UserFromDynamo).catch(console.error)
+      upsertUserFromClerk(UserFromDynamo).catch(console.error)
     }
   }
 

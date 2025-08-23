@@ -1,30 +1,29 @@
 import React, { useState, useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Button, useTheme, Text } from 'react-native-paper';
+import { Button, Text } from 'react-native-paper';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
-import { MemberDDB, AddMemberType, TripsTableDDB } from '@/src/types/DataTypes';
+import { AddMemberType, MemberDDB } from '@/src/types/DataTypes';
 import BudgetSummaryCard from '@/src/components/Trip/Overview/components/BudgetSummaryCard';
 import PersonalBudgetCard from '@/src/components/Trip/Overview/components/PersonalBudgetCard';
 import MemberList from '@/src/components/Common/MemberList';
-import NextPayerCard from '@/src/components/Common/NextPayerCard';
 import { UpgradeTripButton } from '@/src/components';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 import { TripHandler } from '@/src/utilities/TripHandler';
 import { useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
-//import { showRewardedAd } from '@/CommonComponents/AdMob';
+import BudgetDialog from '@/src/components/Trip/Overview/components/BudgetDialog';
+import { v4 as uuidv4 } from 'uuid';
+
 
 type OverviewTabProps = {
   tripId: string;
-  onEditBudget: () => void;
   setSnackbarMessage: (message: string) => void;
   setSnackbarVisible: (visible: boolean) => void;
 };
 
 export default function OverviewTab({
   tripId,
-  onEditBudget,
   setSnackbarMessage,
   setSnackbarVisible,
 }: OverviewTabProps) {
@@ -35,18 +34,16 @@ export default function OverviewTab({
   const router = useRouter();
   const currTripMembers = tripMembersMap[tripId] ?? {};
   const expenses = expensesByTripId[tripId] ?? [];
+  const [budgetDialogVisible, setBudgetDialogVisible] = useState(false);
 
-
-  const currentUsername = user?.username ?? null;
+  const currentUserId = user?.id ?? null;
 
   const curr_member = useMemo(() => {
-    if (!currentUsername) return undefined;
-    const values = Object.values(currTripMembers || {});
-    return values.find((m: any) => m?.username === currentUsername);
-  }, [currTripMembers, currentUsername]);
+    if (!currentUserId) return undefined;
+    return currTripMembers[currentUserId];
+  }, [currTripMembers, currentUserId]);
 
   const trip = useMemo(() => trips.find(trip => trip.tripId === tripId), [tripId, trips]);
-  console.log(trip)
 
   const [isDeletingTrip, setIsDeletingTrip] = useState(false);
 
@@ -55,17 +52,36 @@ export default function OverviewTab({
     setSnackbarVisible(true);
   };
 
-  const handleAddMember = async (memberName: string, budget: number, currency: string, addMemberType: AddMemberType) => {
+  const handleAddMember = async (memberUserId: string, memberUsername: string, remaining:number, budget: number, currency: string, addMemberType: AddMemberType) => {
     if (!trip) return;
-    
-    const result = await TripHandler.addMember(tripId, memberName, trip, currTripMembers,{
-      budget,
-      addMemberType,
+
+    let finalUserId = memberUserId;
+    if (addMemberType === AddMemberType.MOCK) {
+      finalUserId = `mock-${uuidv4()}`;
+    }
+
+    if (currTripMembers?.[finalUserId]) {
+      showSnackbar("Member already exists in the trip.");
+      return;
+    }
+
+    const MemberData: MemberDDB = {
+      userId: finalUserId,
+      username: memberUsername,
+      tripId: tripId,
+      amtLeft: remaining,
+      budget: budget,
+      owesTotalMap: {},
+      addMemberType: addMemberType,
+      receiptsCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       currency,
-    });
-    
+    };
+    const result = await TripHandler.addMember(trip, MemberData);
+
     if (result.success) {
-      showSnackbar(`${memberName} ${addMemberType === "mock" ? 'added as a mock member!' : 'added to the trip!'}`);
+      showSnackbar(`${memberUsername} ${addMemberType === "mock" ? 'added as a mock member!' : 'added to the trip!'}`);
     } else {
       console.error('[OverviewTab] Error adding member:', result.error);
       showSnackbar(`Error adding member: ${result.error?.message || 'Unknown error'}`);
@@ -73,21 +89,20 @@ export default function OverviewTab({
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    // Validate against the DICTIONARY for this trip (not trip.members)
     if (!currTripMembers?.[memberId]) {
       setSnackbarMessage("Cannot remove member: Data missing.");
       setSnackbarVisible(true);
       return;
     }
 
-  const canRemove = TripHandler.canBeRemoved(memberId, expenses, trip);
+    const canRemove = TripHandler.canBeRemoved(memberId, expenses, trip);
     if (!canRemove) {
       setSnackbarMessage("Cannot remove member: They are still part of an expense, activity, receipt, or debt.");
       setSnackbarVisible(true);
       return;
     }
 
-  const result = await TripHandler.removeMember(tripId, memberId, curr_member, expenses, trip);
+    const result = await TripHandler.removeMember(tripId, memberId, curr_member, expenses, trip);
     if (result.success) {
       setSnackbarMessage(`${memberId} removed.`);
       setSnackbarVisible(true);
@@ -97,13 +112,12 @@ export default function OverviewTab({
     }
   };
 
-
   const handleLeaveTrip = async () => {
-    // Check membership by username within the DICTIONARY
-    const isMember = Object.values(currTripMembers || {}).some((m: any) => m?.username === currentUsername);
-    if (!isMember || !currentUsername) return;
+    // ⚡️ FIX: check membership by userId instead of username
+    const isMember = !!currTripMembers[currentUserId];
+    if (!isMember || !currentUserId) return;
 
-    const result = await TripHandler.leaveTrip(tripId, currentUsername, curr_member);
+    const result = await TripHandler.leaveTrip(tripId, currentUserId, curr_member);
     if (result.success) {
       setSnackbarMessage("You left the trip.");
       setSnackbarVisible(true);
@@ -129,9 +143,9 @@ export default function OverviewTab({
   };
 
   const handleClaimMockUser = async (mockUserId: string, claimCode: string) => {
-    if (!currentUsername) return;
-    
-    const result = await TripHandler.handleClaimMockUser(tripId, mockUserId, claimCode, currentUsername, expenses, trip);
+    if (!currentUserId) return;
+
+    const result = await TripHandler.handleClaimMockUser(tripId, mockUserId, claimCode, currentUserId, expenses, trip);
     if (result.success) {
       setSnackbarMessage("Successfully claimed mock profile!");
       setSnackbarVisible(true);
@@ -142,80 +156,86 @@ export default function OverviewTab({
   };
 
   return (
-    <ScrollView 
-      contentContainerStyle={[
-        styles.container, 
-        { backgroundColor: theme.colors.background }
-      ]}
-    >
-      <UpgradeTripButton style={styles.upgradeButton} />
-      <View style={styles.section}>
-        <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.text }]}>
-          👥 Members
-        </Text>
-        <MemberList 
-          onAddMember={handleAddMember} 
-          onRemoveMember={handleRemoveMember}
-          onClaimMockUser={handleClaimMockUser}
-          tripId={tripId}
-        />
-      </View>
+    <>
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          { backgroundColor: theme.colors.background }
+        ]}
+      >
+        <UpgradeTripButton style={styles.upgradeButton} />
 
-      <View style={styles.section}>
-        <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.text }]}>
-          💰 Budget
-        </Text>
-        <BudgetSummaryCard
-          members={currTripMembers}
-          totalBudget={trip?.totalBudget || 0}
-          totalAmtLeft={trip?.totalAmtLeft || 0}
-          tripCurrency={trip?.currency || 'USD'}
-        />
-
-        {curr_member && (
-          <PersonalBudgetCard
-            member={curr_member}
-            onEditBudget={onEditBudget}
+        <View style={styles.section}>
+          <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            👥 Members
+          </Text>
+          <MemberList
+            onAddMember={handleAddMember}
+            onRemoveMember={handleRemoveMember}
+            onClaimMockUser={handleClaimMockUser}
+            tripId={tripId}
           />
-        )}
-        {/* Watch Ad button for increasing daily expense limit */}
-        <Button
-          mode="outlined"
-          icon="video"
-          style={styles.adButton}
-          onPress={async () => {
-            //await showRewardedAd(() => {
-              // TODO: Call backend to increment daily limit
-              alert('Ad watched! Increase daily limit here.');
-            //});
-          }}
-        >
-          Watch Ad to Increase Daily Limit
-        </Button>
-      </View>
+        </View>
 
-      <View style={styles.actionButtons}>
-        {trip?.createdBy === currentUsername && (
+        <View style={styles.section}>
+          <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            💰 Budget
+          </Text>
+          <BudgetSummaryCard
+            members={currTripMembers}
+            totalBudget={trip?.totalBudget || 0}
+            totalAmtLeft={trip?.totalAmtLeft || 0}
+            tripCurrency={trip?.currency || 'USD'}
+          />
+
+          {curr_member && (
+            <PersonalBudgetCard
+              member={curr_member}
+              onEditBudget={() => setBudgetDialogVisible(true)}
+            />
+          )}
+
           <Button
-            mode="contained"
-            onPress={handleDeleteTrip}
-            loading={isDeletingTrip}
-            style={[styles.deleteButton, { backgroundColor: theme.colors.error }]}
-            icon="delete"
+            mode="outlined"
+            icon="video"
+            style={styles.adButton}
+            onPress={() => alert('Ad watched! Increase daily limit here.')}
           >
-            Delete Trip
+            Watch Ad to Increase Daily Limit
           </Button>
-        )}
-        <Button 
-          mode="outlined" 
-          onPress={handleLeaveTrip}
-          icon="exit-to-app"
-          style={styles.leaveButton}
-        >
-          Leave Trip
-        </Button>
-      </View>
-    </ScrollView>
+        </View>
+
+        <View style={styles.actionButtons}>
+          {trip?.createdBy === currentUserId && (
+            <Button
+              mode="contained"
+              onPress={handleDeleteTrip}
+              loading={isDeletingTrip}
+              style={[styles.deleteButton, { backgroundColor: theme.colors.error }]}
+              icon="delete"
+            >
+              Delete Trip
+            </Button>
+          )}
+          <Button
+            mode="outlined"
+            onPress={handleLeaveTrip}
+            icon="exit-to-app"
+            style={styles.leaveButton}
+          >
+            Leave Trip
+          </Button>
+        </View>
+      </ScrollView>
+
+      <BudgetDialog
+        currentUsername={currentUserId ?? ''}
+        tripId={tripId}
+        currency={trip?.currency || 'USD'}
+        visible={budgetDialogVisible}
+        onDismiss={() => setBudgetDialogVisible(false)}
+      />
+    </>
   );
 }
 
@@ -241,7 +261,7 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     marginBottom: 8,
-    backgroundColor: '#B00020', // fallback for theme.colors.error
+    backgroundColor: '#B00020',
   },
   leaveButton: {
     borderWidth: 2,

@@ -12,6 +12,10 @@ export default function InviteHandler() {
   const { isSignedIn, isLoaded, user } = useUser();
   const router = useRouter();
 
+  const curr_username = user?.username || 'Unknown User';  
+  const curr_userId = user?.id || 'unknown_user_id';
+
+
   useEffect(() => {
     if (!isLoaded || !inviteId) return;
 
@@ -28,9 +32,10 @@ export default function InviteHandler() {
       try {
         const result = await acceptInvite(
           inviteId,
-          { 
-            name: user.fullName || user.username || user.primaryEmailAddress?.emailAddress || 'Unknown User'
-          },
+          curr_userId,
+          curr_username,
+          user.createdAt.toString(),
+          user.updatedAt.toString(),
           mockUserId
         );
         

@@ -141,7 +141,7 @@ export default function ReceiptSection({ tripId }: Props) {
       if (expenseId) {
         const expense = expenses.find((e) => e.expenseId === expenseId);
         expenseName = expense?.activityName ?? '';
-        paidById = expense?.paidById ?? currentUsername;
+        paidById = expense?.paidBy ?? currentUsername;
       }
       if (mode === 'cloud') {
         // Cloud upload (only for premium/trial)

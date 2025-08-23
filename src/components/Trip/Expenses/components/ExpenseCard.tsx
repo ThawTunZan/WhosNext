@@ -118,7 +118,7 @@ export default function ExpenseCard({
           containerColor={theme.colors.error}
           iconColor={theme.colors.surface}
           size={20}
-          onPress={() => onDelete(expense.id)}
+          onPress={() => onDelete(expense.expenseId)}
         />
       </View>
     </Card.Content>
@@ -133,7 +133,7 @@ export default function ExpenseCard({
       ]}
     >
       <TouchableOpacity
-        onPress={() => onToggleExpand(expense.id)}
+        onPress={() => onToggleExpand(expense.expenseId)}
         style={styles.touchable}
       >
         <Card.Title
@@ -155,7 +155,7 @@ export default function ExpenseCard({
               <IconButton
                 {...props}
                 icon={isExpanded ? 'chevron-up' : 'chevron-down'}
-                onPress={() => onToggleExpand(expense.id)}
+                onPress={() => onToggleExpand(expense.expenseId)}
               />
             </View>
           )}

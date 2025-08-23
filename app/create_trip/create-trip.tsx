@@ -26,13 +26,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateButton from '@/src/components/Common/DateButton';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 import { v4 as uuidv4 } from 'uuid';
+import { useAuth } from '@clerk/clerk-expo';
 
-// ✅ new: use your DynamoDBService (no Amplify)
-import {
-  createTrip as ddbCreateTrip,
-  addMemberToTrip,
-  updateUserProfile,
-} from '@/src/aws-services/DynamoDBService';
+const CF_BASE = "https://us-central1-fairtrip-af173.cloudfunctions.net";
+const CREATE_TRIP_URL = `${CF_BASE}/createTrip`;
+const ADD_MEMBER_URL = `${CF_BASE}/addMember`;
+
 
 const { width } = Dimensions.get('window');
 
@@ -51,7 +50,7 @@ export default function CreateTripScreen() {
   const [showCurrencyMenu, setShowCurrencyMenu] = useState(false);
   const [showFormDrawer, setShowFormDrawer] = useState(false);
   const bottomSheetRef = useRef<BottomSheet>(null);
-
+  
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   const { isDarkMode } = useTheme();
@@ -61,45 +60,47 @@ export default function CreateTripScreen() {
   const [tripEndDate, setTripEndDate] = useState<Date>(new Date());
   const [errors, setErrors] = useState<{ name?: string; budget?: string; date?: string }>({});
   const { user: ctxUser, fetchTrips, trips } = useUserTripsContext();
-
+  const { getToken } = useAuth();
+  
+  
   // Bottom sheet snap points
   const snapPoints = useMemo(() => ['25%', '75%'], []);
-
+  
   const handleSheetChanges = useCallback((index: number) => {
     if (index === -1) setShowFormDrawer(false);
   }, []);
-
+  
   const renderBackdrop = useCallback(
     (props: any) => (
       <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
     ),
     []
   );
-
+  
   const openDrawer = () => {
     setShowFormDrawer(true);
     bottomSheetRef.current?.expand();
   };
-
+  
   const closeDrawer = () => {
     if (showCurrencyMenu) setShowCurrencyMenu(false);
     bottomSheetRef.current?.close();
   };
-
+  
   useEffect(() => {
     if (showFormDrawer) bottomSheetRef.current?.expand();
   }, [showFormDrawer]);
-
+  
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href="/auth/sign-in" />;
-
+  
   const Wrapper = Platform.OS === 'web' ? React.Fragment : TouchableWithoutFeedback;
-
-  const handleCreateTrip = async () => {
+  
+  function verifyForm() {
     setShowFormDrawer(false);
     let hasError = false;
     const newErrors: { name?: string; budget?: string; date?: string } = {};
-
+    
     // ---------- validation ----------
     if (!destination.trim()) {
       newErrors.name = 'Please enter a destination.';
@@ -108,7 +109,7 @@ export default function CreateTripScreen() {
       newErrors.name = 'Trip name must be 25 characters or less.';
       hasError = true;
     }
-
+    
     const parsedBudget = parseFloat(totalBudget) || 0;
     if (!totalBudget || isNaN(parsedBudget) || parsedBudget <= 0) {
       newErrors.budget = 'Please enter a valid budget.';
@@ -117,230 +118,257 @@ export default function CreateTripScreen() {
       newErrors.budget = 'Budget cannot exceed $1,000,000.';
       hasError = true;
     }
-
+    
     if (!tripDate || !tripEndDate || tripEndDate < tripDate) {
       newErrors.date = 'End date must be after start date.';
       hasError = true;
     }
-
+    
     setErrors(newErrors);
+    
+    return hasError;
+  }
+  
+  const handleCreateTrip = async () => {
+    setShowFormDrawer(false);
+    let hasError = verifyForm();
     if (hasError) return;
-
-    // ---------- prep ----------
-    const tripId = uuidv4();
-    const userId = user.id; // stable Clerk ID
-    const isoStart = tripDate.toISOString();
-    const isoEnd = tripEndDate.toISOString();
-
-    let isTripPremium = false;
-    const premium = await getUserPremiumStatus(ctxUser);
-    if (premium === PremiumStatus.PREMIUM || premium === PremiumStatus.TRIAL) {
-      isTripPremium = true;
-    }
-
     try {
-      // ---------- 1) create trip (DynamoDB) ----------
-      const createdTrip = await ddbCreateTrip({
-        
+      const tripId = uuidv4();
+      const userId = user.id; // Clerk user id
+      const isoStart = tripDate.toISOString();
+      const isoEnd = tripEndDate.toISOString();
+      const parsedBudget = parseFloat(totalBudget) || 0;
+      
+      // Build the body to match your server's TripsTableDDB type
+      const body = {
         tripId,
-        destinationName: destination.trim(),
-        createdBy: userId,
-        currency: selectedCurrency,
-        startDate: isoStart,
-        endDate: isoEnd,
-        totalBudget: parsedBudget,
-        debts: [],
+        destinationName: destination.trim(),     // REQUIRED by server
+        currency: selectedCurrency,              // REQUIRED by server
+        createdBy: userId,                       // REQUIRED by server
+        debts: [],                               // or {} if you’ll switch schema
+        isTripPremium:
+        (await getUserPremiumStatus(ctxUser)) === PremiumStatus.PREMIUM ||
+        (await getUserPremiumStatus(ctxUser)) === PremiumStatus.TRIAL,
         totalAmtLeft: parsedBudget,
-        members: [],
+        totalBudget: parsedBudget,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        isTripPremium,
+        startDate: isoStart,
+        endDate: isoEnd,
+        members: [userId],
+      };
+      
+      const res = await fetch(CREATE_TRIP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // If later you protect the endpoint with Clerk, add:
+        // Authorization: `Bearer ${await getToken()}`
+        body: JSON.stringify(body),
       });
+      
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`[createTrip] ${res.status} ${text}`);
+      }
+      
+      const json = await res.json(); // { message, tripId }
+      console.log("[CreateTrip] ➕ Firestore trip created:", json.tripId);
 
-      console.log('[CreateTrip] Trip created:', createdTrip);
-
-      // ---------- 2) add creator as member ----------
-      await addMemberToTrip({
-        tripId: createdTrip.tripId,
-        userId,
-        username:
-          user.username ||
-          user.primaryEmailAddress?.emailAddress?.split('@')[0] ||
-          'user',
-        currency: createdTrip.currency,
-        budget: parsedBudget,
+      const res2 = await fetch(ADD_MEMBER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tripId,
+          userId: user.id,
+          username: user.username ?? "user",
+          budget: parsedBudget,
+          amtLeft: parsedBudget,
+          currency: selectedCurrency,
+        }),
       });
+      
+      const json2 = await res2.json();
+      console.log("➕ Added member:", json2);
 
-      console.log('[CreateTrip] Member created in DynamoDB');
-
-      // ---------- 3) refresh cached data & navigate ----------
-      await fetchTrips();
-      router.push('/');
+      await fetch(`${CF_BASE}/updateUserTrips`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          tripId,
+        }),
+      });
+      
+      // refresh UI and navigate
+      //await fetchTrips();
+      router.push("/");
+      
     } catch (err) {
       console.error('[CreateTrip] Trip creation error:', err);
       alert('Failed to create trip. Please try again.');
     }
   };
-
+  
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Wrapper {...(Platform.OS !== 'web' ? { onPress: Keyboard.dismiss } : {})}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1, backgroundColor: theme.colors.background, paddingBottom: insets.bottom + 60 }}
-        >
-          <StatusBar style={isDarkMode ? 'light' : 'dark'} />
-          <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-
-            {/* Header */}
-            <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
-              <Text style={[styles.logo, { color: theme.colors.text }]}>Who's Next</Text>
-            </View>
-
-            {/* Hero Section */}
-            <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.heroContainer}>
-                <View style={[styles.illustrationPlaceholder, { backgroundColor: theme.colors.surfaceVariant }]} />
-                <Text style={[styles.heroTitle, { color: theme.colors.text }]}>Ready to explore?</Text>
-                <Text style={[styles.heroSubtitle, { color: theme.colors.subtext }]}>
-                  Create your next adventure and start planning with friends
-                </Text>
-                <Button
-                  mode="contained"
-                  onPress={openDrawer}
-                  style={styles.heroButton}
-                  contentStyle={styles.heroButtonContent}
-                  labelStyle={styles.heroButtonLabel}
-                  icon="plus"
-                >
-                  Create New Trip
-                </Button>
-              </View>
-            </ScrollView>
-
-            {/* BottomSheet Drawer */}
-            <BottomSheet
-              ref={bottomSheetRef}
-              index={-1}
-              snapPoints={snapPoints}
-              onChange={handleSheetChanges}
-              enablePanDownToClose={true}
-              backdropComponent={renderBackdrop}
-              backgroundStyle={{ backgroundColor: theme.colors.surface }}
-              handleIndicatorStyle={{ backgroundColor: theme.colors.outline }}
-            >
-              <BottomSheetView style={[styles.bottomSheetContent, { backgroundColor: theme.colors.surface }]}>
-                <View style={styles.drawerHeader}>
-                  <Text style={[styles.drawerTitle, { color: theme.colors.text }]}>Plan your next adventure</Text>
-                  <IconButton icon="close" onPress={closeDrawer} size={24} />
-                </View>
-
-                {/* Trip Form */}
-                <ScrollView
-                  style={{ flex: 1 }}
-                  contentContainerStyle={{ paddingBottom: 20 }}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {/* Destination */}
-                  <TextInput
-                    mode="outlined"
-                    placeholder="Where are you going?"
-                    value={destination}
-                    onChangeText={text => text.length <= 25 ? setDestination(text) : null}
-                    style={styles.input}
-                    left={<TextInput.Icon icon="map-marker" />}
-                    theme={{
-                      colors: {
-                        primary: theme.colors.primary,
-                        text: theme.colors.text,
-                        placeholder: theme.colors.subtext,
-                      },
-                    }}
-                    maxLength={25}
-                    error={!!errors.name}
-                  />
-                  {errors.name && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.name}</Text>}
-
-                  {/* Budget + Currency */}
-                  <View style={styles.budgetContainer}>
-                    <TextInput
-                      mode="outlined"
-                      placeholder="What's your budget?"
-                      value={totalBudget}
-                      onChangeText={setTotalBudget}
-                      keyboardType="numeric"
-                      returnKeyType="done"
-                      onSubmitEditing={() => Keyboard.dismiss()}
-                      style={styles.budgetInput}
-                      left={<TextInput.Icon icon="currency-usd" />}
-                      theme={{
-                        colors: {
-                          primary: theme.colors.primary,
-                          text: theme.colors.text,
-                          placeholder: theme.colors.subtext,
-                        },
-                      }}
-                      error={!!errors.budget}
-                    />
-                    <Menu
-                      visible={showCurrencyMenu}
-                      onDismiss={() => setShowCurrencyMenu(false)}
-                      anchor={
-                        <Button
-                          mode="outlined"
-                          onPress={() => {
-                            Keyboard.dismiss();
-                            setShowCurrencyMenu(true);
-                          }}
-                          style={styles.currencyButton}
-                        >
-                          {selectedCurrency}
-                        </Button>
-                      }
-                    >
-                      {SUPPORTED_CURRENCIES.map((currency) => (
-                        <Menu.Item
-                          key={currency}
-                          onPress={() => {
-                            setSelectedCurrency(currency);
-                            setShowCurrencyMenu(false);
-                          }}
-                          title={`${currency} - ${CURRENCY_INFO[currency]?.name}`}
-                          leadingIcon={selectedCurrency === currency ? 'check' : 'currency-usd'}
-                        />
-                      ))}
-                    </Menu>
-                  </View>
-                  {errors.budget && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.budget}</Text>}
-
-                  {/* Dates */}
-                  <View style={styles.dateContainer}>
-                    <DateButton value={tripDate} onChange={setTripDate} label="Trip Start Date" style={styles.dateInput} />
-                    <DateButton value={tripEndDate} onChange={setTripEndDate} label="Trip End Date" style={styles.dateInput} />
-                  </View>
-                  {errors.date && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.date}</Text>}
-
-                  {/* Submit */}
-                  <Button
-                    mode="contained"
-                    onPress={openDrawer ? handleCreateTrip : handleCreateTrip}
-                    style={styles.submitButton}
-                    contentStyle={styles.submitButtonContent}
-                    labelStyle={styles.submitButtonLabel}
-                    icon="check"
-                  >
-                    Create Trip
-                  </Button>
-                </ScrollView>
-              </BottomSheetView>
-            </BottomSheet>
-          </SafeAreaView>
-        </KeyboardAvoidingView>
-      </Wrapper>
+    <Wrapper {...(Platform.OS !== 'web' ? { onPress: Keyboard.dismiss } : {})}>
+    <KeyboardAvoidingView
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    style={{ flex: 1, backgroundColor: theme.colors.background, paddingBottom: insets.bottom + 60 }}
+    >
+    <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    
+    {/* Header */}
+    <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+    <Text style={[styles.logo, { color: theme.colors.text }]}>Who's Next</Text>
+    </View>
+    
+    {/* Hero Section */}
+    <ScrollView
+    style={{ flex: 1 }}
+    contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}
+    keyboardShouldPersistTaps="handled"
+    >
+    <View style={styles.heroContainer}>
+    <View style={[styles.illustrationPlaceholder, { backgroundColor: theme.colors.surfaceVariant }]} />
+    <Text style={[styles.heroTitle, { color: theme.colors.text }]}>Ready to explore?</Text>
+    <Text style={[styles.heroSubtitle, { color: theme.colors.subtext }]}>
+    Create your next adventure and start planning with friends
+    </Text>
+    <Button
+    mode="contained"
+    onPress={openDrawer}
+    style={styles.heroButton}
+    contentStyle={styles.heroButtonContent}
+    labelStyle={styles.heroButtonLabel}
+    icon="plus"
+    >
+    Create New Trip
+    </Button>
+    </View>
+    </ScrollView>
+    
+    {/* BottomSheet Drawer */}
+    <BottomSheet
+    ref={bottomSheetRef}
+    index={-1}
+    snapPoints={snapPoints}
+    onChange={handleSheetChanges}
+    enablePanDownToClose={true}
+    backdropComponent={renderBackdrop}
+    backgroundStyle={{ backgroundColor: theme.colors.surface }}
+    handleIndicatorStyle={{ backgroundColor: theme.colors.outline }}
+    >
+    <BottomSheetView style={[styles.bottomSheetContent, { backgroundColor: theme.colors.surface }]}>
+    <View style={styles.drawerHeader}>
+    <Text style={[styles.drawerTitle, { color: theme.colors.text }]}>Plan your next adventure</Text>
+    <IconButton icon="close" onPress={closeDrawer} size={24} />
+    </View>
+    
+    {/* Trip Form */}
+    <ScrollView
+    style={{ flex: 1 }}
+    contentContainerStyle={{ paddingBottom: 20 }}
+    keyboardShouldPersistTaps="handled"
+    >
+    {/* Destination */}
+    <TextInput
+    mode="outlined"
+    placeholder="Where are you going?"
+    value={destination}
+    onChangeText={text => text.length <= 25 ? setDestination(text) : null}
+    style={styles.input}
+    left={<TextInput.Icon icon="map-marker" />}
+    theme={{
+      colors: {
+        primary: theme.colors.primary,
+        text: theme.colors.text,
+        placeholder: theme.colors.subtext,
+      },
+    }}
+    maxLength={25}
+    error={!!errors.name}
+    />
+    {errors.name && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.name}</Text>}
+    
+    {/* Budget + Currency */}
+    <View style={styles.budgetContainer}>
+    <TextInput
+    mode="outlined"
+    placeholder="What's your budget?"
+    value={totalBudget}
+    onChangeText={setTotalBudget}
+    keyboardType="numeric"
+    returnKeyType="done"
+    onSubmitEditing={() => Keyboard.dismiss()}
+    style={styles.budgetInput}
+    left={<TextInput.Icon icon="currency-usd" />}
+    theme={{
+      colors: {
+        primary: theme.colors.primary,
+        text: theme.colors.text,
+        placeholder: theme.colors.subtext,
+      },
+    }}
+    error={!!errors.budget}
+    />
+    <Menu
+    visible={showCurrencyMenu}
+    onDismiss={() => setShowCurrencyMenu(false)}
+    anchor={
+      <Button
+      mode="outlined"
+      onPress={() => {
+        Keyboard.dismiss();
+        setShowCurrencyMenu(true);
+      }}
+      style={styles.currencyButton}
+      >
+      {selectedCurrency}
+      </Button>
+    }
+    >
+    {SUPPORTED_CURRENCIES.map((currency) => (
+      <Menu.Item
+      key={currency}
+      onPress={() => {
+        setSelectedCurrency(currency);
+        setShowCurrencyMenu(false);
+      }}
+      title={`${currency} - ${CURRENCY_INFO[currency]?.name}`}
+      leadingIcon={selectedCurrency === currency ? 'check' : 'currency-usd'}
+      />
+    ))}
+    </Menu>
+    </View>
+    {errors.budget && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.budget}</Text>}
+    
+    {/* Dates */}
+    <View style={styles.dateContainer}>
+    <DateButton value={tripDate} onChange={setTripDate} label="Trip Start Date" style={styles.dateInput} />
+    <DateButton value={tripEndDate} onChange={setTripEndDate} label="Trip End Date" style={styles.dateInput} />
+    </View>
+    {errors.date && <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.date}</Text>}
+    
+    {/* Submit */}
+    <Button
+    mode="contained"
+    onPress={openDrawer ? handleCreateTrip : handleCreateTrip}
+    style={styles.submitButton}
+    contentStyle={styles.submitButtonContent}
+    labelStyle={styles.submitButtonLabel}
+    icon="check"
+    >
+    Create Trip
+    </Button>
+    </ScrollView>
+    </BottomSheetView>
+    </BottomSheet>
+    </SafeAreaView>
+    </KeyboardAvoidingView>
+    </Wrapper>
     </GestureHandlerRootView>
   );
 }

@@ -1,5 +1,5 @@
 // File: app/index.tsx
-import React, { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,13 +7,11 @@ import {
   FlatList,
   Pressable,
   Dimensions,
-  ScrollView,
 } from 'react-native';
 import {
   Text,
   Button,
   Surface,
-  IconButton,
   ActivityIndicator,
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';

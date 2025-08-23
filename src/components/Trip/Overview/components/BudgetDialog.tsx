@@ -1,42 +1,64 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Dialog, TextInput, Button, Portal } from 'react-native-paper';
+import { Dialog, TextInput, Button, Portal, Snackbar } from 'react-native-paper';
 import CurrencyModal from '@/src/components/Common/CurrencyModal';
+import { claimMockUser, updatePersonalBudget } from "@/src/utilities/TripUtilities";
 
 type BudgetDialogProps = {
+  currentUsername: string;
+  tripId: string;
+  currency: string;
   visible: boolean;
   onDismiss: () => void;
-  value: string;
-  onChangeValue: (value: string) => void;
-  onSubmit: (currency: string) => void;
-  currency: string;
 };
 
 export default function BudgetDialog({
-  visible,
-  onDismiss,
-  value,
-  onChangeValue,
-  onSubmit,
+  currentUsername,
+  tripId,
   currency: initialCurrency,
+  visible: budgetDialogVisible,
+  onDismiss,
 }: BudgetDialogProps) {
   const [selectedCurrency, setSelectedCurrency] = useState<string>(initialCurrency);
   const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
+  
+  const [newBudgetInput, setNewBudgetInput] = useState<string>("");
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
 
-  const handleSubmit = () => {
-    onSubmit(selectedCurrency);
-  };
+
+  // TODO im not sure if should depend on the new budget input because of bouncing
+  const submitBudgetChange = useCallback(async (currency: string) => {
+      const parsed = parseFloat(newBudgetInput);
+      if (isNaN(parsed) || parsed < 0) {
+        setSnackbarMessage("Please enter a valid number.");
+        setSnackbarVisible(true);
+        return;
+      }
+      try {
+        await updatePersonalBudget(tripId, currentUsername, parsed, currency);
+        setSnackbarMessage("Personal budget updated!");
+        setSnackbarVisible(true);
+      } catch (err: any) {
+        console.error(err);
+        setSnackbarMessage(err.message || "Failed to update budget.");
+        setSnackbarVisible(true);
+      } finally {
+        onDismiss();
+      }
+    }, [newBudgetInput, tripId, currentUsername]);
+
 
   return (
     <>
-      <Dialog visible={visible} onDismiss={onDismiss}>
+      <Dialog visible={budgetDialogVisible} onDismiss={onDismiss}>
         <Dialog.Title>Edit Your Budget</Dialog.Title>
         <Dialog.Content>
           <View style={styles.inputContainer}>
             <TextInput
               label="New Budget"
-              value={value}
-              onChangeText={onChangeValue}
+              value={newBudgetInput}
+              onChangeText={setNewBudgetInput}
               keyboardType="numeric"
               style={styles.input}
               left={<TextInput.Affix text={selectedCurrency === 'USD' ? '$' : selectedCurrency} />}
@@ -52,7 +74,7 @@ export default function BudgetDialog({
         </Dialog.Content>
         <Dialog.Actions>
           <Button onPress={onDismiss}>Cancel</Button>
-          <Button onPress={handleSubmit}>Save</Button>
+          <Button onPress={() => submitBudgetChange(selectedCurrency)}>Save</Button>
         </Dialog.Actions>
       </Dialog>
 
@@ -64,6 +86,13 @@ export default function BudgetDialog({
           onSelectCurrency={setSelectedCurrency}
         />
       </Portal>
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </>
   );
 }

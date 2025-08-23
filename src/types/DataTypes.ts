@@ -88,11 +88,12 @@ export type UserDDB = {
   fullName: string;
   avatarUrl?: string;
   premiumStatus: PremiumStatus;
-  friends?: string[]; // usernames
+  friends?: string[]; // userId
   incomingFriendRequests?: string[]; // IDs of FriendRequest
   outgoingFriendRequests?: string[]; // IDs of FriendRequest
   createdAt: string;
   updatedAt: string;
+  trips: string[];
 };
 
 export type FirestoreExpense = {

@@ -24,7 +24,7 @@ import TripLeaderboard from "@/app/screens/trip/TripLeaderboard";
 import type { TripsTableDDB, MemberDDB, Debt } from '@/src/types/DataTypes';
 import { SUPPORTED_CURRENCIES } from '@/src/types/DataTypes';
 import { useHandleDeleteActivity } from '@/src/components/Trip/Activity/utilities/ActivityUtilities';
-import { claimMockUser, updatePersonalBudget } from "@/src/utilities/TripUtilities";
+
 
 export default function TripPageWrapper() {
   const { id: routeIdParam } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -40,6 +40,7 @@ export default function TripPageWrapper() {
 function TripPage({ tripId }) {
   const { user } = useUser();
   const currentUsername = user?.username;
+  const currentUserId = user?.id;
 
   const [selectedTab, setSelectedTab] = useState<
     "overview" | "expenses" | "settle" | "activities" | "receipts" | "invite" | "leaderboard"
@@ -53,8 +54,8 @@ function TripPage({ tripId }) {
 
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [budgetDialogVisible, setBudgetDialogVisible] = useState(false);
-  const [newBudgetInput, setNewBudgetInput] = useState<string>("");
+  
+  
 
   const loading = tripsLoading || paymentsLoading;
   const [showChooseModal, setShowChooseModal] = useState(false);
@@ -72,29 +73,8 @@ function TripPage({ tripId }) {
     setSnackbarVisible
   );
 
-  const openBudgetDialog = useCallback(() => {
-    setBudgetDialogVisible(true);
-  }, []);
 
-  const submitBudgetChange = useCallback(async (currency: string) => {
-    const parsed = parseFloat(newBudgetInput);
-    if (isNaN(parsed) || parsed < 0) {
-      setSnackbarMessage("Please enter a valid number.");
-      setSnackbarVisible(true);
-      return;
-    }
-    try {
-      await updatePersonalBudget(tripId, currentUsername, parsed, currency);
-      setSnackbarMessage("Personal budget updated!");
-      setSnackbarVisible(true);
-    } catch (err: any) {
-      console.error(err);
-      setSnackbarMessage(err.message || "Failed to update budget.");
-      setSnackbarVisible(true);
-    } finally {
-      setBudgetDialogVisible(false);
-    }
-  }, [newBudgetInput, tripId, currentUsername]);
+  
 
   // When accessing claimCode, use optional chaining and type guard
   const handleSelectMockMember = async (memberId: string) => {
@@ -116,19 +96,30 @@ function TripPage({ tripId }) {
 
   const handleJoinAsNew = async () => {
     try {
+      if (!currentUsername || !currentUserId) {
+        throw new Error('User not logged in or missing username');
+      }
+
+      const newMember: MemberDDB = {
+        userId: currentUserId,
+        username: currentUsername,
+        tripId: tripId,
+        amtLeft: 0,
+        budget: 0,
+        owesTotalMap: {},
+        addMemberType: AddMemberType.INVITE_LINK,
+        receiptsCount: 0,
+        createdAt: user.createdAt.toString(),
+        updatedAt: user.updatedAt.toString(),
+        currency: 'USD',
+      };
+
       await TripHandler.addMember(
-        tripId,
-        user.username || user.fullName || user.primaryEmailAddress?.emailAddress || 'Unknown User',
         trip,
-        safeMembers,
-        {
-          budget: 0,
-          addMemberType: AddMemberType.INVITE_LINK,
-          currency: 'USD',
-        }
+        newMember,
       );
       setShowChooseModal(false);
-      setSnackbarMessage('Successfully joined trip');
+      setSnackbarMessage('Successfully` joined trip');
       setSnackbarVisible(true);
     } catch (error) {
       console.error('Error joining as new member:', error);
@@ -165,7 +156,6 @@ function TripPage({ tripId }) {
             {selectedTab === "overview" && (
               <OverviewTab
                 tripId={tripId!}
-                onEditBudget={openBudgetDialog}
                 setSnackbarMessage={setSnackbarMessage}
                 setSnackbarVisible={setSnackbarVisible}
               />
@@ -198,17 +188,6 @@ function TripPage({ tripId }) {
                 tripId={tripId}
               />
             )}
-
-            <Portal>
-              <BudgetDialog
-                visible={budgetDialogVisible}
-                onDismiss={() => setBudgetDialogVisible(false)}
-                value={newBudgetInput}
-                onChangeValue={setNewBudgetInput}
-                onSubmit={submitBudgetChange}
-                currency={trip.currency || 'USD'}
-              />
-            </Portal>
 
             <ChooseExistingOrNew
               visible={showChooseModal}

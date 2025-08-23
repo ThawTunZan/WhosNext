@@ -6,9 +6,9 @@ import {
   addExpenseToTrip,
   updateExpense as ddbUpdateExpense,
   getTripById,
-  updateTripMetaData,
 } from "@/src/aws-services/DynamoDBService";
 import { NotificationService, NOTIFICATION_TYPES } from "@/src/services/notification";
+import { updateTripMetaData } from '@/src/firebase/FirebaseTripService';
 
 /**
  * Simplify debts by netting them out and convert to array of strings.

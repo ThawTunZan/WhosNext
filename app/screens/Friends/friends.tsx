@@ -23,7 +23,7 @@ import {
   getUserByUsername,
   cancelFriendRequest,
   acceptFriendRequest,
-} from '@/src/firebase/FirebaseServices';
+} from '@/src/firebase/FirebaseFriendService';
 import { useUserTripsContext } from '@/src/context/UserTripsContext';
 import { UserDDB } from '@/src/types/DataTypes';
 import { FriendCard } from './FriendCard';

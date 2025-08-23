@@ -4,7 +4,7 @@ import { View, StyleSheet, Share, Platform, ActivityIndicator } from "react-nati
 import { Card, Button, TextInput, Text, Avatar, Surface, IconButton, useTheme, Portal, Modal, Badge, Chip, List, Divider } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState, useEffect, useCallback } from "react";
-import { AddMemberType } from '@/src/types/DataTypes';
+import { AddMemberType, MemberDDB } from '@/src/types/DataTypes';
 import { useTheme as useCustomTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import SelectFriendsModal from '@/src/components/Common/SelectFriendsModal';
@@ -16,8 +16,8 @@ import QRCode from 'react-native-qrcode-svg';
 import { useUserTripsContext } from "@/src/context/UserTripsContext";
 
 type MemberListProps = {
-  onAddMember: (name: string, budget: number, currency: string, addMemberType: AddMemberType) => void;
-  onRemoveMember: (name: string) => void;
+  onAddMember: (userId: string, name: string, remaining:number, budget: number, currency: string, addMemberType: AddMemberType) => void;
+  onRemoveMember: (memberId: string) => void;
   onGenerateClaimCode?: (memberId: string) => Promise<string>;
   onClaimMockUser?: (memberId: string, claimCode: string) => Promise<void>;
   tripId: string;
@@ -50,10 +50,7 @@ export default function MemberList({
   const paperTheme = useTheme();
   const { tripMembersMap } = useUserTripsContext();
   const members = tripMembersMap[tripId] || {};
-  const entries =
-  Array.isArray(members)
-    ? members.map(m => [m.id?? m.username, m] as const)
-    : Object.entries(members ?? {});
+  const entries = Object.entries(members ?? {});
 
   const getInviteUrl = useCallback((inviteId: string, mockUserId: string) => {
     // For development
@@ -121,14 +118,14 @@ export default function MemberList({
     }
 
     // Use the name directly as the member key instead of generating an ID
-    onAddMember(trimmedName, newMemberBudget, selectedCurrency, addMemberType);
+    onAddMember(trimmedName, trimmedName, newMemberBudget, newMemberBudget, selectedCurrency, addMemberType);
     setNewMember("");
     setNewMemberBudget(null);
     setShowMockMemberModal(false);
   };
 
-  const handleFriendSelect = (friendName: string, budget: number) => {
-    onAddMember(friendName, budget, "USD", AddMemberType.FRIENDS);
+  const handleFriendSelect = (friendUserId: string, friendUsername: string, budget: number) => {
+    onAddMember(friendUserId, friendUsername, budget, budget, "USD", AddMemberType.FRIENDS);
   };
 
   const memberCount = Object.keys(members).length;
@@ -139,16 +136,7 @@ export default function MemberList({
   profileName,
 }: {
   memberKey: string;
-  member: {
-    addMemberType: string;
-    amtLeft: number;
-    budget: number;
-    currency: string;
-    owesTotalMap: { [c: string]: number };
-    receiptsCount: number;
-    username: string;
-    fullName?: string;
-  };
+  member: MemberDDB
   profileName: string;
 }) => (
   <Surface style={styles.memberCard} elevation={1}>
@@ -174,7 +162,7 @@ export default function MemberList({
             <Text variant="titleMedium" style={[styles.memberName, { color: theme.colors.text }]}>
               {profileName}
             </Text>
-            {user && member.username === user.username && (
+            {user && member.userId === user.id && (
               <Text variant="labelMedium" style={{ color: theme.colors.primary, marginLeft: 8, fontWeight: 'bold' }}>
                 (You)
               </Text>
@@ -209,7 +197,7 @@ export default function MemberList({
             />
           )}
 
-          {user && member.username !== user.username && (
+          {user && member.userId !== user.id && (
             <IconButton
               icon="account-remove"
               size={20}
@@ -253,7 +241,7 @@ export default function MemberList({
                 key={memberKey}
                 memberKey={memberKey}
                 member={member}
-                profileName={member.fullName||member.username}
+                profileName={member.username}
               />
             ))}
           </View>

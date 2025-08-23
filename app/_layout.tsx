@@ -1,7 +1,7 @@
 // app/_layout.tsx
 
 import "expo-router/entry";
-import React, { useMemo, useCallback, useEffect } from "react";
+import React, { useMemo, useCallback, useEffect, useRef } from "react";
 import { ClerkProvider, useUser } from "@clerk/clerk-expo";
 import { Provider as PaperProvider, MD3LightTheme, MD3DarkTheme } from "react-native-paper";
 import { SafeAreaView, View, StyleSheet, TouchableOpacity, Text, Platform, ActivityIndicator } from "react-native";
@@ -9,17 +9,13 @@ import { useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-cont
 import { StatusBar } from 'expo-status-bar';
 import { Redirect, router, Stack, useFocusEffect, usePathname } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { syncUserProfileToDynamoDB } from "@/src/services/syncUserProfile";
+import { upsertUserFromClerk } from "@/src/firebase/FirebaseUserService";
 import { ThemeProvider } from '@/src/context/ThemeContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import { lightTheme, darkTheme } from '@/src/theme/theme';
 import { UserTripsProvider, useUserTripsContext } from "@/src/context/UserTripsContext";
 import { useAuth } from '@clerk/clerk-expo';
 import { PremiumStatus, UserDDB } from "@/src/types/DataTypes";
-
-let amplifyConfigured = false;
-let migrationRun = false;
-
 
 // NavButton component memoized
 const NavButton = React.memo(({
@@ -110,6 +106,7 @@ function AuthGateAndStack() {
   const { isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
   const {user: tripsUser} = useUserTripsContext();
+  const hasSynced = useRef(false);
   
   const theme = useMemo(() => isDarkMode ? darkTheme : lightTheme, [isDarkMode]);
   const paperTheme = useMemo(() => ({
@@ -120,29 +117,35 @@ function AuthGateAndStack() {
     },
   }), [isDarkMode, theme.colors]);
 
-  const syncUser = useCallback(() => {
-  if (!isLoaded || !isSignedIn || !user) return;
+  useEffect(() => {
+  // Avoid syncing until Clerk and UserTripsContext are ready
+  const readyToSync = isLoaded && isSignedIn && user && !hasSynced.current;
 
-  // Build a UserDDB object keyed by Clerk's stable user.id
+  if (!readyToSync) return;
+
   const userForSync: UserDDB = {
-    id: user.id, // ✅ use stable Clerk ID
-    username:
-      user.username ||
-      user.primaryEmailAddress?.emailAddress?.split("@")[0] ||
-      "user",
+    id: user.id,
+    username: user.username || user.primaryEmailAddress?.emailAddress?.split("@")[0] || "user",
     email: user.primaryEmailAddress?.emailAddress || "",
     fullName: `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User",
     avatarUrl: user.imageUrl || "",
-    premiumStatus: tripsUser?.premiumStatus || PremiumStatus.FREE,
-    friends: tripsUser?.friends || [],
-    incomingFriendRequests: tripsUser?.incomingFriendRequests || [],
-    outgoingFriendRequests: tripsUser?.outgoingFriendRequests || [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    premiumStatus: PremiumStatus.FREE,
+    friends: [],
+    incomingFriendRequests: [],
+    outgoingFriendRequests: [],
+    createdAt: "",    // Don’t overwrite
+    updatedAt: "",    // Don’t overwrite
+    trips: [],
   };
 
-  // Sync to DynamoDB (create-if-missing, update-if-changed)
-  syncUserProfileToDynamoDB(userForSync).catch(console.error);
+  upsertUserFromClerk(userForSync)
+    .then(() => {
+      console.log("[FirebaseUserService] ✅ User sync done.");
+      hasSynced.current = true;
+    })
+    .catch((err) => {
+      console.error("[FirebaseUserService] ❌ Sync failed:", err);
+    });
 }, [isLoaded, isSignedIn, user, tripsUser]);
 
   // Show loading screen while Clerk is initializing

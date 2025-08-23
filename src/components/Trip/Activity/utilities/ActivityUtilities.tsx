@@ -64,7 +64,7 @@ export const subscribeToProposedActivities = (
         });
         callback(data);
     }, (error) => {
-        console.error("Error fetching proposed activities: ", error);
+        console.error("[ActivitiesUtil] Error fetching proposed activities: ", error);
         onError(error);
         callback([]); // Clear data on error
     });

@@ -72,6 +72,7 @@ export default function ProfileScreen() {
           premiumStatus: userData?.premiumStatus || PremiumStatus.FREE,
           createdAt: userData?.createdAt || new Date().toISOString(),
           updatedAt: userData?.updatedAt || new Date().toISOString(),
+          trips: userData?.trips || [],
         };
 
         syncUserProfileToDynamoDB(UserFromDynamo).catch(console.error);

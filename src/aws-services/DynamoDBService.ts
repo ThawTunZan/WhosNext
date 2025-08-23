@@ -80,6 +80,7 @@ function mapUserItemToModel(item: any): UserDDB {
     outgoingFriendRequests: item.outgoingFriendRequests ?? [],
     createdAt: item.createdAt,
     updatedAt: item.updatedAt ?? item.createdAt,
+    trips: item.trips ?? [],
   };
 }
 
@@ -252,6 +253,7 @@ export async function updateUserProfile(
     outgoingFriendRequests: it.outgoingFriendRequests ?? [],
     createdAt: it.createdAt,
     updatedAt: it.updatedAt,
+    trips: it.trips ?? [],
   };
 }
 
@@ -426,116 +428,6 @@ export async function getExpensesByTrip(
   return { items, nextToken: encodeToken(out.LastEvaluatedKey) };
 }
 
-// ---------------- Create Trip ----------------
-
-/**
- * Create a trip (PK=TRIP#<tripId>, SK=META).
- * Fails if the trip already exists.
- */
-export async function createTrip(input:TripsTableDDB): Promise<TripsTableDDB> {
-  const now = new Date().toISOString();
-
-  const item: any = {
-    PK: `TRIP#${input.tripId}`,
-    SK: "META",
-    destinationName: input.destinationName,
-    createdBy: input.createdBy,
-    currency: input.currency ?? "USD",
-    debts: [],
-    totalAmtLeft: input.totalBudget ?? 0,
-    totalBudget: input.totalBudget ?? 0,
-    isTripPremium: input.isTripPremium ?? false,
-    createdAt: now,
-    updatedAt: now,
-    startDate: input.startDate ?? null,
-    endDate: input.endDate ?? null,
-  };
-
-  await ddb.send(new PutCommand({
-    TableName: TRIPS_TABLE,
-    Item: item,
-    ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)",
-  }));
-
-  addMemberToTrip({
-    tripId: input.tripId,
-    userId: input.createdBy,
-    username: input.createdBy,
-    currency: item.currency,
-    budget: item.totalBudget,
-  });
-
-  // Return typed object
-  const trip: TripsTableDDB = {
-    tripId: input.tripId,
-    destinationName: item.destinationName,
-    createdBy: item.createdBy,
-    currency: item.currency,
-    debts: item.debts,
-    members: item.members,
-    totalAmtLeft: item.totalAmtLeft,
-    totalBudget: item.totalBudget,
-    isTripPremium: item.isTripPremium,
-    createdAt: item.createdAt,
-    updatedAt: item.updatedAt,
-    startDate: item.startDate,
-    endDate: item.endDate,
-  };
-  return trip;
-}
-
-// ---------------- Add Member to Trip ----------------
-export async function addMemberToTrip(input: {
-  tripId: string;
-  userId: string;
-  username: string;
-  currency: string;
-  budget?: number;
-}): Promise<MemberDDB> {
-  const now = new Date().toISOString();
-
-  const item: any = {
-    PK: `TRIP#${input.tripId}`,
-    SK: `MEMBER#${input.userId}`,
-    userId: input.userId,
-    username: input.username,
-    tripId: input.tripId,
-    amtLeft: input.budget ?? 0,
-    budget: input.budget ?? 0,
-    owesTotalMap: {},
-    receiptsCount: 0,
-    createdAt: now,
-    updatedAt: now,
-    currency: input.currency,
-    GSI1PK: `USER#${input.userId}`,
-    GSI1SK: `TRIP#${input.tripId}`,
-  };
-
-  await ddb.send(
-    new PutCommand({
-      TableName: MEMBERS_TABLE,
-      Item: item,
-      ConditionExpression: "attribute_not_exists(PK) AND attribute_not_exists(SK)", // avoid duplicates
-    })
-  );
-
-  const member: MemberDDB = {
-    userId: item.userId,
-    username: item.username,
-    tripId: item.tripId,
-    amtLeft: item.amtLeft,
-    budget: item.budget,
-    owesTotalMap: item.owesTotalMap,
-    addMemberType: item.addMemberType, // stays undefined unless explicitly added
-    receiptsCount: item.receiptsCount,
-    createdAt: item.createdAt,
-    updatedAt: item.updatedAt,
-    currency: item.currency,
-  };
-
-  return member;
-}
-
 export async function updateExpense(tripId: string, expenseId: string, updates: Record<string, any>) {
   try {
     const updateExpressions: string[] = [];
@@ -569,43 +461,6 @@ export async function updateExpense(tripId: string, expenseId: string, updates: 
   } catch (error) {
   console.error("[DDB] updateExpense error:", error);
   throw error;
-  }
-}
-
-export async function updateTripMetaData(tripId: string, updates: Record<string, any>) {
-  try {
-    const updateExpressions: string[] = [];
-    const expressionAttributeValues: Record<string, any> = {};
-    const expressionAttributeNames: Record<string, string> = {};
-    
-    
-    Object.entries(updates).forEach(([key, value], i) => {
-      const attrName = `#attr${i}`;
-      const attrValue = `:val${i}`;
-      updateExpressions.push(`${attrName} = ${attrValue}`);
-      expressionAttributeNames[attrName] = key;
-      expressionAttributeValues[attrValue] = value;
-    });
-
-
-    const command = new UpdateCommand({
-      TableName: TRIPS_TABLE,
-      Key: {
-        PK: `TRIP#${tripId}`,
-        SK: "META",
-      },
-      UpdateExpression: `SET ${updateExpressions.join(", ")}`,
-      ExpressionAttributeNames: expressionAttributeNames,
-      ExpressionAttributeValues: expressionAttributeValues,
-      ReturnValues: "ALL_NEW",
-    });
-
-
-    const result = await ddb.send(command);
-    return result.Attributes;
-  } catch (error) {
-    console.error("[DDB] updateTripMetaData error:", error);
-    throw error;
   }
 }
 

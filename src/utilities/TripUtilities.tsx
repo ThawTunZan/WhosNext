@@ -9,42 +9,20 @@ import {
 } from '@/src/types/DataTypes';
 import { convertCurrency } from '@/src/services/CurrencyService';
 
-// ✅ All data access goes through DynamoDBService now
 import {
   // reads
   getTripById,
   getMembersByTrip,
   getExpensesByTrip,
-  // creates
-  addMemberToTrip as ddbAddMemberToTrip,
   addExpenseToTrip as ddbAddExpenseToTrip,
   addActivityToTrip as ddbAddActivityToTrip,
-  // updates
   updateExpense as ddbUpdateExpense,
-  updateTripMetaData as ddbUpdateTripMetaData,
   updateActivity as ddbUpdateActivity,
   ddbUpdateMember,     
-  //updateMember as ddbUpdateMember,           // make sure you added this
-  // deletes (implement in service if you use these flows)
-  //deleteMember as ddbDeleteMember,           // PK=TRIP#<tripId>, SK=MEMBER#<userId>
-  //deleteExpense as ddbDeleteExpense,         // PK=TRIP#<tripId>, SK=EXPENSE#<expenseId>
-  //deleteTrip as ddbDeleteTrip,               // PK=TRIP#<tripId>, SK=META
 } from '@/src/aws-services/DynamoDBService';
+import { addMemberToFirebase } from '@/src/firebase/FirebaseMemberService';
+import { updateTripMetaData } from '@/src/firebase/FirebaseTripService';
 
-/* -------------------------------------------------------------------------- */
-/*                               Helper utilities                             */
-/* -------------------------------------------------------------------------- */
-function parseAwsJson<T = any>(v: unknown): T | null {
-  if (!v) return null;
-  if (typeof v === 'string') {
-    try { return JSON.parse(v) as T; } catch { return null; }
-  }
-  return v as T;
-}
-
-// -----------------------------
-// Fetch helpers (no Amplify)
-// -----------------------------
 async function fetchTrip(tripId: string) {
   return await getTripById(tripId);
 }
@@ -113,8 +91,8 @@ export async function updatePersonalBudget(
     currency: newCurrency,
     updatedAt: new Date().toISOString(),
   });
-  // 2) Update the trip totals
-  await ddbUpdateTripMetaData(tripId, {
+
+  await updateTripMetaData(tripId, {
     totalBudget: Math.max(0, (trip.totalBudget ?? 0) - diff),
     totalAmtLeft: Math.max(0, (trip.totalAmtLeft ?? 0) - diff),
     updatedAt: new Date().toISOString(),
@@ -131,49 +109,41 @@ export async function updatePersonalBudget(
  * - Adjusts Trip totals in trip currency.
  */
 export const addMemberToTrip = async (
-  tripId: string,
-  memberName: string, // still username for UI; stored alongside userId if you have it
   tripData: TripsTableDDB,
-  membersByUsername: Record<string, MemberDDB>,
-  options: {
-    budget?: number;
-    addMemberType?: LocalAddMemberType;
-    currency?: string;
-    userId?: string; // optional stable id if available
+  memberData: MemberDDB,
+  options?: {
     skipIfExists?: boolean;
-  } = {}
+  }
 ): Promise<void> => {
-  if (!tripId || !memberName) {
-    throw new Error('Trip ID and Member username are required.');
+  if (!tripData?.tripId || !memberData?.userId) {
+    throw new Error("Trip ID and Member userId are required.");
   }
 
-  const {
-    budget = 0,
-    addMemberType = LocalAddMemberType.MOCK,
-    currency = 'USD',
-    userId = `mock#${uuidv4()}`,
-    skipIfExists = false,
-  } = options;
+  // 1) Check if member already exists in DynamoDB
+  const existingMembers = tripData.members;
+  const alreadyExists = existingMembers?.some(
+    (m) => m === memberData.userId
+  );
 
-  if (membersByUsername?.[memberName]) {
-    if (skipIfExists) return;
-    throw new Error('Member already exists in this trip.');
+  if (alreadyExists) {
+    if (options?.skipIfExists) return; // silently ignore
+    throw new Error("Member already exists in this trip.");
   }
 
-  // Create the member row
-  await ddbAddMemberToTrip({
-    tripId,
-    userId,
-    username: memberName,
-    currency,
-    budget,
-  });
+  // 2) Add new member
+  await addMemberToFirebase(tripData, memberData);
 
-  // Adjust trip totals (convert member budget to trip currency)
-  const budgetInTripCurrency = await convertCurrency(budget, currency, tripData.currency);
-  await ddbUpdateTripMetaData(tripId, {
+  // 3) Adjust trip totals (convert member budget to trip currency)
+  const budgetInTripCurrency = await convertCurrency(
+    memberData.budget,
+    memberData.currency,
+    tripData.currency
+  );
+
+  await updateTripMetaData(tripData.tripId, {
     totalBudget: (tripData.totalBudget ?? 0) + budgetInTripCurrency,
     totalAmtLeft: (tripData.totalAmtLeft ?? 0) + budgetInTripCurrency,
+    members: (tripData.members ?? []).concat([memberData.userId]),
     updatedAt: new Date().toISOString(),
   });
 };
@@ -244,7 +214,7 @@ export const leaveTripIfEligible = async (
   //await ddbDeleteMember(tripId, member.id);
 
   // Update trip totals
-  await ddbUpdateTripMetaData(tripId, {
+  await updateTripMetaData(tripId, {
     totalBudget: Math.max(0, (trip.totalBudget ?? 0) - convertedBudget),
     totalAmtLeft: Math.max(0, (trip.totalAmtLeft ?? 0) - convertedAmtLeft),
     updatedAt: new Date().toISOString(),
@@ -273,7 +243,7 @@ export const removeMemberFromTrip = async (
   const convertedBudget = await convertCurrency(memberToRemoveData.budget ?? 0, memberToRemoveData.currency, trip.currency);
   const convertedAmtLeft = await convertCurrency(memberToRemoveData.amtLeft ?? 0, memberToRemoveData.currency, trip.currency);
 
-  await ddbUpdateTripMetaData(tripId, {
+  await updateTripMetaData(tripId, {
     totalBudget: Math.max(0, (trip.totalBudget ?? 0) - convertedBudget),
     totalAmtLeft: Math.max(0, (trip.totalAmtLeft ?? 0) - convertedAmtLeft),
     updatedAt: new Date().toISOString(),
@@ -352,16 +322,6 @@ export async function updateExpense(
   patch: Partial<ExpenseDDB>
 ) {
   return await ddbUpdateExpense(tripId, expenseId, {
-    ...patch,
-    updatedAt: new Date().toISOString(),
-  });
-}
-
-export async function updateTripMetaData(
-  tripId: string,
-  patch: Partial<TripsTableDDB>
-) {
-  return await ddbUpdateTripMetaData(tripId, {
     ...patch,
     updatedAt: new Date().toISOString(),
   });
